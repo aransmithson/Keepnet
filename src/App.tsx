@@ -1,114 +1,377 @@
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Fish, User, MapPin, Calendar, ChevronRight, Plus } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
+import {
+  Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
+  Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square,
+} from 'lucide-react';
 import './index.css';
+import Discover from './Discover';
+import { VENUES, SPECIES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage, type Venue, type Session, type Catch } from './store';
+import { fetchWeather, getDevicePosition, compass } from './weather';
 
-const Home = () => {
+/* ---------- Weather logging ---------- */
+
+async function logWeather(session: Pick<Session, 'id' | 'lat' | 'lon' | 'venueName'>) {
+  actions.updateSession(session.id, { weatherError: undefined });
+  try {
+    const weather = await fetchWeather(session.lat, session.lon);
+    actions.updateSession(session.id, { weather });
+    console.groupCollapsed(`[Keepnet] Weather logged for ${session.venueName} @ ${fmtTime(weather.fetchedAt)}`);
+    console.table({ ...weather, lat: session.lat, lon: session.lon });
+    console.groupEnd();
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Weather unavailable';
+    actions.updateSession(session.id, { weatherError: msg });
+    console.warn('[Keepnet] Weather fetch failed', e);
+  }
+}
+
+/* ---------- Shared bits ---------- */
+
+const CatchRow = ({ c }: { c: Catch }) => (
+  <Link to={`/catches/${c.id}`} className="catch-item" id={`catch-${c.id}`}>
+    {c.image ? <img src={c.image} alt={c.species} className="catch-img" loading="lazy" /> : <div className="catch-img placeholder"><Fish size={24} /></div>}
+    <div className="catch-info">
+      <div className="catch-species">{c.species}</div>
+      <div className="catch-weight">{fmtWeight(c)}</div>
+      <div className="catch-meta">{c.bait} · {fmtDay(c.caughtAt)}</div>
+    </div>
+    <ChevronRight size={20} color="var(--text-secondary)" />
+  </Link>
+);
+
+const WeatherCard = ({ s }: { s: Session }) => {
+  const w = s.weather;
+  const live = !s.endedAt;
+  return (
+    <div className="card weather-card">
+      <div className="weather-head">
+        <div>
+          <div className="eyebrow">Conditions{w ? ` · ${fmtTime(w.fetchedAt)}` : ''}</div>
+          {w ? (
+            <div className="weather-main"><span className="weather-temp serif">{Math.round(w.temperature)}°</span><span>{w.description}</span></div>
+          ) : s.weatherError ? (
+            <div className="muted">Couldn't fetch weather: {s.weatherError}</div>
+          ) : (
+            <div className="muted shimmer-text">Fetching latest weather…</div>
+          )}
+        </div>
+        {live && (
+          <button className="icon-btn" id="weather-refresh-btn" onClick={() => logWeather(s)} aria-label="Refresh weather"><RefreshCw size={18} /></button>
+        )}
+      </div>
+      {w && (
+        <div className="weather-grid">
+          <div><Thermometer size={16} /><span>Feels {Math.round(w.feelsLike)}°</span></div>
+          <div><Wind size={16} /><span>{Math.round(w.windSpeed)} mph {compass(w.windDirection)}</span></div>
+          <div><Droplets size={16} /><span>{w.humidity}% · {w.precipitation}mm</span></div>
+          <div><Gauge size={16} /><span>{Math.round(w.pressure)} hPa</span></div>
+          <div><Cloud size={16} /><span>{w.cloudCover}% cloud</span></div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const Sheet = ({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) => (
+  <div className="sheet-backdrop" onClick={onClose}>
+    <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+      <div className="sheet-head">
+        <h2 className="serif">{title}</h2>
+        <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={18} /></button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+/* ---------- Start session ---------- */
+
+const StartSessionSheet = ({ initial, onClose, onStart }: { initial?: Venue; onClose: () => void; onStart: (v: Venue | 'current') => void }) => {
+  const [choice, setChoice] = useState<string>(initial?.id ?? VENUES[0].id);
+  return (
+    <Sheet title="Start a session" onClose={onClose}>
+      <p className="muted" style={{ marginBottom: 12 }}>We'll log the latest weather for your location when the session begins.</p>
+      <div className="choice-list">
+        <button id="venue-choice-current" className={`list-row ${choice === 'current' ? 'selected' : ''}`} onClick={() => setChoice('current')}>
+          <div className="list-icon"><LocateFixed size={18} /></div>
+          <div className="catch-info"><div className="catch-species">My current location</div><div className="catch-meta">Uses device GPS</div></div>
+        </button>
+        {VENUES.map((v) => (
+          <button key={v.id} id={`venue-choice-${v.id}`} className={`list-row ${choice === v.id ? 'selected' : ''}`} onClick={() => setChoice(v.id)}>
+            <div className="list-icon"><MapPin size={18} /></div>
+            <div className="catch-info"><div className="catch-species">{v.name}</div><div className="catch-meta">{v.type}</div></div>
+          </button>
+        ))}
+      </div>
+      <button className="btn-primary" id="confirm-start-btn" style={{ marginTop: 16 }} onClick={() => onStart(choice === 'current' ? 'current' : VENUES.find((v) => v.id === choice)!)}>
+        <Plus size={20} /> Start session
+      </button>
+    </Sheet>
+  );
+};
+
+/* ---------- Pages ---------- */
+
+const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
+  const { catches, sessions } = useStore();
+  const active = sessions.find((s) => !s.endedAt);
+  const next = VENUES[0];
   return (
     <div className="content">
       <h1 className="hero-title">Time by the water.</h1>
       <p className="hero-subtitle">Your private fishing journal</p>
 
       <div className="hero-image-container">
-        <img src="https://images.unsplash.com/photo-1518110927702-8a9d18e5b61e?q=80&w=600&auto=format&fit=crop" alt="River" className="hero-image" />
+        <img src="/images/hero-river.jpg" alt="Misty river at dawn with an angler on a wooden peg" className="hero-image" />
       </div>
 
-      <div className="card">
-        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em', marginBottom: '8px', textTransform: 'uppercase' }}>Next Session</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <h2 className="serif" style={{ fontSize: '24px' }}>Dolphinholme</h2>
-          <ChevronRight size={20} color="var(--text-secondary)" />
-        </div>
-        <div style={{ display: 'flex', marginBottom: '16px' }}>
-          <div className="tag">
-            <MapPin size={14} /> Coarse fishing
+      {active ? (
+        <Link to={`/sessions/${active.id}`} className="card card-link live-card" id="active-session-card">
+          <div className="eyebrow"><span className="live-dot" /> Session in progress</div>
+          <div className="row-between"><h2 className="serif" style={{ fontSize: 24 }}>{active.venueName}</h2><ChevronRight size={20} color="var(--text-secondary)" /></div>
+          <div className="muted">Started {fmtTime(active.startedAt)}{active.weather ? ` · ${Math.round(active.weather.temperature)}° ${active.weather.description}` : ''}</div>
+        </Link>
+      ) : (
+        <div className="card">
+          <div className="eyebrow">Next Session</div>
+          <Link to="/discover" className="row-between" style={{ marginBottom: 12 }}>
+            <h2 className="serif" style={{ fontSize: 24 }}>{next.name}</h2>
+            <ChevronRight size={20} color="var(--text-secondary)" />
+          </Link>
+          <div className="tag-row">
+            <div className="tag"><MapPin size={14} /> {next.type}</div>
+            <div className="tag"><span style={{ color: 'var(--danger)' }}>◎</span> Target: {next.targets.join(', ')}</div>
           </div>
-          <div className="tag">
-            <span style={{color: '#D9534F'}}>◎</span> Target: Perch, Chub
-          </div>
+          <button className="btn-primary" id="start-session-btn" onClick={() => onStart(next)}><Plus size={20} /> Start session</button>
         </div>
-        <button className="btn-primary">
-          <Plus size={20} /> Start session
-        </button>
-      </div>
+      )}
 
       <div className="section-header">
         <h2 className="serif section-title">Recent catches</h2>
-        <a href="#" className="view-all">View all <ChevronRight size={16} /></a>
+        <Link to="/sessions" className="view-all">View all <ChevronRight size={16} /></Link>
       </div>
-
       <div className="card">
-        <div className="catch-item">
-          <img src="https://images.unsplash.com/photo-1544716447-0d32b5042456?q=80&w=150&auto=format&fit=crop" alt="Perch" className="catch-img" />
-          <div className="catch-info">
-            <div className="catch-species">Perch</div>
-            <div className="catch-weight">1 lb 8 oz</div>
-            <div className="catch-meta">Worm · Yesterday</div>
-          </div>
-          <ChevronRight size={20} color="var(--text-secondary)" />
-        </div>
-        <div className="catch-item">
-          <img src="https://images.unsplash.com/photo-1598463870233-a36c478a876a?q=80&w=150&auto=format&fit=crop" alt="Chub" className="catch-img" />
-          <div className="catch-info">
-            <div className="catch-species">Chub</div>
-            <div className="catch-weight">3 lb 2 oz</div>
-            <div className="catch-meta">Bread · 28 Sep</div>
-          </div>
-          <ChevronRight size={20} color="var(--text-secondary)" />
-        </div>
+        {catches.length ? catches.slice(0, 3).map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">No catches yet — start a session!</p>}
       </div>
     </div>
   );
 };
+
+const Sessions = ({ onStart }: { onStart: () => void }) => {
+  const { sessions, catches } = useStore();
+  return (
+    <div className="content">
+      <div className="row-between"><h1 className="page-title">Sessions</h1><button className="icon-btn filled" id="new-session-btn" onClick={onStart} aria-label="New session"><Plus size={20} /></button></div>
+      <p className="page-subtitle">{sessions.length} sessions logged</p>
+      {sessions.map((s) => {
+        const n = catches.filter((c) => c.sessionId === s.id).length;
+        return (
+          <Link key={s.id} to={`/sessions/${s.id}`} className="card card-link session-card" id={`session-${s.id}`}>
+            <div className="row-between">
+              <div>
+                <div className="eyebrow">{!s.endedAt && <span className="live-dot" />}{fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}</div>
+                <h2 className="serif" style={{ fontSize: 20 }}>{s.venueName}</h2>
+              </div>
+              <ChevronRight size={20} color="var(--text-secondary)" />
+            </div>
+            <div className="tag-row" style={{ marginTop: 10, marginBottom: 0 }}>
+              <span className="tag"><Fish size={14} /> {n} {n === 1 ? 'catch' : 'catches'}</span>
+              {s.weather && <span className="tag"><Thermometer size={14} /> {Math.round(s.weather.temperature)}° {s.weather.description}</span>}
+              {s.weather && <span className="tag"><Wind size={14} /> {Math.round(s.weather.windSpeed)} mph</span>}
+            </div>
+          </Link>
+        );
+      })}
+    </div>
+  );
+};
+
+const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () => void }) => {
+  const [species, setSpecies] = useState(SPECIES[0]);
+  const [lb, setLb] = useState(0);
+  const [oz, setOz] = useState(0);
+  const [bait, setBait] = useState('');
+  const [notes, setNotes] = useState('');
+  const [image, setImage] = useState<string>();
+  return (
+    <Sheet title="Log a catch" onClose={onClose}>
+      <label className="photo-pick" htmlFor="catch-photo">
+        {image ? <img src={image} alt="Catch preview" /> : <><Camera size={28} /><span>Add photo</span></>}
+      </label>
+      <input id="catch-photo" type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) setImage(await resizeImage(f)); }} />
+      <label className="field"><span>Species</span>
+        <select id="catch-species" value={species} onChange={(e) => setSpecies(e.target.value)}>{SPECIES.map((s) => <option key={s}>{s}</option>)}</select>
+      </label>
+      <div className="field-row">
+        <label className="field"><span>lb</span><input id="catch-lb" type="number" min={0} value={lb} onChange={(e) => setLb(Math.max(0, +e.target.value))} /></label>
+        <label className="field"><span>oz</span><input id="catch-oz" type="number" min={0} max={15} value={oz} onChange={(e) => setOz(Math.min(15, Math.max(0, +e.target.value)))} /></label>
+      </div>
+      <label className="field"><span>Bait</span><input id="catch-bait" placeholder="e.g. Worm, Bread, Maggot" value={bait} onChange={(e) => setBait(e.target.value)} /></label>
+      <label className="field"><span>Notes</span><textarea id="catch-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+      <button className="btn-primary" id="save-catch-btn" onClick={() => { actions.addCatch({ sessionId, species, weightLb: lb, weightOz: oz, bait: bait || 'Unknown', notes, image, caughtAt: new Date().toISOString() }); onClose(); }}>
+        <Plus size={20} /> Save catch
+      </button>
+    </Sheet>
+  );
+};
+
+const SessionDetail = () => {
+  const { id } = useParams();
+  const { sessions, catches } = useStore();
+  const [adding, setAdding] = useState(false);
+  const s = sessions.find((x) => x.id === id);
+  if (!s) return <Navigate to="/sessions" replace />;
+  const list = catches.filter((c) => c.sessionId === s.id);
+  const live = !s.endedAt;
+  return (
+    <div className="content">
+      <Link to="/sessions" className="back-link"><ArrowLeft size={18} /> Sessions</Link>
+      <div className="eyebrow">{live && <span className="live-dot" />}{live ? 'In progress' : fmtDay(s.startedAt)}</div>
+      <h1 className="page-title">{s.venueName}</h1>
+      <p className="page-subtitle"><Clock size={14} style={{ verticalAlign: -2 }} /> {fmtTime(s.startedAt)}{s.endedAt ? ` – ${fmtTime(s.endedAt)}` : ' – now'}</p>
+
+      <WeatherCard s={s} />
+
+      <div className="section-header"><h2 className="serif section-title">Catches ({list.length})</h2></div>
+      <div className="card">{list.length ? list.map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">Nothing in the net yet.</p>}</div>
+
+      {live && (
+        <div className="stack">
+          <button className="btn-primary" id="add-catch-btn" onClick={() => setAdding(true)}><Fish size={20} /> Log a catch</button>
+          <button className="btn-secondary" id="end-session-btn" onClick={() => actions.updateSession(s.id, { endedAt: new Date().toISOString() })}><Square size={16} /> End session</button>
+        </div>
+      )}
+      {adding && <AddCatchSheet sessionId={s.id} onClose={() => setAdding(false)} />}
+    </div>
+  );
+};
+
+const CatchDetail = () => {
+  const { id } = useParams();
+  const nav = useNavigate();
+  const { catches, sessions } = useStore();
+  const c = catches.find((x) => x.id === id);
+  if (!c) return <Navigate to="/" replace />;
+  const s = sessions.find((x) => x.id === c.sessionId);
+  return (
+    <div className="content">
+      <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
+      {c.image && <div className="hero-image-container"><img src={c.image} alt={c.species} className="hero-image tall" /></div>}
+      <div className="eyebrow">{fmtDay(c.caughtAt)} · {fmtTime(c.caughtAt)}</div>
+      <h1 className="page-title">{c.species}</h1>
+      <p className="catch-big-weight serif">{fmtWeight(c)}</p>
+      <div className="tag-row"><span className="tag">Bait: {c.bait}</span>{s && <Link to={`/sessions/${s.id}`} className="tag"><MapPin size={14} /> {s.venueName}</Link>}</div>
+      {c.notes && <div className="card"><p>{c.notes}</p></div>}
+      {s && <WeatherCard s={{ ...s, endedAt: s.endedAt ?? 'x' }} />}
+      <button className="btn-secondary danger" id="delete-catch-btn" onClick={() => { actions.deleteCatch(c.id); nav(-1); }}><Trash2 size={16} /> Delete catch</button>
+    </div>
+  );
+};
+
+const Profile = () => {
+  const { catches, sessions, name } = useStore();
+  const species = [...new Set(catches.map((c) => c.species))];
+  const best = [...catches].sort((a, b) => totalOz(b) - totalOz(a))[0];
+  const pbs = species.map((sp) => catches.filter((c) => c.species === sp).sort((a, b) => totalOz(b) - totalOz(a))[0]);
+  const hours = sessions.reduce((t, s) => t + ((s.endedAt ? new Date(s.endedAt).getTime() : Date.now()) - new Date(s.startedAt).getTime()) / 3600000, 0);
+  return (
+    <div className="content">
+      <div className="profile-hero">
+        <img src="/images/logo.jpg" alt="Keepnet" className="avatar" />
+        <div>
+          <input className="name-input serif" id="profile-name" value={name} onChange={(e) => actions.setName(e.target.value)} aria-label="Your name" />
+          <div className="muted">Angling since {sessions.length ? new Date(sessions[sessions.length - 1].startedAt).getFullYear() : new Date().getFullYear()}</div>
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        <div className="stat"><span className="stat-num serif">{sessions.length}</span><span>Sessions</span></div>
+        <div className="stat"><span className="stat-num serif">{catches.length}</span><span>Catches</span></div>
+        <div className="stat"><span className="stat-num serif">{species.length}</span><span>Species</span></div>
+        <div className="stat"><span className="stat-num serif">{Math.round(hours)}</span><span>Hours</span></div>
+      </div>
+
+      {best && (
+        <Link to={`/catches/${best.id}`} className="card card-link best-card">
+          {best.image && <img src={best.image} alt={best.species} />}
+          <div className="best-overlay">
+            <div className="eyebrow light"><Trophy size={14} /> Biggest fish</div>
+            <div className="serif" style={{ fontSize: 22 }}>{best.species} · {fmtWeight(best)}</div>
+          </div>
+        </Link>
+      )}
+
+      <div className="section-header"><h2 className="serif section-title">Personal bests</h2></div>
+      <div className="card">{pbs.length ? pbs.map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">No catches yet.</p>}</div>
+
+      <button className="btn-secondary" id="reset-data-btn" onClick={() => confirm('Reset journal to demo data?') && actions.reset()}>Reset demo data</button>
+    </div>
+  );
+};
+
+/* ---------- Shell ---------- */
 
 const Navigation = () => {
-  const location = useLocation();
+  const { pathname } = useLocation();
+  const is = (p: string) => (p === '/' ? pathname === '/' : pathname.startsWith(p));
   return (
-    <div className="bottom-nav">
-      <Link to="/" className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}>
-        <Fish className="nav-icon" />
-        Home
-      </Link>
-      <Link to="/sessions" className={`nav-item ${location.pathname === '/sessions' ? 'active' : ''}`}>
-        <Calendar className="nav-icon" />
-        Sessions
-      </Link>
-      <Link to="/discover" className={`nav-item ${location.pathname === '/discover' ? 'active' : ''}`}>
-        <MapPin className="nav-icon" />
-        Discover
-      </Link>
-      <Link to="/profile" className={`nav-item ${location.pathname === '/profile' ? 'active' : ''}`}>
-        <User className="nav-icon" />
-        Profile
-      </Link>
+    <nav className="bottom-nav">
+      <Link to="/" id="nav-home" className={`nav-item ${is('/') || pathname.startsWith('/catches') ? 'active' : ''}`}><Fish className="nav-icon" />Home</Link>
+      <Link to="/sessions" id="nav-sessions" className={`nav-item ${is('/sessions') ? 'active' : ''}`}><Calendar className="nav-icon" />Sessions</Link>
+      <Link to="/discover" id="nav-discover" className={`nav-item ${is('/discover') ? 'active' : ''}`}><MapPin className="nav-icon" />Discover</Link>
+      <Link to="/profile" id="nav-profile" className={`nav-item ${is('/profile') ? 'active' : ''}`}><User className="nav-icon" />Profile</Link>
+    </nav>
+  );
+};
+
+const Shell = () => {
+  const nav = useNavigate();
+  const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
+
+  const begin = async (v: Venue | 'current') => {
+    setSheet(null);
+    if (v === 'current') {
+      const s = actions.startSession({ venueId: 'current', venueName: 'Current location', lat: VENUES[0].lat, lon: VENUES[0].lon });
+      nav(`/sessions/${s.id}`);
+      const pos = await getDevicePosition();
+      const at = pos ?? { lat: s.lat, lon: s.lon };
+      actions.updateSession(s.id, { ...at, venueName: pos ? 'Current location' : `${VENUES[0].name} (GPS unavailable)` });
+      await logWeather({ ...s, ...at });
+    } else {
+      const s = actions.startSession({ venueId: v.id, venueName: v.name, lat: v.lat, lon: v.lon });
+      nav(`/sessions/${s.id}`);
+      await logWeather(s);
+    }
+  };
+
+  return (
+    <div className="app-container">
+      <header className="top-bar">
+        <Link to="/" className="logo-header"><Fish size={28} />Keepnet</Link>
+        <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
+      </header>
+      <main>
+        <Routes>
+          <Route path="/" element={<Home onStart={(venue) => setSheet({ venue })} />} />
+          <Route path="/sessions" element={<Sessions onStart={() => setSheet({})} />} />
+          <Route path="/sessions/:id" element={<SessionDetail />} />
+          <Route path="/catches/:id" element={<CatchDetail />} />
+          <Route path="/discover" element={<Discover onStart={(venue) => setSheet({ venue })} />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+      <Navigation />
+      {sheet && <StartSessionSheet initial={sheet.venue} onClose={() => setSheet(null)} onStart={begin} />}
     </div>
   );
 };
 
-const App = () => {
-  return (
-    <BrowserRouter>
-      <div className="app-container">
-        <header className="top-bar">
-          <div className="logo-header">
-            <Fish size={28} />
-            Keepnet
-          </div>
-          <div className="profile-btn">
-            <User size={20} />
-          </div>
-        </header>
-        
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/sessions" element={<div className="content"><h2>Sessions</h2></div>} />
-          <Route path="/discover" element={<div className="content"><h2>Discover</h2></div>} />
-          <Route path="/profile" element={<div className="content"><h2>Profile</h2></div>} />
-        </Routes>
-        
-        <Navigation />
-      </div>
-    </BrowserRouter>
-  );
-};
+const App = () => (
+  <BrowserRouter>
+    <Shell />
+  </BrowserRouter>
+);
 
 export default App;
