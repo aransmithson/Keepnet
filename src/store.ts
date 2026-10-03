@@ -104,6 +104,9 @@ export const actions = {
     commit({ ...state, catches: [n, ...state.catches] });
     return n;
   },
+  updateCatch(id: string, patch: Partial<Catch>) {
+    commit({ ...state, catches: state.catches.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+  },
   deleteCatch(id: string) {
     commit({ ...state, catches: state.catches.filter((c) => c.id !== id) });
   },

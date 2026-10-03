@@ -108,13 +108,15 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
 
   return (
     <div className="content">
-      <h1 className="page-title">Discover</h1>
-      <p className="page-subtitle">Venues and public community catches.</p>
+      <h1 className="page-title">Discover Venues</h1>
+      <p className="page-subtitle">Water bodies, verified fisheries, and public community catches.</p>
 
       {/* Sharing notice badge */}
       <div className="community-banner">
-        <Globe size={15} />
-        <span>Only <strong>shared sessions & catches</strong> appear on this map.</span>
+        <Globe size={16} style={{ flexShrink: 0 }} />
+        <span>
+          <strong>Venue Map & Public Catches</strong> · Pins represent UK waters with catch counts. Only catches marked as shared appear in community lists.
+        </span>
       </div>
 
       <div className="map-wrap">
@@ -124,6 +126,22 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
         </button>
       </div>
 
+      {/* Map Legend */}
+      <div className="map-legend">
+        <div className="map-legend-item">
+          <span className="legend-dot venue" />
+          <span>Fishing Venue (badge shows catches)</span>
+        </div>
+        <div className="map-legend-item">
+          <span className="legend-dot me" />
+          <span>Your Location</span>
+        </div>
+        <div className="map-legend-item">
+          <span className="legend-dot custom" />
+          <span>Shared Catch / Custom Swim</span>
+        </div>
+      </div>
+
       {/* Selected venue details */}
       <div className="card venue-card fade-in" key={selected.id}>
         <div className="eyebrow">{selected.type}</div>
@@ -131,7 +149,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
         <p className="muted" style={{ marginBottom: 12 }}>{selected.description}</p>
         <div className="tag-row">
           <span className="tag"><span style={{ color: 'var(--danger)' }}>◎</span> {selected.targets.join(', ')}</span>
-          <span className="tag"><Globe size={14} /> {catchCount[selected.id] ?? 0} shared</span>
+          <span className="tag"><Globe size={14} /> {catchCount[selected.id] ?? 0} public catches</span>
         </div>
 
         {/* List of shared catches for this venue */}
@@ -159,7 +177,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             </div>
           ) : (
             <p className="muted" style={{ fontSize: 13, padding: '4px 0 10px' }}>
-              No catches shared at this venue yet. Share a catch from your session to feature it on the map!
+              No public catches shared for this venue yet. When you fish here, you choose whether to share catches to the community map or keep them strictly private.
             </p>
           )}
         </div>

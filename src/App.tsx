@@ -1,15 +1,15 @@
-import { useState, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom';
 import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
-  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail
+  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
 import Logo from './Logo';
 import { VENUES, SPECIES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage, type Venue, type Session, type Catch } from './store';
-import { fetchWeather, getDevicePosition, compass } from './weather';
+import { fetchWeather, getDevicePosition, compass, type Weather } from './weather';
 import { useTheme, themeActions } from './theme';
 import { useAuth, authActions } from './auth';
 
@@ -84,17 +84,131 @@ const WeatherCard = ({ s }: { s: Session }) => {
   );
 };
 
-const Sheet = ({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) => (
-  <div className="sheet-backdrop" onClick={onClose}>
-    <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
-      <div className="sheet-head">
-        <h2 className="serif">{title}</h2>
-        <button className="icon-btn" onClick={onClose} aria-label="Close"><X size={18} /></button>
-      </div>
-      {children}
+const WeatherSummary = ({ weather }: { weather?: Weather }) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!weather) return null;
+  return (
+    <div className="weather-accordion">
+      <button
+        type="button"
+        className="weather-accordion-header"
+        onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+          <Thermometer size={15} color="var(--accent-green)" />
+          <span>Conditions: <strong>{Math.round(weather.temperature)}° {weather.description}</strong> · {Math.round(weather.windSpeed)} mph {compass(weather.windDirection)}</span>
+        </div>
+        <ChevronRight size={16} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform .2s' }} />
+      </button>
+      {expanded && (
+        <div style={{ padding: '0 14px 14px', borderTop: '1px solid var(--border-color)', paddingTop: 10 }}>
+          <div className="weather-grid" style={{ color: 'var(--text-primary)' }}>
+            <div><Thermometer size={15} /><span>Feels {Math.round(weather.feelsLike)}°</span></div>
+            <div><Wind size={15} /><span>{Math.round(weather.windSpeed)} mph</span></div>
+            <div><Droplets size={15} /><span>{weather.humidity}% humidity</span></div>
+            <div><Gauge size={15} /><span>{Math.round(weather.pressure)} hPa</span></div>
+            <div><Cloud size={15} /><span>{weather.cloudCover}% cloud cover</span></div>
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-);
+  );
+};
+
+/* ---------- Accessible Sheet Modal Primitive ---------- */
+
+const Sheet = ({
+  title,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+}) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    openerRef.current = document.activeElement as HTMLElement | null;
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    // Focus close button on open
+    const timer = setTimeout(() => {
+      if (closeBtnRef.current) closeBtnRef.current.focus();
+    }, 50);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      clearTimeout(timer);
+      document.body.style.overflow = origOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+      if (openerRef.current && typeof openerRef.current.focus === 'function') {
+        openerRef.current.focus();
+      }
+    };
+  }, [onClose]);
+
+  return (
+    <div className="sheet-backdrop" onClick={onClose}>
+      <div
+        ref={dialogRef}
+        className="sheet"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="sheet-head">
+          <h2 className="serif">{title}</h2>
+          <button
+            ref={closeBtnRef}
+            className="sheet-close-btn"
+            onClick={onClose}
+            aria-label={`Close ${title}`}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="sheet-body">
+          {children}
+        </div>
+        {footer && <div className="sheet-footer">{footer}</div>}
+      </div>
+    </div>
+  );
+};
 
 /* ---------- Photo picker (camera on mobile, file picker on desktop) ---------- */
 
@@ -382,54 +496,167 @@ const StartSessionSheet = ({
 }: {
   initial?: Venue;
   onClose: () => void;
-  onStart: (v: Venue | 'current', photo?: string, isShared?: boolean) => void;
+  onStart: (v: Venue | 'current' | { id: string; name: string; type: string; lat: number; lon: number; targets: string[]; description: string }, photo?: string, isShared?: boolean) => void;
 }) => {
-  const [choice, setChoice] = useState<string>(initial?.id ?? VENUES[0].id);
+  const [choice, setChoice] = useState<string>(initial?.id ?? 'current');
+  const [customName, setCustomName] = useState<string>('');
+  const [search, setSearch] = useState<string>('');
   const [photo, setPhoto] = useState<string>();
   const [isShared, setIsShared] = useState<boolean>(false);
 
+  const filteredVenues = VENUES.filter((v) =>
+    v.name.toLowerCase().includes(search.toLowerCase()) ||
+    v.type.toLowerCase().includes(search.toLowerCase()) ||
+    v.targets.some((t) => t.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const handleStart = () => {
+    if (choice === 'current') {
+      onStart('current', photo, isShared);
+    } else if (choice === 'custom') {
+      const name = customName.trim() || search.trim() || 'Custom Swim';
+      onStart({
+        id: 'custom-' + Date.now(),
+        name,
+        type: 'Custom location',
+        lat: VENUES[0].lat,
+        lon: VENUES[0].lon,
+        targets: ['Coarse fish'],
+        description: 'Custom fishing location',
+      }, photo, isShared);
+    } else {
+      const v = VENUES.find((x) => x.id === choice) ?? VENUES[0];
+      onStart(v, photo, isShared);
+    }
+  };
+
   return (
-    <Sheet title="Start a session" onClose={onClose}>
-      <p className="muted" style={{ marginBottom: 4 }}>Snap your swim and we'll log the latest weather when the session begins.</p>
-      <PhotoPicker id="session-photo" value={photo} onChange={setPhoto} label="Photo of the location" />
+    <Sheet
+      title="Start a session"
+      onClose={onClose}
+      footer={
+        <div className="stack" style={{ gap: 10 }}>
+          <div className="toggle-row">
+            <div className="toggle-label-wrap">
+              <div className="toggle-label-title"><Globe size={16} /> Share to Discover map</div>
+              <div className="muted" style={{ fontSize: 11 }}>Private by default · Only shared sessions appear on the map</div>
+            </div>
+            <button
+              type="button"
+              className={`toggle-switch ${isShared ? 'active' : ''}`}
+              onClick={() => setIsShared(!isShared)}
+              role="switch"
+              aria-checked={isShared}
+              aria-label="Share session on map"
+            >
+              <span className="toggle-thumb" />
+            </button>
+          </div>
+
+          <button
+            className="btn-primary"
+            id="confirm-start-btn"
+            style={{ height: 50 }}
+            onClick={handleStart}
+          >
+            <Plus size={20} /> Start session
+          </button>
+        </div>
+      }
+    >
+      {/* Venue search box */}
+      <div className="venue-search-box">
+        <Search size={18} color="var(--text-secondary)" />
+        <input
+          type="text"
+          placeholder="Search or enter venue name…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoFocus
+        />
+        {search && (
+          <button
+            type="button"
+            className="link-button"
+            onClick={() => setSearch('')}
+            style={{ padding: '0 4px', fontSize: 12 }}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Compact swim photo picker */}
+      <label className="compact-photo-row" htmlFor="compact-swim-photo">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Camera size={18} />
+          <span>{photo ? 'Swim photo attached' : 'Add swim photo (optional)'}</span>
+        </div>
+        {photo ? (
+          <img src={photo} alt="Swim" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
+        ) : (
+          <span className="muted" style={{ fontSize: 12 }}>Snap / upload</span>
+        )}
+        <input
+          id="compact-swim-photo"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) setPhoto(await resizeImage(f, 1024));
+            e.target.value = '';
+          }}
+        />
+      </label>
+
+      {/* Venue choice list */}
       <div className="choice-list">
-        <button id="venue-choice-current" className={`list-row ${choice === 'current' ? 'selected' : ''}`} onClick={() => setChoice('current')}>
+        {/* GPS location option */}
+        <button
+          id="venue-choice-current"
+          className={`list-row ${choice === 'current' ? 'selected' : ''}`}
+          onClick={() => { setChoice('current'); setCustomName(''); }}
+        >
           <div className="list-icon"><LocateFixed size={18} /></div>
-          <div className="catch-info"><div className="catch-species">My current location</div><div className="catch-meta">Uses device GPS</div></div>
+          <div className="catch-info">
+            <div className="catch-species">My current location</div>
+            <div className="catch-meta">Uses device GPS & logs live weather</div>
+          </div>
         </button>
-        {VENUES.map((v) => (
-          <button key={v.id} id={`venue-choice-${v.id}`} className={`list-row ${choice === v.id ? 'selected' : ''}`} onClick={() => setChoice(v.id)}>
+
+        {/* Custom venue option if user typed something not matching */}
+        {search.trim().length > 0 && (
+          <button
+            id="venue-choice-custom"
+            className={`list-row ${choice === 'custom' ? 'selected' : ''}`}
+            onClick={() => { setChoice('custom'); setCustomName(search); }}
+          >
+            <div className="list-icon"><Plus size={18} /></div>
+            <div className="catch-info">
+              <div className="catch-species">Use "{search.trim()}"</div>
+              <div className="catch-meta">Create custom fishing spot</div>
+            </div>
+          </button>
+        )}
+
+        {/* Preset venues */}
+        {filteredVenues.map((v) => (
+          <button
+            key={v.id}
+            id={`venue-choice-${v.id}`}
+            className={`list-row ${choice === v.id ? 'selected' : ''}`}
+            onClick={() => { setChoice(v.id); setCustomName(''); }}
+          >
             <div className="list-icon"><MapPin size={18} /></div>
-            <div className="catch-info"><div className="catch-species">{v.name}</div><div className="catch-meta">{v.type}</div></div>
+            <div className="catch-info">
+              <div className="catch-species">{v.name}</div>
+              <div className="catch-meta">{v.type} · {v.targets.join(', ')}</div>
+            </div>
           </button>
         ))}
       </div>
-
-      <div className="toggle-row" style={{ marginTop: 14 }}>
-        <div className="toggle-label-wrap">
-          <div className="toggle-label-title"><Globe size={16} /> Share to Discover map</div>
-          <div className="muted" style={{ fontSize: 11 }}>Only shared sessions appear publicly on the Discover map</div>
-        </div>
-        <button
-          type="button"
-          className={`toggle-switch ${isShared ? 'active' : ''}`}
-          onClick={() => setIsShared(!isShared)}
-          role="switch"
-          aria-checked={isShared}
-          aria-label="Share session on map"
-        >
-          <span className="toggle-thumb" />
-        </button>
-      </div>
-
-      <button
-        className="btn-primary"
-        id="confirm-start-btn"
-        style={{ marginTop: 16 }}
-        onClick={() => onStart(choice === 'current' ? 'current' : VENUES.find((v) => v.id === choice)!, photo, isShared)}
-      >
-        <Plus size={20} /> Start session
-      </button>
     </Sheet>
   );
 };
@@ -438,109 +665,196 @@ const StartSessionSheet = ({
 
 const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
   const { catches, sessions } = useStore();
+  const [loggingForSession, setLoggingForSession] = useState<string | null>(null);
   const active = sessions.find((s) => !s.endedAt);
   const next = VENUES[0];
+
   return (
     <div className="content">
-      <h1 className="hero-title">Time by the water.</h1>
-      <p className="hero-subtitle">Your private fishing journal</p>
-
-      <div className="hero-image-container">
-        <img src="/images/hero-river.jpg" alt="Misty river at dawn with an angler on a wooden peg" className="hero-image" />
-      </div>
-
-      {active ? (
-        <Link to={`/sessions/${active.id}`} className="card card-link live-card" id="active-session-card">
-          <div className="eyebrow"><span className="live-dot" /> Session in progress</div>
-          <div className="row-between"><h2 className="serif" style={{ fontSize: 24 }}>{active.venueName}</h2><ChevronRight size={20} color="var(--text-secondary)" /></div>
-          <div className="muted">Started {fmtTime(active.startedAt)}{active.weather ? ` · ${Math.round(active.weather.temperature)}° ${active.weather.description}` : ''}</div>
-        </Link>
-      ) : (
-        <div className="card">
-          <div className="eyebrow">Next Session</div>
-          <Link to="/discover" className="row-between" style={{ marginBottom: 12 }}>
-            <h2 className="serif" style={{ fontSize: 24 }}>{next.name}</h2>
-            <ChevronRight size={20} color="var(--text-secondary)" />
-          </Link>
-          <div className="tag-row">
-            <div className="tag"><MapPin size={14} /> {next.type}</div>
-            <div className="tag"><span style={{ color: 'var(--danger)' }}>◎</span> Target: {next.targets.join(', ')}</div>
+      {/* Active Session Priority Card */}
+      {active && (
+        <div className="card live-card" id="active-session-card" style={{ marginBottom: 16 }}>
+          <div className="row-between" style={{ marginBottom: 4 }}>
+            <div className="eyebrow" style={{ marginBottom: 0 }}>
+              <span className="live-dot" /> Session in progress
+            </div>
+            <Link to={`/sessions/${active.id}`} className="view-all" style={{ fontSize: 13 }}>
+              View session <ChevronRight size={14} />
+            </Link>
           </div>
-          <button className="btn-primary" id="start-session-btn" onClick={() => onStart(next)}><Plus size={20} /> Start session</button>
+          <h2 className="serif" style={{ fontSize: 24, margin: '4px 0' }}>{active.venueName}</h2>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+            Started {fmtTime(active.startedAt)}
+            {active.weather ? ` · ${Math.round(active.weather.temperature)}° ${active.weather.description}` : ''}
+          </div>
+          <button
+            className="btn-primary"
+            id="home-log-catch-btn"
+            style={{ width: '100%', height: 48 }}
+            onClick={() => setLoggingForSession(active.id)}
+          >
+            <Fish size={18} /> Log a catch now
+          </button>
         </div>
       )}
 
-      <div className="section-header">
-        <h2 className="serif section-title">Recent catches</h2>
-        {catches.length > 0 && <Link to="/sessions" className="view-all">View all <ChevronRight size={16} /></Link>}
+      {/* Compact Editorial Hero */}
+      <div className="hero-compact">
+        <img src="/images/hero-river.jpg" alt="Misty river at dawn" />
+        <div className="hero-compact-overlay" />
+        <div className="hero-compact-content">
+          <h1 className="hero-title-compact serif">Time by the water.</h1>
+          <p className="hero-subtitle-compact">Your private fishing journal</p>
+        </div>
       </div>
-      <div className="card">
-        {catches.length ? (
-          catches.slice(0, 3).map((c) => <CatchRow key={c.id} c={c} />)
-        ) : (
-          <div style={{ textAlign: 'center', padding: '24px 12px' }}>
-            <Fish size={28} color="var(--text-secondary)" style={{ opacity: 0.5, marginBottom: 8 }} />
-            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>No catches logged yet</div>
-            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Start a session to log your first catch by the water.</p>
+
+      <div className="desktop-grid-2">
+        {/* Next / Quick Session Card */}
+        {!active && (
+          <div className="card">
+            <div className="eyebrow">Quick Start Session</div>
+            <Link to="/discover" className="row-between" style={{ marginBottom: 12 }}>
+              <h2 className="serif" style={{ fontSize: 24 }}>{next.name}</h2>
+              <ChevronRight size={20} color="var(--text-secondary)" />
+            </Link>
+            <div className="tag-row">
+              <div className="tag"><MapPin size={14} /> {next.type}</div>
+              <div className="tag"><span style={{ color: 'var(--danger)' }}>◎</span> Target: {next.targets.join(', ')}</div>
+            </div>
+            <button className="btn-primary" id="start-session-btn" onClick={() => onStart(next)}>
+              <Plus size={20} /> Start session
+            </button>
           </div>
         )}
+
+        {/* Recent Catches Card */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="section-header" style={{ marginBottom: 8 }}>
+            <h2 className="serif section-title" style={{ margin: 0 }}>Recent catches</h2>
+            {catches.length > 0 && (
+              <Link to="/sessions?tab=catches" className="view-all">
+                View all catches <ChevronRight size={16} />
+              </Link>
+            )}
+          </div>
+          {catches.length ? (
+            catches.slice(0, 3).map((c) => <CatchRow key={c.id} c={c} />)
+          ) : (
+            <div style={{ textAlign: 'center', padding: '24px 12px' }}>
+              <Fish size={28} color="var(--text-secondary)" style={{ opacity: 0.5, marginBottom: 8 }} />
+              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>No catches logged yet</div>
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>Start a session to log your first catch by the water.</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {loggingForSession && (
+        <AddCatchSheet sessionId={loggingForSession} onClose={() => setLoggingForSession(null)} />
+      )}
     </div>
   );
 };
 
 const Sessions = ({ onStart }: { onStart: () => void }) => {
   const { sessions, catches } = useStore();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'catches' ? 'catches' : 'sessions';
+
   return (
     <div className="content">
-      <div className="row-between">
-        <h1 className="page-title">Sessions</h1>
-        <button className="icon-btn filled" id="new-session-btn" onClick={onStart} aria-label="New session"><Plus size={20} /></button>
+      <div className="row-between" style={{ marginBottom: 12 }}>
+        <h1 className="page-title" style={{ margin: 0 }}>Journal</h1>
+        <button
+          className="new-session-cta"
+          id="new-session-btn"
+          onClick={onStart}
+          aria-label="New session"
+        >
+          <Plus size={18} />
+          <span>New Session</span>
+        </button>
       </div>
-      <p className="page-subtitle">{sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} logged</p>
 
-      {sessions.length === 0 ? (
-        <div className="card" style={{ padding: '36px 20px', textAlign: 'center' }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--surface-sunken)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-            <Calendar size={26} color="var(--primary)" />
+      {/* View switch: Sessions vs Catches */}
+      <div className="auth-tab-bar" style={{ marginBottom: 16 }}>
+        <button
+          className={`auth-tab ${tab === 'sessions' ? 'active' : ''}`}
+          onClick={() => setParams({})}
+        >
+          Sessions ({sessions.length})
+        </button>
+        <button
+          className={`auth-tab ${tab === 'catches' ? 'active' : ''}`}
+          onClick={() => setParams({ tab: 'catches' })}
+        >
+          All Catches ({catches.length})
+        </button>
+      </div>
+
+      {tab === 'sessions' ? (
+        sessions.length === 0 ? (
+          <div className="card" style={{ padding: '36px 20px', textAlign: 'center' }}>
+            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--surface-sunken)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+              <Calendar size={26} color="var(--primary)" />
+            </div>
+            <h2 className="serif" style={{ fontSize: 20, marginBottom: 8 }}>No sessions yet</h2>
+            <p className="muted" style={{ fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
+              Start your first fishing session to log your swims, track weather automatically, and record your catches.
+            </p>
+            <button className="btn-primary" onClick={onStart} style={{ maxWidth: 220, margin: '0 auto' }}>
+              <Plus size={18} /> Start a session
+            </button>
           </div>
-          <h2 className="serif" style={{ fontSize: 20, marginBottom: 8 }}>No sessions yet</h2>
-          <p className="muted" style={{ fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
-            Start your first fishing session to log your swims, track weather automatically, and record your catches.
-          </p>
-          <button className="btn-primary" onClick={onStart} style={{ maxWidth: 220, margin: '0 auto' }}>
-            <Plus size={18} /> Start a session
-          </button>
-        </div>
-      ) : (
-        sessions.map((s) => {
-          const n = catches.filter((c) => c.sessionId === s.id).length;
-          return (
-            <Link key={s.id} to={`/sessions/${s.id}`} className="card card-link session-card" id={`session-${s.id}`}>
-              {s.photo && <img src={s.photo} alt={`${s.venueName} swim`} className="session-thumb" loading="lazy" />}
-              <div className="row-between">
-                <div>
-                  <div className="eyebrow">
-                    {!s.endedAt && <span className="live-dot" />}
-                    {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
-                    {s.isShared ? (
-                      <span className="mini-badge shared" style={{ marginLeft: 6 }}><Globe size={10} /> Shared</span>
-                    ) : (
-                      <span className="mini-badge private" style={{ marginLeft: 6 }}><Lock size={10} /> Private</span>
-                    )}
+        ) : (
+          sessions.map((s) => {
+            const n = catches.filter((c) => c.sessionId === s.id).length;
+            return (
+              <Link key={s.id} to={`/sessions/${s.id}`} className="card card-link session-card" id={`session-${s.id}`}>
+                {s.photo && <img src={s.photo} alt={`${s.venueName} swim`} className="session-thumb" loading="lazy" />}
+                <div className="row-between">
+                  <div>
+                    <div className="eyebrow">
+                      {!s.endedAt && <span className="live-dot" />}
+                      {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
+                      {s.isShared ? (
+                        <span className="mini-badge shared" style={{ marginLeft: 6 }}><Globe size={10} /> Shared</span>
+                      ) : (
+                        <span className="mini-badge private" style={{ marginLeft: 6 }}><Lock size={10} /> Private</span>
+                      )}
+                    </div>
+                    <h2 className="serif" style={{ fontSize: 20 }}>{s.venueName}</h2>
                   </div>
-                  <h2 className="serif" style={{ fontSize: 20 }}>{s.venueName}</h2>
+                  <ChevronRight size={20} color="var(--text-secondary)" />
                 </div>
-                <ChevronRight size={20} color="var(--text-secondary)" />
-              </div>
-              <div className="tag-row" style={{ marginTop: 10, marginBottom: 0 }}>
-                <span className="tag"><Fish size={14} /> {n} {n === 1 ? 'catch' : 'catches'}</span>
-                {s.weather && <span className="tag"><Thermometer size={14} /> {Math.round(s.weather.temperature)}° {s.weather.description}</span>}
-                {s.weather && <span className="tag"><Wind size={14} /> {Math.round(s.weather.windSpeed)} mph</span>}
-              </div>
-            </Link>
-          );
-        })
+                <div className="tag-row" style={{ marginTop: 10, marginBottom: 0 }}>
+                  <span className="tag"><Fish size={14} /> {n} {n === 1 ? 'catch' : 'catches'}</span>
+                  {s.weather && <span className="tag"><Thermometer size={14} /> {Math.round(s.weather.temperature)}° {s.weather.description}</span>}
+                  {s.weather && <span className="tag"><Wind size={14} /> {Math.round(s.weather.windSpeed)} mph</span>}
+                </div>
+              </Link>
+            );
+          })
+        )
+      ) : (
+        catches.length === 0 ? (
+          <div className="card" style={{ padding: '36px 20px', textAlign: 'center' }}>
+            <Fish size={32} color="var(--text-secondary)" style={{ opacity: 0.5, margin: '0 auto 12px' }} />
+            <h2 className="serif" style={{ fontSize: 20, marginBottom: 8 }}>No catches recorded</h2>
+            <p className="muted" style={{ fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
+              Catches logged during your fishing sessions will appear here in your full catch history.
+            </p>
+            <button className="btn-primary" onClick={onStart} style={{ maxWidth: 220, margin: '0 auto' }}>
+              <Plus size={18} /> Start a session
+            </button>
+          </div>
+        ) : (
+          <div className="card">
+            {catches.map((c) => (
+              <CatchRow key={c.id} c={c} />
+            ))}
+          </div>
+        )
       )}
     </div>
   );
@@ -556,7 +870,33 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
   const [isShared, setIsShared] = useState<boolean>(true);
 
   return (
-    <Sheet title="Log a catch" onClose={onClose}>
+    <Sheet
+      title="Log a catch"
+      onClose={onClose}
+      footer={
+        <button
+          className="btn-primary"
+          id="save-catch-btn"
+          style={{ height: 50 }}
+          onClick={() => {
+            actions.addCatch({
+              sessionId,
+              species,
+              weightLb: lb,
+              weightOz: oz,
+              bait: bait || 'Unknown',
+              notes,
+              image,
+              isShared,
+              caughtAt: new Date().toISOString(),
+            });
+            onClose();
+          }}
+        >
+          <Plus size={20} /> Save catch
+        </button>
+      }
+    >
       <PhotoPicker id="catch-photo" value={image} onChange={setImage} label="Photo of your catch" />
       <label className="field"><span>Species</span>
         <select id="catch-species" value={species} onChange={(e) => setSpecies(e.target.value)}>{SPECIES.map((s) => <option key={s}>{s}</option>)}</select>
@@ -569,7 +909,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
       <label className="field"><span>Notes</span><textarea id="catch-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
 
       {/* Share to Discover toggle */}
-      <div className="toggle-row" style={{ marginTop: 8, marginBottom: 16 }}>
+      <div className="toggle-row" style={{ marginTop: 8, marginBottom: 8 }}>
         <div className="toggle-label-wrap">
           <div className="toggle-label-title"><Globe size={16} /> Share catch to Discover map</div>
           <div className="muted" style={{ fontSize: 11 }}>Feature this catch on the public venue page</div>
@@ -585,10 +925,85 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
           <span className="toggle-thumb" />
         </button>
       </div>
+    </Sheet>
+  );
+};
 
-      <button className="btn-primary" id="save-catch-btn" onClick={() => { actions.addCatch({ sessionId, species, weightLb: lb, weightOz: oz, bait: bait || 'Unknown', notes, image, isShared, caughtAt: new Date().toISOString() }); onClose(); }}>
-        <Plus size={20} /> Save catch
-      </button>
+/* ---------- Edit Catch Sheet ---------- */
+
+const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
+  const [species, setSpecies] = useState(c.species);
+  const [lb, setLb] = useState(c.weightLb);
+  const [oz, setOz] = useState(c.weightOz);
+  const [bait, setBait] = useState(c.bait);
+  const [notes, setNotes] = useState(c.notes ?? '');
+  const [image, setImage] = useState<string | undefined>(c.image);
+  const [isShared, setIsShared] = useState<boolean>(!!c.isShared);
+
+  const handleSave = () => {
+    actions.updateCatch(c.id, {
+      species,
+      weightLb: lb,
+      weightOz: oz,
+      bait: bait || 'Unknown',
+      notes,
+      image,
+      isShared,
+    });
+    onClose();
+  };
+
+  return (
+    <Sheet
+      title="Edit catch"
+      onClose={onClose}
+      footer={
+        <button className="btn-primary" id="save-edit-catch-btn" onClick={handleSave} style={{ height: 50 }}>
+          <Check size={18} /> Save changes
+        </button>
+      }
+    >
+      <PhotoPicker id="edit-catch-photo" value={image} onChange={setImage} label="Change catch photo" />
+      <label className="field">
+        <span>Species</span>
+        <select value={species} onChange={(e) => setSpecies(e.target.value)}>
+          {SPECIES.map((s) => <option key={s}>{s}</option>)}
+        </select>
+      </label>
+      <div className="field-row">
+        <label className="field">
+          <span>lb</span>
+          <input type="number" min={0} value={lb} onChange={(e) => setLb(Math.max(0, +e.target.value))} />
+        </label>
+        <label className="field">
+          <span>oz</span>
+          <input type="number" min={0} max={15} value={oz} onChange={(e) => setOz(Math.min(15, Math.max(0, +e.target.value)))} />
+        </label>
+      </div>
+      <label className="field">
+        <span>Bait</span>
+        <input placeholder="e.g. Worm, Bread, Maggot" value={bait} onChange={(e) => setBait(e.target.value)} />
+      </label>
+      <label className="field">
+        <span>Notes</span>
+        <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </label>
+      <div className="toggle-row" style={{ marginTop: 8, marginBottom: 8 }}>
+        <div className="toggle-label-wrap">
+          <div className="toggle-label-title"><Globe size={16} /> Share catch to Discover map</div>
+          <div className="muted" style={{ fontSize: 11 }}>Feature this catch on the public venue page</div>
+        </div>
+        <button
+          type="button"
+          className={`toggle-switch ${isShared ? 'active' : ''}`}
+          onClick={() => setIsShared(!isShared)}
+          role="switch"
+          aria-checked={isShared}
+          aria-label="Share catch on map"
+        >
+          <span className="toggle-thumb" />
+        </button>
+      </div>
     </Sheet>
   );
 };
@@ -603,7 +1018,6 @@ const SessionDetail = () => {
   if (!s) return <Navigate to="/sessions" replace />;
   const list = catches.filter((c) => c.sessionId === s.id);
   const live = !s.endedAt;
-  // Every photo belonging to this session: location shots, legacy cover, then catch photos.
   const gallery = [...new Set([...(s.photos ?? []), ...(s.photo ? [s.photo] : []), ...list.flatMap((c) => (c.image ? [c.image] : []))])];
 
   return (
@@ -689,6 +1103,7 @@ const CatchDetail = () => {
   const nav = useNavigate();
   const { catches, sessions } = useStore();
   const [sharing, setSharing] = useState(false);
+  const [editing, setEditing] = useState(false);
   const c = catches.find((x) => x.id === id);
   if (!c) return <Navigate to="/" replace />;
   const s = sessions.find((x) => x.id === c.sessionId);
@@ -697,13 +1112,18 @@ const CatchDetail = () => {
     <div className="content">
       <div className="row-between">
         <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
-        <button className="icon-btn" id="share-catch-btn" onClick={() => setSharing(true)} aria-label="Share catch">
-          <Share2 size={18} />
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="icon-btn" id="edit-catch-icon-btn" onClick={() => setEditing(true)} aria-label="Edit catch" title="Edit catch">
+            <Pencil size={18} />
+          </button>
+          <button className="icon-btn" id="share-catch-btn" onClick={() => setSharing(true)} aria-label="Share catch" title="Share catch">
+            <Share2 size={18} />
+          </button>
+        </div>
       </div>
 
       {c.image && <div className="hero-image-container"><img src={c.image} alt={c.species} className="hero-image tall" /></div>}
-      
+
       <div className="row-between" style={{ alignItems: 'flex-start' }}>
         <div>
           <div className="eyebrow">{fmtDay(c.caughtAt)} · {fmtTime(c.caughtAt)}</div>
@@ -723,10 +1143,54 @@ const CatchDetail = () => {
       </div>
 
       <p className="catch-big-weight serif">{fmtWeight(c)}</p>
-      <div className="tag-row"><span className="tag">Bait: {c.bait}</span>{s && <Link to={`/sessions/${s.id}`} className="tag"><MapPin size={14} /> {s.venueName}</Link>}</div>
-      {c.notes && <div className="card"><p>{c.notes}</p></div>}
-      {s && <WeatherCard s={{ ...s, endedAt: s.endedAt ?? 'x' }} />}
-      <button className="btn-secondary danger" id="delete-catch-btn" onClick={() => { actions.deleteCatch(c.id); nav(-1); }}><Trash2 size={16} /> Delete catch</button>
+
+      {/* Direct link back to session */}
+      {s && (
+        <Link to={`/sessions/${s.id}`} className="card card-link session-link-card">
+          <div className="row-between">
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 2 }}><Calendar size={13} /> Session</div>
+              <div className="serif" style={{ fontSize: 18, color: 'var(--accent-green)' }}>{s.venueName}</div>
+              <div className="muted" style={{ fontSize: 12 }}>{fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}</div>
+            </div>
+            <ChevronRight size={18} color="var(--text-secondary)" />
+          </div>
+        </Link>
+      )}
+
+      <div className="tag-row">
+        <span className="tag">Bait: {c.bait}</span>
+        {s && <span className="tag"><MapPin size={13} /> {s.venueName}</span>}
+      </div>
+
+      {c.notes && (
+        <div className="card">
+          <div className="eyebrow">Angler notes</div>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{c.notes}</p>
+        </div>
+      )}
+
+      {/* Compact weather summary with collapsible breakdown */}
+      {s?.weather && <WeatherSummary weather={s.weather} />}
+
+      {/* Action buttons: Edit & Delete */}
+      <div className="field-row" style={{ marginTop: 14 }}>
+        <button className="btn-primary" id="edit-catch-btn" style={{ flex: 1, height: 48 }} onClick={() => setEditing(true)}>
+          <Pencil size={17} /> Edit catch
+        </button>
+        <button
+          className="btn-secondary danger"
+          id="delete-catch-btn"
+          style={{ flex: 1, height: 48, marginTop: 0 }}
+          onClick={() => confirm('Delete this catch from your journal?') && (actions.deleteCatch(c.id), nav(-1))}
+        >
+          <Trash2 size={16} /> Delete catch
+        </button>
+      </div>
+
+      {editing && (
+        <EditCatchSheet c={c} onClose={() => setEditing(false)} />
+      )}
 
       {sharing && (
         <ShareModal
@@ -756,11 +1220,13 @@ const Profile = () => {
   return (
     <div className="content">
       <div className="profile-hero">
-        <img src="/images/logo.jpg" alt="Keepnet" className="avatar" />
+        <div className="avatar-placeholder">
+          <Fish size={32} />
+        </div>
         <div style={{ flex: 1 }}>
           <input className="name-input serif" id="profile-name" value={name} onChange={(e) => actions.setName(e.target.value)} aria-label="Your name" />
           <div className="muted">
-            {user ? `${user.email} · ` : 'Local Guest · '}
+            {user ? `${user.email} · ` : 'Local Mode · '}
             Angling since {sessions.length ? new Date(sessions[sessions.length - 1].startedAt).getFullYear() : new Date().getFullYear()}
           </div>
         </div>
@@ -782,7 +1248,7 @@ const Profile = () => {
               {storageMode === 'cloud' && user ? 'Cloud Account' : 'Local Storage Mode'}
             </div>
             <div style={{ fontSize: 16, fontWeight: 600 }}>
-              {user ? user.email : 'Local Device Only'}
+              {user ? user.email : 'Personal Journal (Local Device Only)'}
             </div>
             <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               {storageMode === 'cloud' && user
@@ -874,10 +1340,30 @@ const Navigation = () => {
 
 const Shell = () => {
   const nav = useNavigate();
+  const location = useLocation();
   const theme = useTheme();
   const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
 
-  const begin = async (v: Venue | 'current', photo?: string, isShared?: boolean) => {
+  // Dynamic document title per review recommendation
+  useEffect(() => {
+    const mapTitle: Record<string, string> = {
+      '/': 'Keepnet — Time by the Water',
+      '/sessions': 'Journal & Sessions · Keepnet',
+      '/discover': 'Discover Venues · Keepnet',
+      '/profile': 'Profile & Settings · Keepnet',
+    };
+    if (mapTitle[location.pathname]) {
+      document.title = mapTitle[location.pathname];
+    } else if (location.pathname.startsWith('/sessions/')) {
+      document.title = 'Session Details · Keepnet';
+    } else if (location.pathname.startsWith('/catches/')) {
+      document.title = 'Catch Details · Keepnet';
+    } else {
+      document.title = 'Keepnet — Fishing Journal & Angler Map';
+    }
+  }, [location.pathname]);
+
+  const begin = async (v: Venue | 'current' | { id: string; name: string; type: string; lat: number; lon: number; targets: string[]; description: string }, photo?: string, isShared?: boolean) => {
     setSheet(null);
     if (v === 'current') {
       const s = actions.startSession({ venueId: 'current', venueName: 'Current location', lat: VENUES[0].lat, lon: VENUES[0].lon, photo, isShared });
