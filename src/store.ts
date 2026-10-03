@@ -56,34 +56,15 @@ export const VENUES: Venue[] = [
 
 export const SPECIES = ['Perch', 'Chub', 'Roach', 'Pike', 'Bream', 'Dace', 'Grayling', 'Rainbow trout', 'Brown trout', 'Carp', 'Tench', 'Rudd'];
 
-const KEY = 'keepnet:v1';
+const KEY = 'keepnet:v2:live';
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
-const seed = (): State => {
-  const day = 86400000;
-  const now = Date.now();
-  return {
-    name: 'Angler',
-    sessions: [
-      {
-        id: 's-seed-1', venueId: 'dolphinholme', venueName: 'Dolphinholme', lat: 54.0003, lon: -2.7372, photo: '/images/hero-river.jpg',
-        startedAt: new Date(now - day - 4 * 3600000).toISOString(), endedAt: new Date(now - day).toISOString(),
-        isShared: true,
-        weather: { temperature: 13.4, feelsLike: 12.1, humidity: 82, precipitation: 0, cloudCover: 75, pressure: 1014, windSpeed: 7.2, windDirection: 225, code: 3, description: 'Overcast', fetchedAt: new Date(now - day - 4 * 3600000).toISOString(), source: 'Open-Meteo' },
-      },
-      {
-        id: 's-seed-2', venueId: 'lune-caton', venueName: 'River Lune, Caton', lat: 54.0758, lon: -2.715,
-        startedAt: new Date(now - 5 * day - 3 * 3600000).toISOString(), endedAt: new Date(now - 5 * day).toISOString(),
-        isShared: false,
-        weather: { temperature: 15.8, feelsLike: 15.0, humidity: 70, precipitation: 0.2, cloudCover: 40, pressure: 1009, windSpeed: 5.4, windDirection: 270, code: 2, description: 'Partly cloudy', fetchedAt: new Date(now - 5 * day - 3 * 3600000).toISOString(), source: 'Open-Meteo' },
-      },
-    ],
-    catches: [
-      { id: 'c-seed-1', sessionId: 's-seed-1', species: 'Perch', weightLb: 1, weightOz: 8, bait: 'Worm', caughtAt: new Date(now - day - 2 * 3600000).toISOString(), image: '/images/perch.jpg', notes: 'Took a lobworm on the drop by the far-bank reeds.', isShared: true },
-      { id: 'c-seed-2', sessionId: 's-seed-2', species: 'Chub', weightLb: 3, weightOz: 2, bait: 'Bread', caughtAt: new Date(now - 5 * day - 3600000).toISOString(), image: '/images/chub.jpg', notes: 'Free-lined crust under the overhanging willow.', isShared: false },
-    ],
-  };
-};
+/** Production launch initial state: clean, empty journal. */
+const seed = (): State => ({
+  name: 'Angler',
+  sessions: [],
+  catches: [],
+});
 
 const load = (): State => {
   try {
@@ -155,7 +136,16 @@ export const actions = {
     return nextShared;
   },
   setName(name: string) { commit({ ...state, name }); },
-  reset() { commit(seed()); },
+  clearAll() {
+    try {
+      localStorage.removeItem('keepnet:v1');
+      localStorage.removeItem('keepnet:v2:live');
+    } catch { /* ignore */ }
+    commit(seed());
+  },
+  reset() {
+    this.clearAll();
+  },
 };
 
 export const fmtWeight = (c: Pick<Catch, 'weightLb' | 'weightOz'>) => `${c.weightLb} lb ${c.weightOz} oz`;

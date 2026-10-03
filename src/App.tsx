@@ -472,10 +472,18 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
 
       <div className="section-header">
         <h2 className="serif section-title">Recent catches</h2>
-        <Link to="/sessions" className="view-all">View all <ChevronRight size={16} /></Link>
+        {catches.length > 0 && <Link to="/sessions" className="view-all">View all <ChevronRight size={16} /></Link>}
       </div>
       <div className="card">
-        {catches.length ? catches.slice(0, 3).map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">No catches yet — start a session!</p>}
+        {catches.length ? (
+          catches.slice(0, 3).map((c) => <CatchRow key={c.id} c={c} />)
+        ) : (
+          <div style={{ textAlign: 'center', padding: '24px 12px' }}>
+            <Fish size={28} color="var(--text-secondary)" style={{ opacity: 0.5, marginBottom: 8 }} />
+            <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>No catches logged yet</div>
+            <p className="muted" style={{ fontSize: 13, margin: 0 }}>Start a session to log your first catch by the water.</p>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -485,36 +493,55 @@ const Sessions = ({ onStart }: { onStart: () => void }) => {
   const { sessions, catches } = useStore();
   return (
     <div className="content">
-      <div className="row-between"><h1 className="page-title">Sessions</h1><button className="icon-btn filled" id="new-session-btn" onClick={onStart} aria-label="New session"><Plus size={20} /></button></div>
-      <p className="page-subtitle">{sessions.length} sessions logged</p>
-      {sessions.map((s) => {
-        const n = catches.filter((c) => c.sessionId === s.id).length;
-        return (
-          <Link key={s.id} to={`/sessions/${s.id}`} className="card card-link session-card" id={`session-${s.id}`}>
-            {s.photo && <img src={s.photo} alt={`${s.venueName} swim`} className="session-thumb" loading="lazy" />}
-            <div className="row-between">
-              <div>
-                <div className="eyebrow">
-                  {!s.endedAt && <span className="live-dot" />}
-                  {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
-                  {s.isShared ? (
-                    <span className="mini-badge shared" style={{ marginLeft: 6 }}><Globe size={10} /> Shared</span>
-                  ) : (
-                    <span className="mini-badge private" style={{ marginLeft: 6 }}><Lock size={10} /> Private</span>
-                  )}
+      <div className="row-between">
+        <h1 className="page-title">Sessions</h1>
+        <button className="icon-btn filled" id="new-session-btn" onClick={onStart} aria-label="New session"><Plus size={20} /></button>
+      </div>
+      <p className="page-subtitle">{sessions.length} {sessions.length === 1 ? 'session' : 'sessions'} logged</p>
+
+      {sessions.length === 0 ? (
+        <div className="card" style={{ padding: '36px 20px', textAlign: 'center' }}>
+          <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--surface-sunken)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+            <Calendar size={26} color="var(--primary)" />
+          </div>
+          <h2 className="serif" style={{ fontSize: 20, marginBottom: 8 }}>No sessions yet</h2>
+          <p className="muted" style={{ fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
+            Start your first fishing session to log your swims, track weather automatically, and record your catches.
+          </p>
+          <button className="btn-primary" onClick={onStart} style={{ maxWidth: 220, margin: '0 auto' }}>
+            <Plus size={18} /> Start a session
+          </button>
+        </div>
+      ) : (
+        sessions.map((s) => {
+          const n = catches.filter((c) => c.sessionId === s.id).length;
+          return (
+            <Link key={s.id} to={`/sessions/${s.id}`} className="card card-link session-card" id={`session-${s.id}`}>
+              {s.photo && <img src={s.photo} alt={`${s.venueName} swim`} className="session-thumb" loading="lazy" />}
+              <div className="row-between">
+                <div>
+                  <div className="eyebrow">
+                    {!s.endedAt && <span className="live-dot" />}
+                    {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
+                    {s.isShared ? (
+                      <span className="mini-badge shared" style={{ marginLeft: 6 }}><Globe size={10} /> Shared</span>
+                    ) : (
+                      <span className="mini-badge private" style={{ marginLeft: 6 }}><Lock size={10} /> Private</span>
+                    )}
+                  </div>
+                  <h2 className="serif" style={{ fontSize: 20 }}>{s.venueName}</h2>
                 </div>
-                <h2 className="serif" style={{ fontSize: 20 }}>{s.venueName}</h2>
+                <ChevronRight size={20} color="var(--text-secondary)" />
               </div>
-              <ChevronRight size={20} color="var(--text-secondary)" />
-            </div>
-            <div className="tag-row" style={{ marginTop: 10, marginBottom: 0 }}>
-              <span className="tag"><Fish size={14} /> {n} {n === 1 ? 'catch' : 'catches'}</span>
-              {s.weather && <span className="tag"><Thermometer size={14} /> {Math.round(s.weather.temperature)}° {s.weather.description}</span>}
-              {s.weather && <span className="tag"><Wind size={14} /> {Math.round(s.weather.windSpeed)} mph</span>}
-            </div>
-          </Link>
-        );
-      })}
+              <div className="tag-row" style={{ marginTop: 10, marginBottom: 0 }}>
+                <span className="tag"><Fish size={14} /> {n} {n === 1 ? 'catch' : 'catches'}</span>
+                {s.weather && <span className="tag"><Thermometer size={14} /> {Math.round(s.weather.temperature)}° {s.weather.description}</span>}
+                {s.weather && <span className="tag"><Wind size={14} /> {Math.round(s.weather.windSpeed)} mph</span>}
+              </div>
+            </Link>
+          );
+        })
+      )}
     </div>
   );
 };
@@ -816,7 +843,14 @@ const Profile = () => {
       <div className="section-header"><h2 className="serif section-title">Personal bests</h2></div>
       <div className="card">{pbs.length ? pbs.map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">No catches yet.</p>}</div>
 
-      <button className="btn-secondary" id="reset-data-btn" onClick={() => confirm('Reset journal to demo data?') && actions.reset()}>Reset demo data</button>
+      <button
+        className="btn-secondary"
+        id="clear-journal-btn"
+        style={{ borderColor: 'rgba(217, 83, 79, 0.4)', color: 'var(--text-secondary)' }}
+        onClick={() => confirm('Clear all journal data and start fresh?') && actions.clearAll()}
+      >
+        <Trash2 size={15} style={{ verticalAlign: -2, marginRight: 6 }} /> Clear all journal data
+      </button>
 
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
