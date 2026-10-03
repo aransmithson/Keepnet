@@ -112,9 +112,9 @@ const leafletPin = (cls: string, label = '') =>
 
 function createLeaflet(el: HTMLElement, center: [number, number], zoom: number): MapEngine {
   const map = L.map(el, { zoomControl: false }).setView(center, zoom);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
     maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+    attribution: '&copy; Esri, USGS, Ordnance Survey',
   }).addTo(map);
   L.control.zoom({ position: 'topright' }).addTo(map);
   const layer = L.layerGroup().addTo(map);
