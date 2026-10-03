@@ -1,6 +1,5 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Fish, User, MapPin, Calendar, ChevronRight, Plus, Menu } from 'lucide-react';
+import { Fish, User, MapPin, Calendar, ChevronRight, Plus } from 'lucide-react';
 import './index.css';
 
 const Home = () => {
