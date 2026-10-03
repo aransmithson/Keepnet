@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
+import Logo from './Logo';
 import { VENUES, SPECIES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage, type Venue, type Session, type Catch } from './store';
 import { fetchWeather, getDevicePosition, compass } from './weather';
 
@@ -85,13 +86,30 @@ const Sheet = ({ title, onClose, children }: { title: string; onClose: () => voi
   </div>
 );
 
+/* ---------- Photo picker (camera on mobile, file picker on desktop) ---------- */
+
+const PhotoPicker = ({ id, value, onChange, label = 'Add photo' }: { id: string; value?: string; onChange: (v: string) => void; label?: string }) => (
+  <>
+    <label className={`photo-pick ${value ? 'has-photo' : ''}`} htmlFor={id}>
+      {value ? (
+        <><img src={value} alt="Selected" /><span className="photo-change"><Camera size={14} /> Retake</span></>
+      ) : (
+        <><Camera size={28} /><span>{label}</span><small className="muted">Optional</small></>
+      )}
+    </label>
+    <input id={id} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) onChange(await resizeImage(f, 1024)); e.target.value = ''; }} />
+  </>
+);
+
 /* ---------- Start session ---------- */
 
-const StartSessionSheet = ({ initial, onClose, onStart }: { initial?: Venue; onClose: () => void; onStart: (v: Venue | 'current') => void }) => {
+const StartSessionSheet = ({ initial, onClose, onStart }: { initial?: Venue; onClose: () => void; onStart: (v: Venue | 'current', photo?: string) => void }) => {
   const [choice, setChoice] = useState<string>(initial?.id ?? VENUES[0].id);
+  const [photo, setPhoto] = useState<string>();
   return (
     <Sheet title="Start a session" onClose={onClose}>
-      <p className="muted" style={{ marginBottom: 12 }}>We'll log the latest weather for your location when the session begins.</p>
+      <p className="muted" style={{ marginBottom: 4 }}>Snap your swim and we'll log the latest weather when the session begins.</p>
+      <PhotoPicker id="session-photo" value={photo} onChange={setPhoto} label="Photo of the location" />
       <div className="choice-list">
         <button id="venue-choice-current" className={`list-row ${choice === 'current' ? 'selected' : ''}`} onClick={() => setChoice('current')}>
           <div className="list-icon"><LocateFixed size={18} /></div>
@@ -104,7 +122,7 @@ const StartSessionSheet = ({ initial, onClose, onStart }: { initial?: Venue; onC
           </button>
         ))}
       </div>
-      <button className="btn-primary" id="confirm-start-btn" style={{ marginTop: 16 }} onClick={() => onStart(choice === 'current' ? 'current' : VENUES.find((v) => v.id === choice)!)}>
+      <button className="btn-primary" id="confirm-start-btn" style={{ marginTop: 16 }} onClick={() => onStart(choice === 'current' ? 'current' : VENUES.find((v) => v.id === choice)!, photo)}>
         <Plus size={20} /> Start session
       </button>
     </Sheet>
@@ -168,6 +186,7 @@ const Sessions = ({ onStart }: { onStart: () => void }) => {
         const n = catches.filter((c) => c.sessionId === s.id).length;
         return (
           <Link key={s.id} to={`/sessions/${s.id}`} className="card card-link session-card" id={`session-${s.id}`}>
+            {s.photo && <img src={s.photo} alt={`${s.venueName} swim`} className="session-thumb" loading="lazy" />}
             <div className="row-between">
               <div>
                 <div className="eyebrow">{!s.endedAt && <span className="live-dot" />}{fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}</div>
@@ -196,10 +215,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
   const [image, setImage] = useState<string>();
   return (
     <Sheet title="Log a catch" onClose={onClose}>
-      <label className="photo-pick" htmlFor="catch-photo">
-        {image ? <img src={image} alt="Catch preview" /> : <><Camera size={28} /><span>Add photo</span></>}
-      </label>
-      <input id="catch-photo" type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) setImage(await resizeImage(f)); }} />
+      <PhotoPicker id="catch-photo" value={image} onChange={setImage} label="Photo of your catch" />
       <label className="field"><span>Species</span>
         <select id="catch-species" value={species} onChange={(e) => setSpecies(e.target.value)}>{SPECIES.map((s) => <option key={s}>{s}</option>)}</select>
       </label>
@@ -230,6 +246,12 @@ const SessionDetail = () => {
       <div className="eyebrow">{live && <span className="live-dot" />}{live ? 'In progress' : fmtDay(s.startedAt)}</div>
       <h1 className="page-title">{s.venueName}</h1>
       <p className="page-subtitle"><Clock size={14} style={{ verticalAlign: -2 }} /> {fmtTime(s.startedAt)}{s.endedAt ? ` – ${fmtTime(s.endedAt)}` : ' – now'}</p>
+
+      <div className={`session-photo ${s.photo ? '' : 'empty'}`}>
+        {s.photo ? <img src={s.photo} alt={`${s.venueName} swim`} /> : <><Camera size={26} /><span>Add a photo of your swim</span></>}
+        <label htmlFor="session-photo-edit" className="photo-change" id="session-photo-btn"><Camera size={14} /> {s.photo ? 'Retake' : 'Take photo'}</label>
+        <input id="session-photo-edit" type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) actions.updateSession(s.id, { photo: await resizeImage(f, 1024) }); e.target.value = ''; }} />
+      </div>
 
       <WeatherCard s={s} />
 
@@ -329,17 +351,17 @@ const Shell = () => {
   const nav = useNavigate();
   const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
 
-  const begin = async (v: Venue | 'current') => {
+  const begin = async (v: Venue | 'current', photo?: string) => {
     setSheet(null);
     if (v === 'current') {
-      const s = actions.startSession({ venueId: 'current', venueName: 'Current location', lat: VENUES[0].lat, lon: VENUES[0].lon });
+      const s = actions.startSession({ venueId: 'current', venueName: 'Current location', lat: VENUES[0].lat, lon: VENUES[0].lon, photo });
       nav(`/sessions/${s.id}`);
       const pos = await getDevicePosition();
       const at = pos ?? { lat: s.lat, lon: s.lon };
       actions.updateSession(s.id, { ...at, venueName: pos ? 'Current location' : `${VENUES[0].name} (GPS unavailable)` });
       await logWeather({ ...s, ...at });
     } else {
-      const s = actions.startSession({ venueId: v.id, venueName: v.name, lat: v.lat, lon: v.lon });
+      const s = actions.startSession({ venueId: v.id, venueName: v.name, lat: v.lat, lon: v.lon, photo });
       nav(`/sessions/${s.id}`);
       await logWeather(s);
     }
@@ -348,7 +370,7 @@ const Shell = () => {
   return (
     <div className="app-container">
       <header className="top-bar">
-        <Link to="/" className="logo-header"><Fish size={28} />Keepnet</Link>
+        <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={42} /></Link>
         <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
       </header>
       <main>

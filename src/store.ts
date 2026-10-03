@@ -22,6 +22,8 @@ export type Session = {
   weather?: Weather;
   weatherError?: string;
   notes?: string;
+  /** Photo of the swim/location, stored as a compact JPEG data URL. */
+  photo?: string;
 };
 
 export type Catch = {
@@ -58,7 +60,7 @@ const seed = (): State => {
     name: 'Angler',
     sessions: [
       {
-        id: 's-seed-1', venueId: 'dolphinholme', venueName: 'Dolphinholme', lat: 54.0003, lon: -2.7372,
+        id: 's-seed-1', venueId: 'dolphinholme', venueName: 'Dolphinholme', lat: 54.0003, lon: -2.7372, photo: '/images/hero-river.jpg',
         startedAt: new Date(now - day - 4 * 3600000).toISOString(), endedAt: new Date(now - day).toISOString(),
         weather: { temperature: 13.4, feelsLike: 12.1, humidity: 82, precipitation: 0, cloudCover: 75, pressure: 1014, windSpeed: 7.2, windDirection: 225, code: 3, description: 'Overcast', fetchedAt: new Date(now - day - 4 * 3600000).toISOString(), source: 'Open-Meteo' },
       },
@@ -96,7 +98,7 @@ export const useStore = () =>
   useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb); }, () => state);
 
 export const actions = {
-  startSession(v: { venueId: string; venueName: string; lat: number; lon: number }): Session {
+  startSession(v: { venueId: string; venueName: string; lat: number; lon: number; photo?: string }): Session {
     const s: Session = { id: uid(), ...v, startedAt: new Date().toISOString() };
     commit({ ...state, sessions: [s, ...state.sessions] });
     return s;
