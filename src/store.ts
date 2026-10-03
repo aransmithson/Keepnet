@@ -26,6 +26,8 @@ export type Session = {
   photo?: string;
   /** Location photos taken during the session. */
   photos?: string[];
+  /** Whether this session is shared to the public Discover map. */
+  isShared?: boolean;
 };
 
 export type Catch = {
@@ -38,6 +40,8 @@ export type Catch = {
   caughtAt: string;
   image?: string;
   notes?: string;
+  /** Whether this catch is shared to the public Discover map. */
+  isShared?: boolean;
 };
 
 type State = { sessions: Session[]; catches: Catch[]; name: string };
@@ -64,17 +68,19 @@ const seed = (): State => {
       {
         id: 's-seed-1', venueId: 'dolphinholme', venueName: 'Dolphinholme', lat: 54.0003, lon: -2.7372, photo: '/images/hero-river.jpg',
         startedAt: new Date(now - day - 4 * 3600000).toISOString(), endedAt: new Date(now - day).toISOString(),
+        isShared: true,
         weather: { temperature: 13.4, feelsLike: 12.1, humidity: 82, precipitation: 0, cloudCover: 75, pressure: 1014, windSpeed: 7.2, windDirection: 225, code: 3, description: 'Overcast', fetchedAt: new Date(now - day - 4 * 3600000).toISOString(), source: 'Open-Meteo' },
       },
       {
         id: 's-seed-2', venueId: 'lune-caton', venueName: 'River Lune, Caton', lat: 54.0758, lon: -2.715,
         startedAt: new Date(now - 5 * day - 3 * 3600000).toISOString(), endedAt: new Date(now - 5 * day).toISOString(),
+        isShared: false,
         weather: { temperature: 15.8, feelsLike: 15.0, humidity: 70, precipitation: 0.2, cloudCover: 40, pressure: 1009, windSpeed: 5.4, windDirection: 270, code: 2, description: 'Partly cloudy', fetchedAt: new Date(now - 5 * day - 3 * 3600000).toISOString(), source: 'Open-Meteo' },
       },
     ],
     catches: [
-      { id: 'c-seed-1', sessionId: 's-seed-1', species: 'Perch', weightLb: 1, weightOz: 8, bait: 'Worm', caughtAt: new Date(now - day - 2 * 3600000).toISOString(), image: '/images/perch.jpg', notes: 'Took a lobworm on the drop by the far-bank reeds.' },
-      { id: 'c-seed-2', sessionId: 's-seed-2', species: 'Chub', weightLb: 3, weightOz: 2, bait: 'Bread', caughtAt: new Date(now - 5 * day - 3600000).toISOString(), image: '/images/chub.jpg', notes: 'Free-lined crust under the overhanging willow.' },
+      { id: 'c-seed-1', sessionId: 's-seed-1', species: 'Perch', weightLb: 1, weightOz: 8, bait: 'Worm', caughtAt: new Date(now - day - 2 * 3600000).toISOString(), image: '/images/perch.jpg', notes: 'Took a lobworm on the drop by the far-bank reeds.', isShared: true },
+      { id: 'c-seed-2', sessionId: 's-seed-2', species: 'Chub', weightLb: 3, weightOz: 2, bait: 'Bread', caughtAt: new Date(now - 5 * day - 3600000).toISOString(), image: '/images/chub.jpg', notes: 'Free-lined crust under the overhanging willow.', isShared: false },
     ],
   };
 };
@@ -100,8 +106,8 @@ export const useStore = () =>
   useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb); }, () => state);
 
 export const actions = {
-  startSession(v: { venueId: string; venueName: string; lat: number; lon: number; photo?: string }): Session {
-    const s: Session = { id: uid(), ...v, photos: v.photo ? [v.photo] : [], startedAt: new Date().toISOString() };
+  startSession(v: { venueId: string; venueName: string; lat: number; lon: number; photo?: string; isShared?: boolean }): Session {
+    const s: Session = { id: uid(), isShared: false, ...v, photos: v.photo ? [v.photo] : [], startedAt: new Date().toISOString() };
     commit({ ...state, sessions: [s, ...state.sessions] });
     return s;
   },
@@ -119,6 +125,34 @@ export const actions = {
   },
   deleteCatch(id: string) {
     commit({ ...state, catches: state.catches.filter((c) => c.id !== id) });
+  },
+  toggleSessionShare(id: string): boolean {
+    let nextShared = false;
+    commit({
+      ...state,
+      sessions: state.sessions.map((s) => {
+        if (s.id === id) {
+          nextShared = !s.isShared;
+          return { ...s, isShared: nextShared };
+        }
+        return s;
+      }),
+    });
+    return nextShared;
+  },
+  toggleCatchShare(id: string): boolean {
+    let nextShared = false;
+    commit({
+      ...state,
+      catches: state.catches.map((c) => {
+        if (c.id === id) {
+          nextShared = !c.isShared;
+          return { ...c, isShared: nextShared };
+        }
+        return c;
+      }),
+    });
+    return nextShared;
   },
   setName(name: string) { commit({ ...state, name }); },
   reset() { commit(seed()); },

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams
 import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
+  Share2, Globe, Lock, Copy
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -33,7 +34,14 @@ const CatchRow = ({ c }: { c: Catch }) => (
   <Link to={`/catches/${c.id}`} className="catch-item" id={`catch-${c.id}`}>
     {c.image ? <img src={c.image} alt={c.species} className="catch-img" loading="lazy" /> : <div className="catch-img placeholder"><Fish size={24} /></div>}
     <div className="catch-info">
-      <div className="catch-species">{c.species}</div>
+      <div className="row-between" style={{ alignItems: 'baseline' }}>
+        <div className="catch-species">{c.species}</div>
+        {c.isShared ? (
+          <span className="mini-badge shared" title="Shared on Discover map"><Globe size={11} /> Shared</span>
+        ) : (
+          <span className="mini-badge private" title="Private to your journal"><Lock size={11} /> Private</span>
+        )}
+      </div>
       <div className="catch-weight">{fmtWeight(c)}</div>
       <div className="catch-meta">{c.bait} · {fmtDay(c.caughtAt)}</div>
     </div>
@@ -101,11 +109,105 @@ const PhotoPicker = ({ id, value, onChange, label = 'Add photo' }: { id: string;
   </>
 );
 
+/* ---------- Sharing Modal ---------- */
+
+const ShareModal = ({
+  title,
+  subtitle,
+  isShared,
+  onToggleShared,
+  shareText,
+  onClose,
+}: {
+  title: string;
+  subtitle: string;
+  isShared: boolean;
+  onToggleShared: () => void;
+  shareText: string;
+  onClose: () => void;
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text: shareText,
+          url: window.location.href,
+        });
+        return;
+      } catch {
+        // user dismissed share dialog
+      }
+    }
+    // Fallback: copy to clipboard
+    try {
+      await navigator.clipboard.writeText(`${shareText}\n${window.location.href}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // ignore
+    }
+  };
+
+  return (
+    <Sheet title="Share" onClose={onClose}>
+      <div className="share-sheet-body">
+        <div className="share-preview-card">
+          <h3 className="serif" style={{ fontSize: 18, marginBottom: 4 }}>{title}</h3>
+          <p className="muted" style={{ fontSize: 13 }}>{subtitle}</p>
+        </div>
+
+        {/* Discover Map Toggle */}
+        <div className="share-toggle-card">
+          <div className="share-toggle-info">
+            <div className="share-toggle-title">
+              <Globe size={18} color="var(--accent-green)" />
+              <span>Share to Discover map</span>
+            </div>
+            <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              When enabled, this appears publicly on the community Discover map. When disabled, it remains private to your journal.
+            </p>
+          </div>
+          <button
+            className={`toggle-switch ${isShared ? 'active' : ''}`}
+            onClick={onToggleShared}
+            role="switch"
+            aria-checked={isShared}
+            aria-label="Toggle share to Discover"
+          >
+            <span className="toggle-thumb" />
+          </button>
+        </div>
+
+        {/* Share via Link / Apps */}
+        <div className="stack" style={{ marginTop: 16 }}>
+          <button className="btn-primary" onClick={handleShare}>
+            {copied ? <Check size={18} /> : ('share' in navigator ? <Share2 size={18} /> : <Copy size={18} />)}
+            {copied ? 'Link Copied to Clipboard!' : ('share' in navigator ? 'Share with Anglers' : 'Copy Link to Share')}
+          </button>
+        </div>
+      </div>
+    </Sheet>
+  );
+};
+
 /* ---------- Start session ---------- */
 
-const StartSessionSheet = ({ initial, onClose, onStart }: { initial?: Venue; onClose: () => void; onStart: (v: Venue | 'current', photo?: string) => void }) => {
+const StartSessionSheet = ({
+  initial,
+  onClose,
+  onStart,
+}: {
+  initial?: Venue;
+  onClose: () => void;
+  onStart: (v: Venue | 'current', photo?: string, isShared?: boolean) => void;
+}) => {
   const [choice, setChoice] = useState<string>(initial?.id ?? VENUES[0].id);
   const [photo, setPhoto] = useState<string>();
+  const [isShared, setIsShared] = useState<boolean>(false);
+
   return (
     <Sheet title="Start a session" onClose={onClose}>
       <p className="muted" style={{ marginBottom: 4 }}>Snap your swim and we'll log the latest weather when the session begins.</p>
@@ -122,7 +224,30 @@ const StartSessionSheet = ({ initial, onClose, onStart }: { initial?: Venue; onC
           </button>
         ))}
       </div>
-      <button className="btn-primary" id="confirm-start-btn" style={{ marginTop: 16 }} onClick={() => onStart(choice === 'current' ? 'current' : VENUES.find((v) => v.id === choice)!, photo)}>
+
+      <div className="toggle-row" style={{ marginTop: 14 }}>
+        <div className="toggle-label-wrap">
+          <div className="toggle-label-title"><Globe size={16} /> Share to Discover map</div>
+          <div className="muted" style={{ fontSize: 11 }}>Only shared sessions appear publicly on the Discover map</div>
+        </div>
+        <button
+          type="button"
+          className={`toggle-switch ${isShared ? 'active' : ''}`}
+          onClick={() => setIsShared(!isShared)}
+          role="switch"
+          aria-checked={isShared}
+          aria-label="Share session on map"
+        >
+          <span className="toggle-thumb" />
+        </button>
+      </div>
+
+      <button
+        className="btn-primary"
+        id="confirm-start-btn"
+        style={{ marginTop: 16 }}
+        onClick={() => onStart(choice === 'current' ? 'current' : VENUES.find((v) => v.id === choice)!, photo, isShared)}
+      >
         <Plus size={20} /> Start session
       </button>
     </Sheet>
@@ -189,7 +314,15 @@ const Sessions = ({ onStart }: { onStart: () => void }) => {
             {s.photo && <img src={s.photo} alt={`${s.venueName} swim`} className="session-thumb" loading="lazy" />}
             <div className="row-between">
               <div>
-                <div className="eyebrow">{!s.endedAt && <span className="live-dot" />}{fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}</div>
+                <div className="eyebrow">
+                  {!s.endedAt && <span className="live-dot" />}
+                  {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
+                  {s.isShared ? (
+                    <span className="mini-badge shared" style={{ marginLeft: 6 }}><Globe size={10} /> Shared</span>
+                  ) : (
+                    <span className="mini-badge private" style={{ marginLeft: 6 }}><Lock size={10} /> Private</span>
+                  )}
+                </div>
                 <h2 className="serif" style={{ fontSize: 20 }}>{s.venueName}</h2>
               </div>
               <ChevronRight size={20} color="var(--text-secondary)" />
@@ -213,6 +346,8 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
   const [bait, setBait] = useState('');
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string>();
+  const [isShared, setIsShared] = useState<boolean>(true);
+
   return (
     <Sheet title="Log a catch" onClose={onClose}>
       <PhotoPicker id="catch-photo" value={image} onChange={setImage} label="Photo of your catch" />
@@ -225,7 +360,26 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
       </div>
       <label className="field"><span>Bait</span><input id="catch-bait" placeholder="e.g. Worm, Bread, Maggot" value={bait} onChange={(e) => setBait(e.target.value)} /></label>
       <label className="field"><span>Notes</span><textarea id="catch-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
-      <button className="btn-primary" id="save-catch-btn" onClick={() => { actions.addCatch({ sessionId, species, weightLb: lb, weightOz: oz, bait: bait || 'Unknown', notes, image, caughtAt: new Date().toISOString() }); onClose(); }}>
+
+      {/* Share to Discover toggle */}
+      <div className="toggle-row" style={{ marginTop: 8, marginBottom: 16 }}>
+        <div className="toggle-label-wrap">
+          <div className="toggle-label-title"><Globe size={16} /> Share catch to Discover map</div>
+          <div className="muted" style={{ fontSize: 11 }}>Feature this catch on the public venue page</div>
+        </div>
+        <button
+          type="button"
+          className={`toggle-switch ${isShared ? 'active' : ''}`}
+          onClick={() => setIsShared(!isShared)}
+          role="switch"
+          aria-checked={isShared}
+          aria-label="Share catch on map"
+        >
+          <span className="toggle-thumb" />
+        </button>
+      </div>
+
+      <button className="btn-primary" id="save-catch-btn" onClick={() => { actions.addCatch({ sessionId, species, weightLb: lb, weightOz: oz, bait: bait || 'Unknown', notes, image, isShared, caughtAt: new Date().toISOString() }); onClose(); }}>
         <Plus size={20} /> Save catch
       </button>
     </Sheet>
@@ -237,18 +391,39 @@ const SessionDetail = () => {
   const { sessions, catches } = useStore();
   const [adding, setAdding] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const s = sessions.find((x) => x.id === id);
   if (!s) return <Navigate to="/sessions" replace />;
   const list = catches.filter((c) => c.sessionId === s.id);
   const live = !s.endedAt;
   // Every photo belonging to this session: location shots, legacy cover, then catch photos.
   const gallery = [...new Set([...(s.photos ?? []), ...(s.photo ? [s.photo] : []), ...list.flatMap((c) => (c.image ? [c.image] : []))])];
+
   return (
     <div className="content">
       <Link to="/sessions" className="back-link"><ArrowLeft size={18} /> Sessions</Link>
-      <div className="eyebrow">{live && <span className="live-dot" />}{live ? 'In progress' : fmtDay(s.startedAt)}</div>
-      <h1 className="page-title">{s.venueName}</h1>
-      <p className="page-subtitle"><Clock size={14} style={{ verticalAlign: -2 }} /> {fmtTime(s.startedAt)}{s.endedAt ? ` – ${fmtTime(s.endedAt)}` : ' – now'}</p>
+
+      <div className="row-between" style={{ alignItems: 'flex-start', marginBottom: 6 }}>
+        <div>
+          <div className="eyebrow">{live && <span className="live-dot" />}{live ? 'In progress' : fmtDay(s.startedAt)}</div>
+          <h1 className="page-title">{s.venueName}</h1>
+          <p className="page-subtitle" style={{ marginBottom: 6 }}><Clock size={14} style={{ verticalAlign: -2 }} /> {fmtTime(s.startedAt)}{s.endedAt ? ` – ${fmtTime(s.endedAt)}` : ' – now'}</p>
+          <div className="tag-row" style={{ marginBottom: 12 }}>
+            {s.isShared ? (
+              <button className="tag status-pill shared" onClick={() => setSharing(true)}>
+                <Globe size={12} /> Shared on Discover
+              </button>
+            ) : (
+              <button className="tag status-pill private" onClick={() => setSharing(true)}>
+                <Lock size={12} /> Private Journal
+              </button>
+            )}
+          </div>
+        </div>
+        <button className="icon-btn" id="share-session-btn" onClick={() => setSharing(true)} aria-label="Share session">
+          <Share2 size={18} />
+        </button>
+      </div>
 
       <div className={`session-photo ${s.photo ? '' : 'empty'}`}>
         {s.photo ? <img src={s.photo} alt={`${s.venueName} swim`} /> : <><Camera size={26} /><span>Add a photo of your swim</span></>}
@@ -275,6 +450,17 @@ const SessionDetail = () => {
         </Sheet>
       )}
 
+      {sharing && (
+        <ShareModal
+          title={s.venueName}
+          subtitle={`Session · ${fmtDay(s.startedAt)} · ${list.length} ${list.length === 1 ? 'catch' : 'catches'}`}
+          isShared={!!s.isShared}
+          onToggleShared={() => actions.toggleSessionShare(s.id)}
+          shareText={`Fishing session at ${s.venueName} logged with Keepnet! ${list.length} fish caught.`}
+          onClose={() => setSharing(false)}
+        />
+      )}
+
       <WeatherCard s={s} />
 
       <div className="section-header"><h2 className="serif section-title">Catches ({list.length})</h2></div>
@@ -295,20 +481,56 @@ const CatchDetail = () => {
   const { id } = useParams();
   const nav = useNavigate();
   const { catches, sessions } = useStore();
+  const [sharing, setSharing] = useState(false);
   const c = catches.find((x) => x.id === id);
   if (!c) return <Navigate to="/" replace />;
   const s = sessions.find((x) => x.id === c.sessionId);
+
   return (
     <div className="content">
-      <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
+      <div className="row-between">
+        <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
+        <button className="icon-btn" id="share-catch-btn" onClick={() => setSharing(true)} aria-label="Share catch">
+          <Share2 size={18} />
+        </button>
+      </div>
+
       {c.image && <div className="hero-image-container"><img src={c.image} alt={c.species} className="hero-image tall" /></div>}
-      <div className="eyebrow">{fmtDay(c.caughtAt)} · {fmtTime(c.caughtAt)}</div>
-      <h1 className="page-title">{c.species}</h1>
+      
+      <div className="row-between" style={{ alignItems: 'flex-start' }}>
+        <div>
+          <div className="eyebrow">{fmtDay(c.caughtAt)} · {fmtTime(c.caughtAt)}</div>
+          <h1 className="page-title">{c.species}</h1>
+        </div>
+        <div style={{ marginTop: 8 }}>
+          {c.isShared ? (
+            <button className="tag status-pill shared" onClick={() => setSharing(true)}>
+              <Globe size={12} /> Shared
+            </button>
+          ) : (
+            <button className="tag status-pill private" onClick={() => setSharing(true)}>
+              <Lock size={12} /> Private
+            </button>
+          )}
+        </div>
+      </div>
+
       <p className="catch-big-weight serif">{fmtWeight(c)}</p>
       <div className="tag-row"><span className="tag">Bait: {c.bait}</span>{s && <Link to={`/sessions/${s.id}`} className="tag"><MapPin size={14} /> {s.venueName}</Link>}</div>
       {c.notes && <div className="card"><p>{c.notes}</p></div>}
       {s && <WeatherCard s={{ ...s, endedAt: s.endedAt ?? 'x' }} />}
       <button className="btn-secondary danger" id="delete-catch-btn" onClick={() => { actions.deleteCatch(c.id); nav(-1); }}><Trash2 size={16} /> Delete catch</button>
+
+      {sharing && (
+        <ShareModal
+          title={`${c.species} (${fmtWeight(c)})`}
+          subtitle={`Caught on ${c.bait}${s ? ` at ${s.venueName}` : ''}`}
+          isShared={!!c.isShared}
+          onToggleShared={() => actions.toggleCatchShare(c.id)}
+          shareText={`🎣 Caught a ${fmtWeight(c)} ${c.species} on ${c.bait}${s ? ` at ${s.venueName}` : ''}! Logged on Keepnet.`}
+          onClose={() => setSharing(false)}
+        />
+      )}
     </div>
   );
 };
@@ -373,17 +595,17 @@ const Shell = () => {
   const nav = useNavigate();
   const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
 
-  const begin = async (v: Venue | 'current', photo?: string) => {
+  const begin = async (v: Venue | 'current', photo?: string, isShared?: boolean) => {
     setSheet(null);
     if (v === 'current') {
-      const s = actions.startSession({ venueId: 'current', venueName: 'Current location', lat: VENUES[0].lat, lon: VENUES[0].lon, photo });
+      const s = actions.startSession({ venueId: 'current', venueName: 'Current location', lat: VENUES[0].lat, lon: VENUES[0].lon, photo, isShared });
       nav(`/sessions/${s.id}`);
       const pos = await getDevicePosition();
       const at = pos ?? { lat: s.lat, lon: s.lon };
       actions.updateSession(s.id, { ...at, venueName: pos ? 'Current location' : `${VENUES[0].name} (GPS unavailable)` });
       await logWeather({ ...s, ...at });
     } else {
-      const s = actions.startSession({ venueId: v.id, venueName: v.name, lat: v.lat, lon: v.lon, photo });
+      const s = actions.startSession({ venueId: v.id, venueName: v.name, lat: v.lat, lon: v.lon, photo, isShared });
       nav(`/sessions/${s.id}`);
       await logWeather(s);
     }
