@@ -9,6 +9,19 @@
   --card-bg: #FFFFFF;
   --border-color: #DCD8C5;
   --danger: #D9534F;
+  --copper: #C9772B;
+}
+
+[data-theme="dark"] {
+  --bg-color: #0D1612;
+  --text-primary: #F2EFE8;
+  --text-secondary: #9AA79E;
+  --accent-green: #2EB872;
+  --accent-light: #18271E;
+  --card-bg: #14221A;
+  --border-color: #22372A;
+  --danger: #E06C75;
+  --copper: #E08A3C;
 }
 
 * {
@@ -669,4 +682,156 @@ a.catch-item:hover { background: var(--bg-color); }
   font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+/* ---------- Auth & Account ---------- */
+.auth-tab-bar {
+  display: flex;
+  background: var(--bg-color);
+  padding: 4px;
+  border-radius: 12px;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-tab.active {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.auth-message {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.auth-message.error {
+  background: rgba(217, 83, 79, 0.12);
+  color: var(--danger);
+  border: 1px solid rgba(217, 83, 79, 0.25);
+}
+
+.auth-message.success {
+  background: rgba(46, 184, 114, 0.12);
+  color: #2eb872;
+  border: 1px solid rgba(46, 184, 114, 0.25);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--accent-green);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.local-opt-card {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 4px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-green);
+  cursor: pointer;
+}
+
+.checkbox-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.theme-switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.theme-switch-btn:hover {
+  background: var(--accent-light);
+}
+
+.account-card {
+  border-left: 4px solid var(--accent-green);
+}
+
+/* Dark mode specific enhancements */
+[data-theme='dark'] .top-bar {
+  border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme='dark'] .icon-btn {
+  background: var(--card-bg);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .profile-btn {
+  background: var(--accent-light);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .list-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme='dark'] .list-row.selected {
+  background: rgba(46, 184, 114, 0.12);
+}
+
+[data-theme='dark'] .shared-catch-card {
+  background: var(--accent-light);
+}
+
+[data-theme='dark'] .community-banner {
+  background: rgba(46, 184, 114, 0.1);
+  border-color: rgba(46, 184, 114, 0.25);
+  color: var(--text-primary);
+}
+
+[data-theme='dark'] .photo-pick {
+  background: var(--card-bg);
+  border-color: var(--border-color);
 }

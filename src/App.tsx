@@ -3,13 +3,15 @@ import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams
 import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
-  Share2, Globe, Lock, Copy
+  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
 import Logo from './Logo';
 import { VENUES, SPECIES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage, type Venue, type Session, type Catch } from './store';
 import { fetchWeather, getDevicePosition, compass } from './weather';
+import { useTheme, themeActions } from './theme';
+import { useAuth, authActions } from './auth';
 
 /* ---------- Weather logging ---------- */
 
@@ -129,7 +131,7 @@ const ShareModal = ({
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
-    if (navigator.share) {
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
       try {
         await navigator.share({
           title,
@@ -189,6 +191,184 @@ const ShareModal = ({
           </button>
         </div>
       </div>
+    </Sheet>
+  );
+};
+
+/* ---------- Auth Modal ---------- */
+
+const AuthModal = ({ onClose }: { onClose: () => void }) => {
+  const [tab, setTab] = useState<'signin' | 'signup' | 'reset'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [saveLocallyOnly, setSaveLocallyOnly] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
+
+  const handleSignIn = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    const res = authActions.signIn(email, password);
+    if (res.success) {
+      onClose();
+    } else {
+      setMsg({ text: res.error || 'Failed to sign in', error: true });
+    }
+  };
+
+  const handleSignUp = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    const res = authActions.signUp(email, password, name, saveLocallyOnly);
+    if (res.success) {
+      onClose();
+    } else {
+      setMsg({ text: res.error || 'Failed to sign up', error: true });
+    }
+  };
+
+  const handleRequestReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    const res = authActions.requestPasswordReset(email);
+    if (res.success) {
+      setResetSent(true);
+      setMsg({ text: `Reset code generated! Demo code: ${res.code}`, error: false });
+    } else {
+      setMsg({ text: res.error || 'Password reset failed', error: true });
+    }
+  };
+
+  const handleConfirmReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    const res = authActions.confirmPasswordReset(email, resetCode, newPassword);
+    if (res.success) {
+      setMsg({ text: 'Password reset successfully! You can now sign in.', error: false });
+      setTimeout(() => {
+        setTab('signin');
+        setResetSent(false);
+      }, 1500);
+    } else {
+      setMsg({ text: res.error || 'Invalid code or password', error: true });
+    }
+  };
+
+  return (
+    <Sheet title={tab === 'signin' ? 'Sign In' : tab === 'signup' ? 'Create Account' : 'Reset Password'} onClose={onClose}>
+      <div className="auth-tab-bar">
+        <button className={`auth-tab ${tab === 'signin' ? 'active' : ''}`} onClick={() => { setTab('signin'); setMsg(null); }}>
+          Sign In
+        </button>
+        <button className={`auth-tab ${tab === 'signup' ? 'active' : ''}`} onClick={() => { setTab('signup'); setMsg(null); }}>
+          Sign Up
+        </button>
+        <button className={`auth-tab ${tab === 'reset' ? 'active' : ''}`} onClick={() => { setTab('reset'); setMsg(null); }}>
+          Reset
+        </button>
+      </div>
+
+      {msg && (
+        <div className={`auth-message ${msg.error ? 'error' : 'success'}`}>
+          {msg.text}
+        </div>
+      )}
+
+      {tab === 'signin' && (
+        <form onSubmit={handleSignIn} className="stack" style={{ gap: 12 }}>
+          <label className="field">
+            <span>Email</span>
+            <input type="email" required placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Password</span>
+            <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          <div style={{ textAlign: 'right', marginTop: -4 }}>
+            <button type="button" className="link-button" onClick={() => { setTab('reset'); setMsg(null); }}>
+              Forgot password?
+            </button>
+          </div>
+          <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
+            Sign In
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => { authActions.setStorageMode('local'); onClose(); }}>
+            <HardDrive size={16} /> Continue as Local Guest (No Cloud)
+          </button>
+        </form>
+      )}
+
+      {tab === 'signup' && (
+        <form onSubmit={handleSignUp} className="stack" style={{ gap: 12 }}>
+          <label className="field">
+            <span>Your Name</span>
+            <input type="text" placeholder="Angler name" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Email</span>
+            <input type="email" required placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </label>
+          <label className="field">
+            <span>Password</span>
+            <input type="password" required minLength={6} placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </label>
+
+          {/* Option on sign up to save locally and not use cloud data */}
+          <div className="local-opt-card">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={saveLocallyOnly}
+                onChange={(e) => setSaveLocallyOnly(e.target.checked)}
+              />
+              <span className="checkbox-title">Save locally only (Do not use cloud data)</span>
+            </label>
+            <p className="muted" style={{ fontSize: 12, marginTop: 4, marginLeft: 24 }}>
+              Keeps all catches, swim photos, and sessions strictly on this device without uploading to any remote cloud database.
+            </p>
+          </div>
+
+          <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
+            {saveLocallyOnly ? 'Start Private Local Journal' : 'Create Cloud Account'}
+          </button>
+        </form>
+      )}
+
+      {tab === 'reset' && (
+        <div>
+          {!resetSent ? (
+            <form onSubmit={handleRequestReset} className="stack" style={{ gap: 12 }}>
+              <p className="muted" style={{ fontSize: 13 }}>
+                Enter the email associated with your account. We'll generate a password reset code.
+              </p>
+              <label className="field">
+                <span>Email</span>
+                <input type="email" required placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+              </label>
+              <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
+                <KeyRound size={16} /> Send Reset Code
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleConfirmReset} className="stack" style={{ gap: 12 }}>
+              <label className="field">
+                <span>Reset Code (6 digits)</span>
+                <input type="text" required placeholder="e.g. 123456" value={resetCode} onChange={(e) => setResetCode(e.target.value)} />
+              </label>
+              <label className="field">
+                <span>New Password</span>
+                <input type="password" required minLength={6} placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+              </label>
+              <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
+                Set New Password
+              </button>
+            </form>
+          )}
+        </div>
+      )}
     </Sheet>
   );
 };
@@ -537,17 +717,25 @@ const CatchDetail = () => {
 
 const Profile = () => {
   const { catches, sessions, name } = useStore();
+  const { user, storageMode } = useAuth();
+  const theme = useTheme();
+  const [authOpen, setAuthOpen] = useState(false);
+
   const species = [...new Set(catches.map((c) => c.species))];
   const best = [...catches].sort((a, b) => totalOz(b) - totalOz(a))[0];
   const pbs = species.map((sp) => catches.filter((c) => c.species === sp).sort((a, b) => totalOz(b) - totalOz(a))[0]);
   const hours = sessions.reduce((t, s) => t + ((s.endedAt ? new Date(s.endedAt).getTime() : Date.now()) - new Date(s.startedAt).getTime()) / 3600000, 0);
+
   return (
     <div className="content">
       <div className="profile-hero">
         <img src="/images/logo.jpg" alt="Keepnet" className="avatar" />
-        <div>
+        <div style={{ flex: 1 }}>
           <input className="name-input serif" id="profile-name" value={name} onChange={(e) => actions.setName(e.target.value)} aria-label="Your name" />
-          <div className="muted">Angling since {sessions.length ? new Date(sessions[sessions.length - 1].startedAt).getFullYear() : new Date().getFullYear()}</div>
+          <div className="muted">
+            {user ? `${user.email} · ` : 'Local Guest · '}
+            Angling since {sessions.length ? new Date(sessions[sessions.length - 1].startedAt).getFullYear() : new Date().getFullYear()}
+          </div>
         </div>
       </div>
 
@@ -556,6 +744,63 @@ const Profile = () => {
         <div className="stat"><span className="stat-num serif">{catches.length}</span><span>Catches</span></div>
         <div className="stat"><span className="stat-num serif">{species.length}</span><span>Species</span></div>
         <div className="stat"><span className="stat-num serif">{Math.round(hours)}</span><span>Hours</span></div>
+      </div>
+
+      {/* Account & Storage Mode Card */}
+      <div className="card account-card">
+        <div className="row-between" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <div className="eyebrow" style={{ marginBottom: 4 }}>
+              {storageMode === 'cloud' && user ? <Cloud size={14} /> : <HardDrive size={14} />}
+              {storageMode === 'cloud' && user ? 'Cloud Account' : 'Local Storage Mode'}
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600 }}>
+              {user ? user.email : 'Local Device Only'}
+            </div>
+            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+              {storageMode === 'cloud' && user
+                ? 'Your journal syncs with your Keepnet cloud account.'
+                : 'All catches and sessions are kept private on this phone and not uploaded to the cloud.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="stack" style={{ marginTop: 12 }}>
+          {user ? (
+            <div className="field-row">
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setAuthOpen(true)}>
+                <KeyRound size={15} /> Reset Password
+              </button>
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => authActions.signOut()}>
+                <LogOut size={15} /> Sign Out
+              </button>
+            </div>
+          ) : (
+            <div className="field-row">
+              <button className="btn-primary" style={{ flex: 1 }} onClick={() => setAuthOpen(true)}>
+                <Mail size={16} /> Sign In / Sign Up
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Appearance & Theme Card */}
+      <div className="card">
+        <div className="row-between">
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>Theme Appearance</div>
+            <p className="muted" style={{ fontSize: 13 }}>Switch between Light and Dark river themes</p>
+          </div>
+          <button
+            className="theme-switch-btn"
+            id="theme-profile-toggle"
+            onClick={() => themeActions.toggleTheme()}
+          >
+            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+            <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
+          </button>
+        </div>
       </div>
 
       {best && (
@@ -572,6 +817,8 @@ const Profile = () => {
       <div className="card">{pbs.length ? pbs.map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">No catches yet.</p>}</div>
 
       <button className="btn-secondary" id="reset-data-btn" onClick={() => confirm('Reset journal to demo data?') && actions.reset()}>Reset demo data</button>
+
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
   );
 };
@@ -593,6 +840,7 @@ const Navigation = () => {
 
 const Shell = () => {
   const nav = useNavigate();
+  const theme = useTheme();
   const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
 
   const begin = async (v: Venue | 'current', photo?: string, isShared?: boolean) => {
@@ -615,7 +863,18 @@ const Shell = () => {
     <div className="app-container">
       <header className="top-bar">
         <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={34} /></Link>
-        <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            className="icon-btn"
+            id="header-theme-toggle"
+            onClick={() => themeActions.toggleTheme()}
+            aria-label="Toggle light/dark theme"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
+        </div>
       </header>
       <main>
         <Routes>

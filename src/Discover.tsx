@@ -4,6 +4,7 @@ import { MapPin, Plus, Fish, LocateFixed, Globe, ChevronRight } from 'lucide-rea
 import { VENUES, useStore, fmtWeight, fmtDay, type Venue, type Catch } from './store';
 import { getDevicePosition } from './weather';
 import { createMap, type MapEngine, type MapMarker } from './map';
+import { useTheme } from './theme';
 
 export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   const { sessions, catches } = useStore();
@@ -47,20 +48,22 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
     return () => window.removeEventListener('keepnet:gm-auth-failure', onFail);
   }, []);
 
-  // Create the map once (or again when falling back)
+  const theme = useTheme();
+
+  // Create the map once (or again when theme or fallback changes)
   useEffect(() => {
     if (!el.current) return;
     let cancelled = false;
     let engine: MapEngine | null = null;
     el.current.innerHTML = '';
-    createMap(el.current, [54.0, -2.73], 10, fallback).then((m) => {
+    createMap(el.current, [54.0, -2.73], 10, theme === 'dark', fallback).then((m) => {
       if (cancelled) { m.destroy(); return; }
       engine = m;
       map.current = m;
       setReady((n) => n + 1);
     });
     return () => { cancelled = true; engine?.destroy(); map.current = null; };
-  }, [fallback]);
+  }, [theme, fallback]);
 
   // Keep markers in sync with shared data
   useEffect(() => {
