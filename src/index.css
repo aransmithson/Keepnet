@@ -56,7 +56,7 @@ h1, h2, h3, h4, .serif {
 }
 
 .logo-header svg {
-  height: 42px;
+  height: 34px;
   width: auto;
   display: block;
   transition: transform .2s;
@@ -429,3 +429,20 @@ a.catch-item:hover { background: var(--bg-color); }
 .session-card > .row-between { padding-top: 14px; }
 .session-card > .tag-row { padding-bottom: 14px; }
 .session-thumb { width: 100%; height: 120px; object-fit: cover; display: block; }
+
+/* Cover picker */
+.photo-actions { position: absolute; bottom: 10px; right: 10px; display: flex; gap: 8px; }
+.photo-change.static { position: static; border: none; font-family: inherit; }
+.session-photo.empty .photo-actions { position: static; margin-top: 6px; }
+.cover-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cover-option {
+  position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; padding: 0; cursor: pointer;
+  border: 3px solid transparent; background: var(--accent-light); transition: transform .15s, border-color .15s;
+}
+.cover-option:hover { transform: scale(1.03); }
+.cover-option.selected { border-color: var(--accent-green); }
+.cover-option img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover-check {
+  position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent-green); color: #fff; display: flex; align-items: center; justify-content: center;
+}

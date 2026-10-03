@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
-  Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square,
+  Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -236,10 +236,13 @@ const SessionDetail = () => {
   const { id } = useParams();
   const { sessions, catches } = useStore();
   const [adding, setAdding] = useState(false);
+  const [picking, setPicking] = useState(false);
   const s = sessions.find((x) => x.id === id);
   if (!s) return <Navigate to="/sessions" replace />;
   const list = catches.filter((c) => c.sessionId === s.id);
   const live = !s.endedAt;
+  // Every photo belonging to this session: location shots, legacy cover, then catch photos.
+  const gallery = [...new Set([...(s.photos ?? []), ...(s.photo ? [s.photo] : []), ...list.flatMap((c) => (c.image ? [c.image] : []))])];
   return (
     <div className="content">
       <Link to="/sessions" className="back-link"><ArrowLeft size={18} /> Sessions</Link>
@@ -249,9 +252,28 @@ const SessionDetail = () => {
 
       <div className={`session-photo ${s.photo ? '' : 'empty'}`}>
         {s.photo ? <img src={s.photo} alt={`${s.venueName} swim`} /> : <><Camera size={26} /><span>Add a photo of your swim</span></>}
-        <label htmlFor="session-photo-edit" className="photo-change" id="session-photo-btn"><Camera size={14} /> {s.photo ? 'Retake' : 'Take photo'}</label>
-        <input id="session-photo-edit" type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) actions.updateSession(s.id, { photo: await resizeImage(f, 1024) }); e.target.value = ''; }} />
+        <div className="photo-actions">
+          {gallery.length > 1 || (gallery.length === 1 && gallery[0] !== s.photo) ? (
+            <button className="photo-change static" id="change-cover-btn" onClick={() => setPicking(true)}><Images size={14} /> Change cover</button>
+          ) : null}
+          <label htmlFor="session-photo-edit" className="photo-change static" id="session-photo-btn"><Camera size={14} /> {s.photo ? 'Add photo' : 'Take photo'}</label>
+        </div>
+        <input id="session-photo-edit" type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) actions.addSessionPhoto(s.id, await resizeImage(f, 1024)); e.target.value = ''; }} />
       </div>
+
+      {picking && (
+        <Sheet title="Choose cover photo" onClose={() => setPicking(false)}>
+          <p className="muted" style={{ marginBottom: 12 }}>Pick any photo from this session.</p>
+          <div className="cover-grid">
+            {gallery.map((src, i) => (
+              <button key={i} id={`cover-option-${i}`} className={`cover-option ${src === s.photo ? 'selected' : ''}`} onClick={() => { actions.updateSession(s.id, { photo: src }); setPicking(false); }}>
+                <img src={src} alt={`Session photo ${i + 1}`} />
+                {src === s.photo && <span className="cover-check"><Check size={14} /></span>}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
 
       <WeatherCard s={s} />
 
@@ -370,7 +392,7 @@ const Shell = () => {
   return (
     <div className="app-container">
       <header className="top-bar">
-        <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={42} /></Link>
+        <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={34} /></Link>
         <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
       </header>
       <main>

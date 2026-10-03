@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { MapPin, Plus, Fish, LocateFixed } from 'lucide-react';
 import { VENUES, useStore, type Venue } from './store';
 import { getDevicePosition } from './weather';
-
-const pin = (cls: string, label = '') =>
-  L.divIcon({ className: '', html: `<div class="map-pin ${cls}"><span>${label}</span></div>`, iconSize: [30, 30], iconAnchor: [15, 30] });
+import { createMap, type MapEngine, type MapMarker } from './map';
 
 export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   const { sessions, catches } = useStore();
   const el = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
+  const map = useRef<MapEngine | null>(null);
+  const [ready, setReady] = useState(0);
+  const [fallback, setFallback] = useState(false);
   const [selected, setSelected] = useState<Venue>(VENUES[0]);
 
   const catchCount = useMemo(() => {
@@ -24,44 +22,49 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
     return counts;
   }, [sessions, catches]);
 
+  // If Google rejects the key at runtime, rebuild with OpenStreetMap
+  useEffect(() => {
+    const onFail = () => setFallback(true);
+    window.addEventListener('keepnet:gm-auth-failure', onFail);
+    return () => window.removeEventListener('keepnet:gm-auth-failure', onFail);
+  }, []);
+
+  // Create the map once (or again when falling back)
   useEffect(() => {
     if (!el.current) return;
-    const m = L.map(el.current, { zoomControl: false, attributionControl: true }).setView([54.0, -2.73], 10);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    }).addTo(m);
-    L.control.zoom({ position: 'topright' }).addTo(m);
-
-    VENUES.forEach((v) => {
-      L.marker([v.lat, v.lon], { icon: pin('venue', catchCount[v.id] ? String(catchCount[v.id]) : '') })
-        .addTo(m)
-        .bindTooltip(v.name, { direction: 'top', offset: [0, -28] })
-        .on('click', () => setSelected(v));
+    let cancelled = false;
+    let engine: MapEngine | null = null;
+    el.current.innerHTML = '';
+    createMap(el.current, [54.0, -2.73], 10, fallback).then((m) => {
+      if (cancelled) { m.destroy(); return; }
+      engine = m;
+      map.current = m;
+      setReady((n) => n + 1);
     });
+    return () => { cancelled = true; engine?.destroy(); map.current = null; };
+  }, [fallback]);
 
-    // Sessions logged at a custom (GPS) location
-    sessions.filter((s) => s.venueId === 'current').forEach((s) => {
-      L.marker([s.lat, s.lon], { icon: pin('custom') }).addTo(m).bindTooltip('Logged session', { direction: 'top', offset: [0, -28] });
+  // Keep markers in sync with data
+  useEffect(() => {
+    if (!map.current) return;
+    const markers: MapMarker[] = [
+      ...VENUES.map((v) => ({ id: v.id, lat: v.lat, lon: v.lon, title: v.name, label: catchCount[v.id] ? String(catchCount[v.id]) : undefined, kind: 'venue' as const })),
+      ...sessions.filter((s) => s.venueId === 'current').map((s) => ({ id: `s:${s.id}`, lat: s.lat, lon: s.lon, title: 'Logged session', kind: 'custom' as const })),
+    ];
+    map.current.setMarkers(markers, (id) => {
+      const v = VENUES.find((x) => x.id === id);
+      if (v) setSelected(v);
     });
-
-    map.current = m;
-    // Container may size after first paint inside the app shell
-    setTimeout(() => m.invalidateSize(), 50);
-    return () => { m.remove(); map.current = null; };
-  }, [sessions, catchCount]);
+  }, [ready, sessions, catchCount]);
 
   const focus = (v: Venue) => {
     setSelected(v);
-    map.current?.flyTo([v.lat, v.lon], 13, { duration: 0.8 });
+    map.current?.flyTo(v.lat, v.lon, 13);
   };
 
   const locate = async () => {
     const p = await getDevicePosition();
-    if (p && map.current) {
-      map.current.flyTo([p.lat, p.lon], 12);
-      L.circleMarker([p.lat, p.lon], { radius: 8, color: '#fff', weight: 3, fillColor: '#2F80ED', fillOpacity: 1 }).addTo(map.current);
-    }
+    if (p) map.current?.showMe(p.lat, p.lon);
   };
 
   return (

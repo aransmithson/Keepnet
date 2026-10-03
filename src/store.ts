@@ -22,8 +22,10 @@ export type Session = {
   weather?: Weather;
   weatherError?: string;
   notes?: string;
-  /** Photo of the swim/location, stored as a compact JPEG data URL. */
+  /** Cover photo for the session (any photo from the session). */
   photo?: string;
+  /** Location photos taken during the session. */
+  photos?: string[];
 };
 
 export type Catch = {
@@ -99,12 +101,16 @@ export const useStore = () =>
 
 export const actions = {
   startSession(v: { venueId: string; venueName: string; lat: number; lon: number; photo?: string }): Session {
-    const s: Session = { id: uid(), ...v, startedAt: new Date().toISOString() };
+    const s: Session = { id: uid(), ...v, photos: v.photo ? [v.photo] : [], startedAt: new Date().toISOString() };
     commit({ ...state, sessions: [s, ...state.sessions] });
     return s;
   },
   updateSession(id: string, patch: Partial<Session>) {
     commit({ ...state, sessions: state.sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+  },
+  /** Add a location photo to the session gallery and make it the cover. */
+  addSessionPhoto(id: string, photo: string) {
+    commit({ ...state, sessions: state.sessions.map((s) => (s.id === id ? { ...s, photo, photos: [...(s.photos ?? []), photo] } : s)) });
   },
   addCatch(c: Omit<Catch, 'id'>): Catch {
     const n = { ...c, id: uid() };
