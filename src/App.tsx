@@ -3,7 +3,8 @@ import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams
 import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
-  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search, ShieldCheck
+  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search, ShieldCheck,
+  Compass, Sparkles
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -931,10 +932,188 @@ const StartSessionSheet = ({
 
 const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
   const { catches, sessions } = useStore();
+  const { user } = useAuth();
   const [loggingForSession, setLoggingForSession] = useState<string | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
   const active = sessions.find((s) => !s.endedAt);
   const next = VENUES[0];
 
+  // Unlogged-in or new users get the dedicated welcome landing page
+  if (!user) {
+    return (
+      <div className="content">
+        {/* Active Session Priority Card (if guest started one) */}
+        {active && (
+          <div className="card live-card" id="active-session-card" style={{ marginBottom: 20 }}>
+            <div className="row-between" style={{ marginBottom: 4 }}>
+              <div className="eyebrow" style={{ marginBottom: 0 }}>
+                <span className="live-dot" /> Session in progress
+              </div>
+              <Link to={`/sessions/${active.id}`} className="view-all" style={{ fontSize: 13 }}>
+                View session <ChevronRight size={14} />
+              </Link>
+            </div>
+            <h2 className="serif" style={{ fontSize: 24, margin: '4px 0' }}>{active.venueName}</h2>
+            <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
+              Started {fmtTime(active.startedAt)}
+              {active.weather ? ` · ${Math.round(active.weather.temperature)}° ${active.weather.description}` : ''}
+            </div>
+            <button
+              className="btn-primary"
+              id="home-log-catch-btn"
+              style={{ width: '100%', height: 48 }}
+              onClick={() => setLoggingForSession(active.id)}
+            >
+              <Fish size={18} /> Log a catch now
+            </button>
+          </div>
+        )}
+
+        {/* Welcome Hero with evocative imagery */}
+        <div className="welcome-hero">
+          <img src="/images/welcome-hero.jpg" alt="Tranquil misty lake at sunrise with carp rods and keepnet" />
+          <div className="welcome-hero-overlay" />
+          <div className="welcome-hero-content">
+            <div className="welcome-badge">
+              <Compass size={13} />
+              <span>Modern Angling Journal & Live Map</span>
+            </div>
+            <h1 className="welcome-title serif">Every cast, every catch, every story.</h1>
+            <p className="welcome-explainer">
+              Keepnet is your personal angling companion. Record every catch with automatic live weather, log swim locations and personal bests, and explore verified fisheries across the UK — with 100% privacy control.
+            </p>
+            <div className="welcome-actions">
+              <button
+                className="btn-primary"
+                onClick={() => setAuthOpen(true)}
+                id="welcome-get-started-btn"
+              >
+                <Sparkles size={16} /> Get Started Free
+              </button>
+              <Link to="/discover" className="btn-secondary" id="welcome-explore-map-btn">
+                <MapPin size={16} /> Explore Live Map
+              </Link>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => onStart(next)}
+                id="welcome-guest-btn"
+                title="Start a quick session as a guest on this device"
+              >
+                <Plus size={16} /> Try as Guest
+              </button>
+            </div>
+            <div className="welcome-pill-row">
+              <span className="welcome-pill"><ShieldCheck size={14} style={{ color: '#4ade80' }} /> 100% Private Option</span>
+              <span className="welcome-pill"><Cloud size={14} style={{ color: '#60a5fa' }} /> Live GPS Weather</span>
+              <span className="welcome-pill"><Fish size={14} style={{ color: '#fbbf24' }} /> Verified UK Waters</span>
+              <span className="welcome-pill"><HardDrive size={14} style={{ color: '#c084fc' }} /> Works Offline</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 4 Core Features Explainer Grid */}
+        <div className="section-header" style={{ marginBottom: 14 }}>
+          <h2 className="serif section-title" style={{ fontSize: 20 }}>Built for anglers by the water</h2>
+        </div>
+
+        <div className="welcome-grid">
+          <div className="welcome-feature-card">
+            <div className="welcome-feature-icon">
+              <Thermometer size={22} />
+            </div>
+            <h3 className="welcome-feature-title">Automatic Live Weather</h3>
+            <p className="welcome-feature-desc">
+              Every time you start a session or log a fish, Keepnet records live atmospheric pressure, wind speed, wind direction, and temperature via GPS so you can correlate catches with conditions.
+            </p>
+          </div>
+
+          <div className="welcome-feature-card">
+            <div className="welcome-feature-icon">
+              <ShieldCheck size={22} />
+            </div>
+            <h3 className="welcome-feature-title">Your Secret Spots Stay Private</h3>
+            <p className="welcome-feature-desc">
+              Keep your honey-holes and notes strictly to yourself on your device, or choose to share public catches using your angler nickname. Your real email and identity are never exposed.
+            </p>
+          </div>
+
+          <div className="welcome-feature-card">
+            <div className="welcome-feature-icon">
+              <Camera size={22} />
+            </div>
+            <h3 className="welcome-feature-title">Photo Log & Personal Bests</h3>
+            <p className="welcome-feature-desc">
+              Snap photos directly on the bank or upload from your camera roll. Track exact weights in pounds and ounces, baits, rig notes, and monitor your personal bests per species.
+            </p>
+          </div>
+
+          <div className="welcome-feature-card">
+            <div className="welcome-feature-icon">
+              <MapPin size={22} />
+            </div>
+            <h3 className="welcome-feature-title">Interactive Discover Map</h3>
+            <p className="welcome-feature-desc">
+              Explore verified lakes, rivers, and canal fisheries with rules, target species, and community catches shared by fellow anglers in real time.
+            </p>
+          </div>
+        </div>
+
+        {/* Featured Fishery Card */}
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="eyebrow">Featured Fishery</div>
+          <div className="row-between" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
+            <div>
+              <h3 className="serif" style={{ fontSize: 22, margin: '2px 0 6px' }}>{next.name}</h3>
+              <p className="muted" style={{ fontSize: 13, margin: 0 }}>{next.description}</p>
+            </div>
+            <Link to="/discover" className="view-all" style={{ fontSize: 13, flexShrink: 0, marginTop: 4 }}>
+              Map <ChevronRight size={14} />
+            </Link>
+          </div>
+          <div className="tag-row" style={{ marginBottom: 14 }}>
+            <div className="tag"><MapPin size={13} /> {next.type}</div>
+            <div className="tag"><span style={{ color: 'var(--danger)' }}>◎</span> Targets: {next.targets.join(', ')}</div>
+          </div>
+          <button className="btn-primary" style={{ width: '100%' }} onClick={() => onStart(next)}>
+            <Plus size={18} /> Start a Session at {next.name}
+          </button>
+        </div>
+
+        {/* Bottom CTA Banner */}
+        <div className="welcome-cta-banner">
+          <h2 className="serif">Ready to start your fishing journal?</h2>
+          <p>
+            Create your free account to sync your journal across your devices, or jump straight in with an offline guest session.
+          </p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
+            <button
+              className="btn-primary"
+              style={{ background: '#fff', color: 'var(--accent-green)', fontWeight: 700 }}
+              onClick={() => setAuthOpen(true)}
+            >
+              <User size={16} /> Create Free Account
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#fff' }}
+              onClick={() => setAuthOpen(true)}
+            >
+              Sign In
+            </button>
+          </div>
+        </div>
+
+        {loggingForSession && (
+          <AddCatchSheet sessionId={loggingForSession} onClose={() => setLoggingForSession(null)} />
+        )}
+        {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      </div>
+    );
+  }
+
+  // Logged-in Angler Dashboard
   return (
     <div className="content">
       {/* Active Session Priority Card */}
@@ -966,11 +1145,11 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
 
       {/* Compact Editorial Hero */}
       <div className="hero-compact">
-        <img src="/images/hero-river.jpg" alt="Misty river at dawn" />
+        <img src="/images/welcome-hero.jpg" alt="Misty river at dawn" />
         <div className="hero-compact-overlay" />
         <div className="hero-compact-content">
           <h1 className="hero-title-compact serif">Time by the water.</h1>
-          <p className="hero-subtitle-compact">Your private fishing journal</p>
+          <p className="hero-subtitle-compact">Your personal fishing journal</p>
         </div>
       </div>
 
