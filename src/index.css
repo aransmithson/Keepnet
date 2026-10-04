@@ -564,14 +564,117 @@ a.catch-item:hover { background: var(--bg-color); }
 
 
 /* Location / catch photos */
-.photo-pick { position: relative; gap: 4px; }
-.photo-pick small { font-size: 12px; }
-.photo-pick.has-photo { height: 170px; border-style: solid; }
-.photo-change {
-  position: absolute; bottom: 10px; right: 10px; display: inline-flex; align-items: center; gap: 6px;
-  background: rgba(255,255,255,.92); color: var(--accent-green); font-size: 13px; font-weight: 600;
-  padding: 6px 12px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.15); cursor: pointer;
+.photo-picker-container {
+  width: 100%;
 }
+
+.photo-pick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.photo-pick-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 10px;
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  cursor: pointer;
+  text-align: center;
+  transition: all .15s ease;
+  min-height: 90px;
+  color: var(--text-primary);
+}
+.photo-pick-box:hover {
+  border-color: var(--accent-green);
+  background: var(--accent-light);
+}
+.photo-pick-box:active {
+  transform: scale(0.97);
+}
+
+.photo-pick {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 180px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-bg);
+}
+.photo-pick img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-change-options {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+}
+
+.photo-change-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--accent-green);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+.photo-change-btn:hover { background: #fff; transform: translateY(-1px); }
+.photo-change-btn:active { transform: scale(0.96); }
+.photo-change-btn.danger { color: var(--danger); padding: 6px 8px; }
+
+/* Compact photo action buttons */
+.compact-photo-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-photo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 16px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.btn-photo-pill:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+}
+.btn-photo-pill:active {
+  transform: scale(0.96);
+}
+
 .session-photo {
   position: relative; height: 200px; border-radius: 16px; overflow: hidden; margin-bottom: 16px;
   background: var(--accent-light);

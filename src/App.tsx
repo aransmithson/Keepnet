@@ -210,20 +210,109 @@ const Sheet = ({
   );
 };
 
-/* ---------- Photo picker (camera on mobile, file picker on desktop) ---------- */
+/* ---------- Photo picker (Gallery & Camera on mobile & desktop) ---------- */
 
-const PhotoPicker = ({ id, value, onChange, label = 'Add photo' }: { id: string; value?: string; onChange: (v: string) => void; label?: string }) => (
-  <>
-    <label className={`photo-pick ${value ? 'has-photo' : ''}`} htmlFor={id}>
+const PhotoPicker = ({
+  id,
+  value,
+  onChange,
+  label = 'Add photo',
+}: {
+  id: string;
+  value?: string;
+  onChange: (v: string | undefined) => void;
+  label?: string;
+}) => {
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) onChange(await resizeImage(f, 1024));
+    e.target.value = '';
+  };
+
+  return (
+    <div className="photo-picker-container" style={{ margin: '8px 0 14px' }}>
+      {label && <div className="eyebrow" style={{ marginBottom: 6 }}>{label}</div>}
       {value ? (
-        <><img src={value} alt="Selected" /><span className="photo-change"><Camera size={14} /> Retake</span></>
+        <div className="photo-pick has-photo" style={{ margin: 0, position: 'relative' }}>
+          <img src={value} alt="Selected" />
+          <div className="photo-change-options">
+            <button
+              type="button"
+              className="photo-change-btn"
+              onClick={() => cameraRef.current?.click()}
+              title="Take new photo with camera"
+            >
+              <Camera size={13} /> Camera
+            </button>
+            <button
+              type="button"
+              className="photo-change-btn"
+              onClick={() => galleryRef.current?.click()}
+              title="Choose photo from gallery"
+            >
+              <Images size={13} /> Gallery
+            </button>
+            <button
+              type="button"
+              className="photo-change-btn danger"
+              onClick={() => onChange(undefined)}
+              title="Remove photo"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        </div>
       ) : (
-        <><Camera size={28} /><span>{label}</span><small className="muted">Optional</small></>
+        <div className="photo-pick-actions">
+          <button
+            type="button"
+            className="photo-pick-box"
+            onClick={() => galleryRef.current?.click()}
+            id={`${id}-gallery-btn`}
+          >
+            <Images size={26} color="var(--accent-green)" />
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Choose from Gallery</span>
+            <small className="muted" style={{ fontSize: 11 }}>Camera roll & library</small>
+          </button>
+          <button
+            type="button"
+            className="photo-pick-box"
+            onClick={() => cameraRef.current?.click()}
+            id={`${id}-camera-btn`}
+          >
+            <Camera size={26} color="var(--accent-green)" />
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Take Photo</span>
+            <small className="muted" style={{ fontSize: 11 }}>Open camera</small>
+          </button>
+        </div>
       )}
-    </label>
-    <input id={id} type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) onChange(await resizeImage(f, 1024)); e.target.value = ''; }} />
-  </>
-);
+
+      {/* Camera capture input: forces camera */}
+      <input
+        ref={cameraRef}
+        id={`${id}-camera`}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={handleFile}
+      />
+
+      {/* Gallery file input: opens photo library without camera lock */}
+      <input
+        ref={galleryRef}
+        id={`${id}-gallery`}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={handleFile}
+      />
+    </div>
+  );
+};
 
 /* ---------- Sharing Modal ---------- */
 
@@ -393,13 +482,21 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
 
       {tab === 'signin' && (
         <form onSubmit={handleSignIn} className="stack" style={{ gap: 12 }}>
+          {!authActions.hasAccounts() && (
+            <div className="auth-message error" role="status">
+              No accounts exist in this browser yet. Accounts are stored on the device where they were created —{' '}
+              <button type="button" className="link-button" style={{ fontSize: 'inherit', textDecoration: 'underline' }} onClick={() => { setTab('signup'); setMsg(null); }}>
+                create one here
+              </button>.
+            </div>
+          )}
           <label className="field">
             <span>Email</span>
-            <input type="email" required placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="email" required autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="email" placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="field">
             <span>Password</span>
-            <input type="password" required placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input type="password" required autoComplete="current-password" autoCapitalize="none" autoCorrect="off" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
           <div style={{ textAlign: 'right', marginTop: -4 }}>
             <button type="button" className="link-button" onClick={() => { setTab('reset'); setMsg(null); }}>
@@ -423,11 +520,11 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
           </label>
           <label className="field">
             <span>Email</span>
-            <input type="email" required placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input type="email" required autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="email" placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="field">
             <span>Password</span>
-            <input type="password" required minLength={6} placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input type="password" required minLength={6} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
           </label>
 
           {/* Option on sign up to save locally and not use cloud data */}
@@ -503,6 +600,8 @@ const StartSessionSheet = ({
   const [search, setSearch] = useState<string>('');
   const [photo, setPhoto] = useState<string>();
   const [isShared, setIsShared] = useState<boolean>(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const filteredVenues = VENUES.filter((v) =>
     v.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -586,19 +685,58 @@ const StartSessionSheet = ({
         )}
       </div>
 
-      {/* Compact swim photo picker */}
-      <label className="compact-photo-row" htmlFor="compact-swim-photo">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Camera size={18} />
-          <span>{photo ? 'Swim photo attached' : 'Add swim photo (optional)'}</span>
+      {/* Compact swim photo picker with Gallery & Camera */}
+      <div className="compact-photo-row" style={{ cursor: 'default' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: 1 }}>
+          {photo ? (
+            <img src={photo} alt="Swim" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+          ) : (
+            <Camera size={18} color="var(--accent-green)" style={{ flexShrink: 0 }} />
+          )}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {photo ? 'Swim photo attached' : 'Swim photo (optional)'}
+            </div>
+            <div className="muted" style={{ fontSize: 11 }}>
+              {photo ? 'Ready to log' : 'Camera or Gallery'}
+            </div>
+          </div>
         </div>
-        {photo ? (
-          <img src={photo} alt="Swim" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />
-        ) : (
-          <span className="muted" style={{ fontSize: 12 }}>Snap / upload</span>
-        )}
+
+        <div className="compact-photo-btns">
+          <button
+            type="button"
+            className="btn-photo-pill"
+            id="start-session-gallery-btn"
+            onClick={() => galleryInputRef.current?.click()}
+            title="Upload from gallery"
+          >
+            <Images size={14} /> Gallery
+          </button>
+          <button
+            type="button"
+            className="btn-photo-pill"
+            id="start-session-camera-btn"
+            onClick={() => cameraInputRef.current?.click()}
+            title="Take with camera"
+          >
+            <Camera size={14} /> Camera
+          </button>
+          {photo && (
+            <button
+              type="button"
+              className="btn-photo-pill"
+              style={{ color: 'var(--danger)', padding: '6px 8px' }}
+              onClick={() => setPhoto(undefined)}
+              title="Remove photo"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+        </div>
+
         <input
-          id="compact-swim-photo"
+          ref={cameraInputRef}
           type="file"
           accept="image/*"
           capture="environment"
@@ -609,7 +747,18 @@ const StartSessionSheet = ({
             e.target.value = '';
           }}
         />
-      </label>
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) setPhoto(await resizeImage(f, 1024));
+            e.target.value = '';
+          }}
+        />
+      </div>
 
       {/* Venue choice list */}
       <div className="choice-list">
@@ -1014,6 +1163,8 @@ const SessionDetail = () => {
   const [adding, setAdding] = useState(false);
   const [picking, setPicking] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const sessionCameraRef = useRef<HTMLInputElement>(null);
+  const sessionGalleryRef = useRef<HTMLInputElement>(null);
   const s = sessions.find((x) => x.id === id);
   if (!s) return <Navigate to="/sessions" replace />;
   const list = catches.filter((c) => c.sessionId === s.id);
@@ -1052,9 +1203,48 @@ const SessionDetail = () => {
           {gallery.length > 1 || (gallery.length === 1 && gallery[0] !== s.photo) ? (
             <button className="photo-change static" id="change-cover-btn" onClick={() => setPicking(true)}><Images size={14} /> Change cover</button>
           ) : null}
-          <label htmlFor="session-photo-edit" className="photo-change static" id="session-photo-btn"><Camera size={14} /> {s.photo ? 'Add photo' : 'Take photo'}</label>
+          <button
+            type="button"
+            className="photo-change static"
+            id="session-photo-gallery-btn"
+            onClick={() => sessionGalleryRef.current?.click()}
+          >
+            <Images size={14} /> Gallery
+          </button>
+          <button
+            type="button"
+            className="photo-change static"
+            id="session-photo-camera-btn"
+            onClick={() => sessionCameraRef.current?.click()}
+          >
+            <Camera size={14} /> Camera
+          </button>
         </div>
-        <input id="session-photo-edit" type="file" accept="image/*" capture="environment" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) actions.addSessionPhoto(s.id, await resizeImage(f, 1024)); e.target.value = ''; }} />
+        <input
+          ref={sessionCameraRef}
+          id="session-photo-camera"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) actions.addSessionPhoto(s.id, await resizeImage(f, 1024));
+            e.target.value = '';
+          }}
+        />
+        <input
+          ref={sessionGalleryRef}
+          id="session-photo-gallery"
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) actions.addSessionPhoto(s.id, await resizeImage(f, 1024));
+            e.target.value = '';
+          }}
+        />
       </div>
 
       {picking && (

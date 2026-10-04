@@ -16,9 +16,29 @@ type StoredUser = {
   passwordHash: string;
   name: string;
   createdAt: string;
+  /** Storage mode chosen at sign up; restored on sign in. Legacy accounts default to 'cloud'. */
+  storageMode?: StorageMode;
   resetCode?: string;
   resetExpires?: number;
 };
+
+/** Unicode-safe encoding. Plain btoa() throws on characters outside Latin-1 (e.g. emoji, €). */
+function encodePassword(password: string): string {
+  return btoa(unescape(encodeURIComponent(password)));
+}
+
+/** Legacy encoding used by earlier builds; kept so existing accounts can still sign in. */
+function legacyEncodePassword(password: string): string | null {
+  try {
+    return btoa(password);
+  } catch {
+    return null;
+  }
+}
+
+function passwordMatches(stored: string, password: string): boolean {
+  return stored === encodePassword(password) || stored === legacyEncodePassword(password);
+}
 
 type AuthState = {
   user: UserAccount | null;
@@ -37,11 +57,13 @@ function loadRegisteredUsers(): StoredUser[] {
   }
 }
 
-function saveRegisteredUsers(users: StoredUser[]) {
+function saveRegisteredUsers(users: StoredUser[]): boolean {
   try {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    // Read back to confirm the write actually persisted (some private modes silently drop writes).
+    return localStorage.getItem(USERS_KEY) !== null;
   } catch {
-    // quota
+    return false;
   }
 }
 
@@ -93,18 +115,25 @@ export const authActions = {
       return { success: false, error: 'An account with this email already exists.' };
     }
 
+    const mode: StorageMode = saveLocallyOnly ? 'local' : 'cloud';
     const newUser: StoredUser = {
       id: Math.random().toString(36).slice(2, 10),
       email: cleanEmail,
-      passwordHash: btoa(password), // Obfuscate for local demo storage
+      passwordHash: encodePassword(password), // Obfuscation only — not real hashing (local-only store)
       name: name.trim() || cleanEmail.split('@')[0],
       createdAt: new Date().toISOString(),
+      storageMode: mode,
     };
 
     users.push(newUser);
-    saveRegisteredUsers(users);
+    if (!saveRegisteredUsers(users)) {
+      return {
+        success: false,
+        error:
+          "Couldn't save your account — this browser is blocking storage (private/incognito mode or storage disabled). Please use a normal browser window and try again.",
+      };
+    }
 
-    const mode: StorageMode = saveLocallyOnly ? 'local' : 'cloud';
     authState = {
       user: {
         id: newUser.id,
@@ -121,29 +150,42 @@ export const authActions = {
     return { success: true };
   },
 
+  /** True if at least one account has been registered in this browser. */
+  hasAccounts(): boolean {
+    return loadRegisteredUsers().length > 0;
+  },
+
   /** Sign in with existing email and password. */
   signIn(email: string, password: string): { success: boolean; error?: string } {
     const cleanEmail = email.trim().toLowerCase();
     const users = loadRegisteredUsers();
     const found = users.find((u) => u.email === cleanEmail);
 
-    if (!found || found.passwordHash !== btoa(password)) {
-      return { success: false, error: 'Invalid email or password.' };
+    if (!found) {
+      return {
+        success: false,
+        error:
+          "No account with this email exists in this browser. Accounts are currently stored on the device where they were created — if you registered on another device or browser, please sign up again here.",
+      };
+    }
+    if (!passwordMatches(found.passwordHash, password)) {
+      return { success: false, error: 'Incorrect password. Use "Forgot password?" to reset it.' };
     }
 
+    const mode: StorageMode = found.storageMode ?? 'cloud';
     authState = {
       user: {
         id: found.id,
         email: found.email,
         name: found.name,
         createdAt: found.createdAt,
-        storageMode: authState.storageMode || 'cloud',
+        storageMode: mode,
       },
-      storageMode: authState.storageMode || 'cloud',
+      storageMode: mode,
     };
     notify();
 
-    console.log(`[Keepnet Auth] Signed in ${cleanEmail}`);
+    console.log(`[Keepnet Auth] Signed in ${cleanEmail} (Storage: ${mode})`);
     return { success: true };
   },
 
@@ -200,7 +242,7 @@ export const authActions = {
       return { success: false, error: 'Reset code has expired. Please request a new one.' };
     }
 
-    found.passwordHash = btoa(newPassword);
+    found.passwordHash = encodePassword(newPassword);
     delete found.resetCode;
     delete found.resetExpires;
     saveRegisteredUsers(users);
