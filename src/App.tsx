@@ -9,7 +9,7 @@ import {
 import './index.css';
 import Discover from './Discover';
 import Logo from './Logo';
-import { VENUES, SPECIES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage, type Venue, type Session, type Catch } from './store';
+import { VENUES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage, type Venue, type Session, type Catch } from './store';
 import { fetchWeather, getDevicePosition, compass, type Weather } from './weather';
 import { useTheme, themeActions } from './theme';
 import { useAuth, authActions } from './auth';
@@ -1279,8 +1279,76 @@ const Sessions = ({ onStart }: { onStart: () => void }) => {
   );
 };
 
+/* ---------- Species Tag Picker with Custom Entry ---------- */
+
+const POPULAR_SPECIES = [
+  'Carp', 'Pike', 'Perch', 'Chub', 'Roach', 'Bream', 'Tench',
+  'Barbel', 'Brown trout', 'Rainbow trout', 'Grayling', 'Dace', 'Rudd'
+];
+
+const SpeciesTagPicker = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (species: string) => void;
+}) => {
+  const isPreset = POPULAR_SPECIES.some((s) => s.toLowerCase() === (value || '').toLowerCase());
+  const [customText, setCustomText] = useState(isPreset ? '' : value);
+
+  const selectPreset = (s: string) => {
+    setCustomText('');
+    onChange(s);
+  };
+
+  const handleCustomChange = (text: string) => {
+    setCustomText(text);
+    onChange(text.trim() || 'Fish');
+  };
+
+  return (
+    <div className="field">
+      <div className="row-between" style={{ alignItems: 'baseline', marginBottom: 2 }}>
+        <span>Species</span>
+        {value ? (
+          <span style={{ fontSize: 12, color: 'var(--accent-green)', fontWeight: 600 }}>
+            Selected: {value}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="species-tag-grid" role="group" aria-label="Select fish species">
+        {POPULAR_SPECIES.map((s) => {
+          const isSelected = !customText && value.toLowerCase() === s.toLowerCase();
+          return (
+            <button
+              key={s}
+              type="button"
+              className={`species-tag ${isSelected ? 'selected' : ''}`}
+              onClick={() => selectPreset(s)}
+            >
+              {s}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="species-custom-wrap">
+        <Fish size={16} className="species-custom-icon" />
+        <input
+          type="text"
+          id="catch-species-custom"
+          placeholder="Or type custom species (e.g. Barbel, Zander, Crucian, Catfish)..."
+          value={customText}
+          onChange={(e) => handleCustomChange(e.target.value)}
+        />
+      </div>
+    </div>
+  );
+};
+
 const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () => void }) => {
-  const [species, setSpecies] = useState(SPECIES[0]);
+  const [species, setSpecies] = useState(POPULAR_SPECIES[0]);
   const [lb, setLb] = useState(0);
   const [oz, setOz] = useState(0);
   const [bait, setBait] = useState('');
@@ -1300,7 +1368,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
           onClick={() => {
             actions.addCatch({
               sessionId,
-              species,
+              species: species.trim() || 'Fish',
               weightLb: lb,
               weightOz: oz,
               bait: bait || 'Unknown',
@@ -1317,9 +1385,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
       }
     >
       <PhotoPicker id="catch-photo" value={image} onChange={setImage} label="Photo of your catch" />
-      <label className="field"><span>Species</span>
-        <select id="catch-species" value={species} onChange={(e) => setSpecies(e.target.value)}>{SPECIES.map((s) => <option key={s}>{s}</option>)}</select>
-      </label>
+      <SpeciesTagPicker value={species} onChange={setSpecies} />
       <div className="field-row">
         <label className="field"><span>lb</span><input id="catch-lb" type="number" min={0} value={lb} onChange={(e) => setLb(Math.max(0, +e.target.value))} /></label>
         <label className="field"><span>oz</span><input id="catch-oz" type="number" min={0} max={15} value={oz} onChange={(e) => setOz(Math.min(15, Math.max(0, +e.target.value)))} /></label>
@@ -1361,7 +1427,7 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
 
   const handleSave = () => {
     actions.updateCatch(c.id, {
-      species,
+      species: species.trim() || 'Fish',
       weightLb: lb,
       weightOz: oz,
       bait: bait || 'Unknown',
@@ -1383,12 +1449,7 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
       }
     >
       <PhotoPicker id="edit-catch-photo" value={image} onChange={setImage} label="Change catch photo" />
-      <label className="field">
-        <span>Species</span>
-        <select value={species} onChange={(e) => setSpecies(e.target.value)}>
-          {SPECIES.map((s) => <option key={s}>{s}</option>)}
-        </select>
-      </label>
+      <SpeciesTagPicker value={species} onChange={setSpecies} />
       <div className="field-row">
         <label className="field">
           <span>lb</span>
