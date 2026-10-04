@@ -471,7 +471,10 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
       const res = await authActions.requestPasswordReset(email);
       if (res.success) {
         setResetSent(true);
-        setMsg({ text: `Reset code generated: ${res.code}`, error: false });
+        if (res.code) {
+          setResetCode(res.code);
+        }
+        setMsg({ text: `Reset code generated: ${res.code}. Choose your new password below.`, error: false });
       } else {
         setMsg({ text: res.error || 'Password reset failed', error: true });
       }
@@ -487,11 +490,18 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
     try {
       const res = await authActions.confirmPasswordReset(email, resetCode, newPassword);
       if (res.success) {
-        setMsg({ text: 'Password reset successfully! You can now sign in.', error: false });
-        setTimeout(() => {
-          setTab('signin');
-          setResetSent(false);
-        }, 1500);
+        setMsg({ text: 'Password reset successfully! Signing you in...', error: false });
+        const loginRes = await authActions.signIn(email, newPassword);
+        if (loginRes.success) {
+          setTimeout(() => {
+            onClose();
+          }, 800);
+        } else {
+          setTimeout(() => {
+            setTab('signin');
+            setResetSent(false);
+          }, 1200);
+        }
       } else {
         setMsg({ text: res.error || 'Invalid code or password', error: true });
       }
@@ -515,8 +525,21 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
       </div>
 
       {msg && (
-        <div className={`auth-message ${msg.error ? 'error' : 'success'}`}>
-          {msg.text}
+        <div className={`auth-message ${msg.error ? 'error' : 'success'}`} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div>{msg.text}</div>
+          {msg.error && (msg.text.includes('No account found') || msg.text.includes('no account found')) && (
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: 13, padding: '6px 12px', marginTop: 4, alignSelf: 'flex-start' }}
+              onClick={() => {
+                setTab('signup');
+                setMsg(null);
+              }}
+            >
+              Create an account with this email →
+            </button>
+          )}
         </div>
       )}
 

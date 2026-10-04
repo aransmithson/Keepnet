@@ -18,14 +18,30 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // Check if user already exists in D1
-    const existing = await db.prepare('SELECT id FROM users WHERE email = ?').bind(cleanEmail).first();
+    const existing = await db.prepare('SELECT id, password_hash FROM users WHERE email = ?').bind(cleanEmail).first() as any;
+    const cleanNick = (nickname || name || '').trim() || cleanEmail.split('@')[0];
+    const mode = storageMode === 'local' ? 'local' : 'cloud';
+
     if (existing) {
-      return errorResponse('An account with this email already exists.');
+      if (existing.password_hash === 'temp_reset_pending') {
+        await db.prepare('UPDATE users SET password_hash = ?, name = ?, nickname = ?, storage_mode = ? WHERE id = ?')
+          .bind(passwordHash, cleanNick, cleanNick, mode, existing.id).run();
+        return jsonResponse({
+          success: true,
+          user: {
+            id: existing.id,
+            email: cleanEmail,
+            name: cleanNick,
+            nickname: cleanNick,
+            storageMode: mode,
+            createdAt: new Date().toISOString(),
+          },
+        });
+      }
+      return errorResponse('An account with this email already exists. Please sign in or reset your password.');
     }
 
     const id = Math.random().toString(36).slice(2, 10);
-    const cleanNick = (nickname || name || '').trim() || cleanEmail.split('@')[0];
-    const mode = storageMode === 'local' ? 'local' : 'cloud';
 
     await db.prepare(`
       INSERT INTO users (id, email, password_hash, name, nickname, storage_mode, created_at)
