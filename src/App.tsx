@@ -490,12 +490,13 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
       const res = await authActions.requestPasswordReset(email);
       if (res.success) {
         setResetSent(true);
-        if (res.code) {
-          setResetCode(res.code);
-        }
-        setMsg({ text: `Reset code generated: ${res.code}. Choose your new password below.`, error: false });
+        setResetCode('');
+        setMsg({
+          text: res.message || 'Verification code sent! Please check your email inbox for the 6-digit code.',
+          error: false,
+        });
       } else {
-        setMsg({ text: res.error || 'Password reset failed', error: true });
+        setMsg({ text: res.error || 'Password reset request failed', error: true });
       }
     } finally {
       setLoading(false);
@@ -665,7 +666,7 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
           {!resetSent ? (
             <form onSubmit={handleRequestReset} className="stack" style={{ gap: 12 }}>
               <p className="muted" style={{ fontSize: 13 }}>
-                Enter the email associated with your account. We'll generate a password reset code.
+                Enter the email associated with your account. We'll send a secure 6-digit verification code to your inbox to reset your password.
               </p>
               <label className="field">
                 <span>Email</span>
@@ -677,9 +678,20 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
             </form>
           ) : (
             <form onSubmit={handleConfirmReset} className="stack" style={{ gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'var(--accent-light)', borderRadius: 8, fontSize: 13, color: 'var(--text-primary)' }}>
+                <Mail size={16} style={{ flexShrink: 0, color: 'var(--accent-green)' }} />
+                <span>Check your inbox at <strong>{email}</strong> for your 6-digit verification code.</span>
+              </div>
               <label className="field">
                 <span>Reset Code (6 digits)</span>
-                <input type="text" required placeholder="e.g. 123456" value={resetCode} onChange={(e) => setResetCode(e.target.value)} />
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  placeholder="e.g. 123456"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                />
               </label>
               <label className="field">
                 <span>New Password</span>
@@ -687,7 +699,7 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
                   type="password"
                   required
                   minLength={6}
-                  placeholder="New password"
+                  placeholder="At least 6 characters"
                   spellCheck={false}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
@@ -696,6 +708,14 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
               </label>
               <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
                 Set New Password
+              </button>
+              <button
+                type="button"
+                className="link-button"
+                style={{ textAlign: 'center', marginTop: 4, fontSize: 12 }}
+                onClick={() => { setResetSent(false); setMsg(null); }}
+              >
+                Didn't receive the code? Request another
               </button>
             </form>
           )}

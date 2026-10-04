@@ -1,4 +1,5 @@
 import { Env, jsonResponse, errorResponse, corsHeaders } from '../_types';
+import { sendEmail, buildPasswordResetEmail } from '../_email';
 
 export const onRequestOptions: PagesFunction<Env> = async () => {
   return new Response(null, { headers: corsHeaders });
@@ -16,10 +17,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     if (body.action === 'confirm') {
       const { code, newPasswordHash } = body;
+      const cleanCode = (code || '').trim();
       const user = await db.prepare('SELECT * FROM users WHERE email = ?').bind(cleanEmail).first() as any;
-      if (!user) return errorResponse('User not found');
-      if (user.reset_code !== code) return errorResponse('Invalid verification code');
-      if (user.reset_expires && Date.now() > user.reset_expires) return errorResponse('Code expired');
+      if (!user) return errorResponse('No account found for this email address.');
+      if (!user.reset_code || user.reset_code !== cleanCode) {
+        return errorResponse('Invalid verification code. Please check your email and try again.');
+      }
+      if (user.reset_expires && Date.now() > user.reset_expires) {
+        return errorResponse('This reset code has expired. Please request a new code.');
+      }
 
       await db.prepare('UPDATE users SET password_hash = ?, reset_code = NULL, reset_expires = NULL WHERE id = ?')
         .bind(newPasswordHash, user.id).run();
@@ -27,10 +33,14 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return jsonResponse({ success: true, message: 'Password updated successfully' });
     }
 
-    // Default: generate reset code
-    const user = await db.prepare('SELECT id FROM users WHERE email = ?').bind(cleanEmail).first() as any;
+    // Default: generate reset code and email it to the user
+    const user = await db.prepare('SELECT id, name FROM users WHERE email = ?').bind(cleanEmail).first() as any;
     if (!user) {
-      return errorResponse('No account found with this email address.');
+      // Return success with generic message to avoid email enumeration attacks
+      return jsonResponse({
+        success: true,
+        message: 'If an account exists for this email, a verification code has been sent to your inbox.',
+      });
     }
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -39,7 +49,22 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     await db.prepare('UPDATE users SET reset_code = ?, reset_expires = ? WHERE id = ?')
       .bind(code, expires, user.id).run();
 
-    return jsonResponse({ success: true, code });
+    // Dispatch the password reset email
+    const emailData = buildPasswordResetEmail(code, cleanEmail);
+    const emailResult = await sendEmail(context.env, {
+      to: cleanEmail,
+      subject: emailData.subject,
+      html: emailData.html,
+      text: emailData.text,
+    });
+
+    console.log(`[Keepnet Auth] Password reset code dispatched for ${cleanEmail} via ${emailResult.provider || 'fallback'}`);
+
+    // SECURITY: Never return the code in the JSON response
+    return jsonResponse({
+      success: true,
+      message: 'A 6-digit verification code has been sent to your email. Please check your inbox.',
+    });
   } catch (err: any) {
     return errorResponse(err.message || 'Reset request failed', 500);
   }

@@ -1,6 +1,11 @@
 export interface Env {
   DB: D1Database;
   PHOTOS?: R2Bucket;
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
+  POSTMARK_SERVER_TOKEN?: string;
+  SENDGRID_API_KEY?: string;
+  BREVO_API_KEY?: string;
 }
 
 export const corsHeaders = {

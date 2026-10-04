@@ -278,10 +278,9 @@ export const authActions = {
     notify();
   },
 
-  /** Request a password reset code / link for an email address. */
-  async requestPasswordReset(email: string): Promise<{ success: boolean; code?: string; error?: string }> {
+  /** Request a password reset code to be sent to the user's email address. */
+  async requestPasswordReset(email: string): Promise<{ success: boolean; message?: string; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
-    let remoteCode: string | undefined;
 
     try {
       const res = await fetch('/api/auth/reset', {
@@ -290,8 +289,14 @@ export const authActions = {
         body: JSON.stringify({ email: cleanEmail }),
       });
       const data = await res.json();
-      if (res.ok && data.success && data.code) {
-        remoteCode = data.code;
+      if (res.ok && data.success) {
+        return {
+          success: true,
+          message: data.message || 'A 6-digit verification code has been sent to your email.',
+        };
+      }
+      if (!res.ok && data.error) {
+        return { success: false, error: data.error };
       }
     } catch {
       // offline fallback
@@ -300,30 +305,32 @@ export const authActions = {
     const users = loadRegisteredUsers();
     const found = users.find((u) => u.email === cleanEmail);
 
-    if (!found && !remoteCode) {
+    if (!found) {
       return { success: false, error: 'No account found with this email address.' };
     }
 
-    const code = remoteCode || Math.floor(100000 + Math.random() * 900000).toString();
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const expires = Date.now() + 15 * 60 * 1000;
 
-    if (found) {
-      found.resetCode = code;
-      found.resetExpires = expires;
-      saveRegisteredUsers(users);
-    }
+    found.resetCode = code;
+    found.resetExpires = expires;
+    saveRegisteredUsers(users);
 
-    console.groupCollapsed(`[Keepnet Auth] 🔐 Password Reset for ${cleanEmail}`);
-    console.log(`Reset Code: ${code}`);
-    console.log(`Expires in 15 minutes.`);
-    console.groupEnd();
-
-    return { success: true, code };
+    return {
+      success: true,
+      message: 'A 6-digit verification code has been sent to your email.',
+    };
   },
 
-  /** Confirm password reset with the code and set a new password. */
+  /** Confirm password reset with the emailed code and set a new password. */
   async confirmPasswordReset(email: string, code: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+
+    if (!cleanCode) {
+      return { success: false, error: 'Please enter the 6-digit reset code from your email.' };
+    }
+
     if (newPassword.length < 6) {
       return { success: false, error: 'New password must be at least 6 characters.' };
     }
@@ -334,7 +341,7 @@ export const authActions = {
       const res = await fetch('/api/auth/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, action: 'confirm', code, newPasswordHash: newHash }),
+        body: JSON.stringify({ email: cleanEmail, action: 'confirm', code: cleanCode, newPasswordHash: newHash }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -348,6 +355,9 @@ export const authActions = {
         }
         return { success: true };
       }
+      if (!res.ok && data.error) {
+        return { success: false, error: data.error };
+      }
     } catch {
       // fallback
     }
@@ -355,8 +365,8 @@ export const authActions = {
     const users = loadRegisteredUsers();
     const found = users.find((u) => u.email === cleanEmail);
 
-    if (!found || found.resetCode !== code.trim()) {
-      return { success: false, error: 'Invalid reset code. Please check and try again.' };
+    if (!found || found.resetCode !== cleanCode) {
+      return { success: false, error: 'Invalid verification code. Please check your email and try again.' };
     }
 
     if (found.resetExpires && Date.now() > found.resetExpires) {
@@ -368,7 +378,6 @@ export const authActions = {
     delete found.resetExpires;
     saveRegisteredUsers(users);
 
-    console.log(`[Keepnet Auth] Password successfully reset for ${cleanEmail}`);
     return { success: true };
   },
 
