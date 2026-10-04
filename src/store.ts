@@ -28,6 +28,8 @@ export type Session = {
   photos?: string[];
   /** Whether this session is shared to the public Discover map. */
   isShared?: boolean;
+  userId?: string;
+  userName?: string;
 };
 
 export type Catch = {
@@ -42,6 +44,8 @@ export type Catch = {
   notes?: string;
   /** Whether this catch is shared to the public Discover map. */
   isShared?: boolean;
+  userId?: string;
+  userName?: string;
 };
 
 type State = { sessions: Session[]; catches: Catch[]; name: string };
@@ -86,57 +90,154 @@ const commit = (next: State) => {
 export const useStore = () =>
   useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb); }, () => state);
 
+import { pushSessionToCloud, pushCatchToCloud } from './cloud';
+import { authActions } from './auth';
+
 export const actions = {
   startSession(v: { venueId: string; venueName: string; lat: number; lon: number; photo?: string; isShared?: boolean }): Session {
-    const s: Session = { id: uid(), isShared: false, ...v, photos: v.photo ? [v.photo] : [], startedAt: new Date().toISOString() };
+    const user = authActions.getCurrentUser();
+    const s: Session = {
+      id: uid(),
+      isShared: v.isShared ?? false,
+      userId: user?.id,
+      userName: user?.name || state.name || 'Angler',
+      ...v,
+      photos: v.photo ? [v.photo] : [],
+      startedAt: new Date().toISOString(),
+    };
     commit({ ...state, sessions: [s, ...state.sessions] });
+    if (s.isShared || user?.storageMode === 'cloud') {
+      pushSessionToCloud(s, user);
+    }
     return s;
   },
   updateSession(id: string, patch: Partial<Session>) {
-    commit({ ...state, sessions: state.sessions.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+    let updated: Session | undefined;
+    commit({
+      ...state,
+      sessions: state.sessions.map((s) => {
+        if (s.id === id) {
+          updated = { ...s, ...patch };
+          return updated;
+        }
+        return s;
+      }),
+    });
+    if (updated) {
+      const user = authActions.getCurrentUser();
+      if (updated.isShared || user?.storageMode === 'cloud') {
+        pushSessionToCloud(updated, user);
+      }
+    }
   },
   /** Add a location photo to the session gallery and make it the cover. */
   addSessionPhoto(id: string, photo: string) {
-    commit({ ...state, sessions: state.sessions.map((s) => (s.id === id ? { ...s, photo, photos: [...(s.photos ?? []), photo] } : s)) });
+    let updated: Session | undefined;
+    commit({
+      ...state,
+      sessions: state.sessions.map((s) => {
+        if (s.id === id) {
+          updated = { ...s, photo, photos: [...(s.photos ?? []), photo] };
+          return updated;
+        }
+        return s;
+      }),
+    });
+    if (updated) {
+      const user = authActions.getCurrentUser();
+      if (updated.isShared || user?.storageMode === 'cloud') {
+        pushSessionToCloud(updated, user);
+      }
+    }
   },
   addCatch(c: Omit<Catch, 'id'>): Catch {
-    const n = { ...c, id: uid() };
+    const user = authActions.getCurrentUser();
+    const n = {
+      ...c,
+      id: uid(),
+      userId: user?.id,
+      userName: user?.name || state.name || 'Angler',
+    };
     commit({ ...state, catches: [n, ...state.catches] });
+    if (n.isShared || user?.storageMode === 'cloud') {
+      pushCatchToCloud(n, user);
+    }
     return n;
   },
   updateCatch(id: string, patch: Partial<Catch>) {
-    commit({ ...state, catches: state.catches.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+    let updated: Catch | undefined;
+    commit({
+      ...state,
+      catches: state.catches.map((c) => {
+        if (c.id === id) {
+          updated = { ...c, ...patch };
+          return updated;
+        }
+        return c;
+      }),
+    });
+    if (updated) {
+      const user = authActions.getCurrentUser();
+      if (updated.isShared || user?.storageMode === 'cloud') {
+        pushCatchToCloud(updated, user);
+      }
+    }
   },
   deleteCatch(id: string) {
     commit({ ...state, catches: state.catches.filter((c) => c.id !== id) });
   },
   toggleSessionShare(id: string): boolean {
     let nextShared = false;
+    let target: Session | undefined;
     commit({
       ...state,
       sessions: state.sessions.map((s) => {
         if (s.id === id) {
           nextShared = !s.isShared;
-          return { ...s, isShared: nextShared };
+          target = { ...s, isShared: nextShared };
+          return target;
         }
         return s;
       }),
     });
+    if (target) {
+      const user = authActions.getCurrentUser();
+      pushSessionToCloud(target, user);
+    }
     return nextShared;
   },
   toggleCatchShare(id: string): boolean {
     let nextShared = false;
+    let target: Catch | undefined;
     commit({
       ...state,
       catches: state.catches.map((c) => {
         if (c.id === id) {
           nextShared = !c.isShared;
-          return { ...c, isShared: nextShared };
+          target = { ...c, isShared: nextShared };
+          return target;
         }
         return c;
       }),
     });
+    if (target) {
+      const user = authActions.getCurrentUser();
+      pushCatchToCloud(target, user);
+    }
     return nextShared;
+  },
+  mergeRemoteData(remoteSessions: Session[], remoteCatches: Catch[]) {
+    const sMap = new Map(state.sessions.map((s) => [s.id, s]));
+    remoteSessions.forEach((s) => sMap.set(s.id, s));
+
+    const cMap = new Map(state.catches.map((c) => [c.id, c]));
+    remoteCatches.forEach((c) => cMap.set(c.id, c));
+
+    commit({
+      ...state,
+      sessions: Array.from(sMap.values()).sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
+      catches: Array.from(cMap.values()).sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime()),
+    });
   },
   setName(name: string) { commit({ ...state, name }); },
   clearAll() {

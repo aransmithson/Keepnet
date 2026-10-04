@@ -12,6 +12,7 @@ import { VENUES, SPECIES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz
 import { fetchWeather, getDevicePosition, compass, type Weather } from './weather';
 import { useTheme, themeActions } from './theme';
 import { useAuth, authActions } from './auth';
+import { syncUserWithCloud } from './cloud';
 
 /* ---------- Weather logging ---------- */
 
@@ -401,6 +402,7 @@ const ShareModal = ({
 /* ---------- Auth Modal ---------- */
 
 const AuthModal = ({ onClose }: { onClose: () => void }) => {
+  const { sessions, catches } = useStore();
   const [tab, setTab] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -410,53 +412,86 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
   const [newPassword, setNewPassword] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [msg, setMsg] = useState<{ text: string; error?: boolean } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    const res = authActions.signIn(email, password);
-    if (res.success) {
-      onClose();
-    } else {
-      setMsg({ text: res.error || 'Failed to sign in', error: true });
+    setLoading(true);
+    try {
+      const res = await authActions.signIn(email, password);
+      if (res.success) {
+        const user = authActions.getCurrentUser();
+        if (user && user.storageMode !== 'local') {
+          syncUserWithCloud(user, sessions, catches).then((data) => {
+            if (data) actions.mergeRemoteData(data.sessions, data.catches);
+          });
+        }
+        onClose();
+      } else {
+        setMsg({ text: res.error || 'Failed to sign in', error: true });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    const res = authActions.signUp(email, password, name, saveLocallyOnly);
-    if (res.success) {
-      onClose();
-    } else {
-      setMsg({ text: res.error || 'Failed to sign up', error: true });
+    setLoading(true);
+    try {
+      const res = await authActions.signUp(email, password, name, saveLocallyOnly);
+      if (res.success) {
+        const user = authActions.getCurrentUser();
+        if (user && user.storageMode !== 'local') {
+          syncUserWithCloud(user, sessions, catches).then((data) => {
+            if (data) actions.mergeRemoteData(data.sessions, data.catches);
+          });
+        }
+        onClose();
+      } else {
+        setMsg({ text: res.error || 'Failed to sign up', error: true });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRequestReset = (e: React.FormEvent) => {
+  const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    const res = authActions.requestPasswordReset(email);
-    if (res.success) {
-      setResetSent(true);
-      setMsg({ text: `Reset code generated! Demo code: ${res.code}`, error: false });
-    } else {
-      setMsg({ text: res.error || 'Password reset failed', error: true });
+    setLoading(true);
+    try {
+      const res = await authActions.requestPasswordReset(email);
+      if (res.success) {
+        setResetSent(true);
+        setMsg({ text: `Reset code generated: ${res.code}`, error: false });
+      } else {
+        setMsg({ text: res.error || 'Password reset failed', error: true });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleConfirmReset = (e: React.FormEvent) => {
+  const handleConfirmReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsg(null);
-    const res = authActions.confirmPasswordReset(email, resetCode, newPassword);
-    if (res.success) {
-      setMsg({ text: 'Password reset successfully! You can now sign in.', error: false });
-      setTimeout(() => {
-        setTab('signin');
-        setResetSent(false);
-      }, 1500);
-    } else {
-      setMsg({ text: res.error || 'Invalid code or password', error: true });
+    setLoading(true);
+    try {
+      const res = await authActions.confirmPasswordReset(email, resetCode, newPassword);
+      if (res.success) {
+        setMsg({ text: 'Password reset successfully! You can now sign in.', error: false });
+        setTimeout(() => {
+          setTab('signin');
+          setResetSent(false);
+        }, 1500);
+      } else {
+        setMsg({ text: res.error || 'Invalid code or password', error: true });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -482,14 +517,6 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
 
       {tab === 'signin' && (
         <form onSubmit={handleSignIn} className="stack" style={{ gap: 12 }}>
-          {!authActions.hasAccounts() && (
-            <div className="auth-message error" role="status">
-              No accounts exist in this browser yet. Accounts are stored on the device where they were created —{' '}
-              <button type="button" className="link-button" style={{ fontSize: 'inherit', textDecoration: 'underline' }} onClick={() => { setTab('signup'); setMsg(null); }}>
-                create one here
-              </button>.
-            </div>
-          )}
           <label className="field">
             <span>Email</span>
             <input type="email" required autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="email" placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -503,8 +530,8 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
               Forgot password?
             </button>
           </div>
-          <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
-            Sign In
+          <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: 8 }}>
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
           <button type="button" className="btn-secondary" onClick={() => { authActions.setStorageMode('local'); onClose(); }}>
             <HardDrive size={16} /> Continue as Local Guest (No Cloud)
@@ -542,8 +569,8 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
             </p>
           </div>
 
-          <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
-            {saveLocallyOnly ? 'Start Private Local Journal' : 'Create Cloud Account'}
+          <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: 8 }}>
+            {loading ? 'Creating Account...' : (saveLocallyOnly ? 'Start Private Local Journal' : 'Create Cloud Account')}
           </button>
         </form>
       )}
@@ -1401,6 +1428,20 @@ const Profile = () => {
   const { user, storageMode } = useAuth();
   const theme = useTheme();
   const [authOpen, setAuthOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    if (!user) return;
+    setSyncing(true);
+    try {
+      const data = await syncUserWithCloud(user, sessions, catches);
+      if (data) {
+        actions.mergeRemoteData(data.sessions, data.catches);
+      }
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   const species = [...new Set(catches.map((c) => c.species))];
   const best = [...catches].sort((a, b) => totalOz(b) - totalOz(a))[0];
@@ -1451,8 +1492,11 @@ const Profile = () => {
         <div className="stack" style={{ marginTop: 12 }}>
           {user ? (
             <div className="field-row">
+              <button className="btn-secondary" style={{ flex: 1 }} onClick={handleSync} disabled={syncing}>
+                <RefreshCw size={15} /> {syncing ? 'Syncing...' : 'Sync Cloud'}
+              </button>
               <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setAuthOpen(true)}>
-                <KeyRound size={15} /> Reset Password
+                <KeyRound size={15} /> Password
               </button>
               <button className="btn-secondary" style={{ flex: 1 }} onClick={() => authActions.signOut()}>
                 <LogOut size={15} /> Sign Out
