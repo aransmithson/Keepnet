@@ -14,7 +14,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return errorResponse('Email is required');
     }
 
-    const user = await db.prepare('SELECT * FROM users WHERE email = ?').bind(cleanEmail).first() as any;
+    const altEmail = cleanEmail.endsWith('@gmail.com')
+      ? cleanEmail.replace('@gmail.com', '@googlemail.com')
+      : cleanEmail.endsWith('@googlemail.com')
+      ? cleanEmail.replace('@googlemail.com', '@gmail.com')
+      : cleanEmail;
+
+    const user = await db.prepare('SELECT * FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
     if (!user) {
       return errorResponse('No account found with this email address.');
     }

@@ -23,24 +23,29 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     if (body.action === 'confirm') {
       const { code, newPasswordHash } = body;
-      const cleanCode = (code || '').trim();
+      const cleanCode = String(code || '').replace(/\D/g, '').trim();
       const user = await db.prepare('SELECT * FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
       if (!user) return errorResponse('No account found for this email address.');
-      if (!user.reset_code || user.reset_code !== cleanCode) {
+
+      const storedCode = String(user.reset_code || '').replace(/\D/g, '').trim();
+      console.log(`[Keepnet Auth] Reset confirmation for ${cleanEmail}: stored="${storedCode}", submitted="${cleanCode}"`);
+
+      if (!storedCode || storedCode !== cleanCode) {
         return errorResponse('Invalid verification code. Please check your email and try again.');
       }
-      if (user.reset_expires && Date.now() > user.reset_expires) {
+      if (user.reset_expires && Date.now() > Number(user.reset_expires)) {
         return errorResponse('This reset code has expired. Please request a new code.');
       }
 
       await db.prepare('UPDATE users SET password_hash = ?, reset_code = NULL, reset_expires = NULL WHERE id = ?')
         .bind(newPasswordHash, user.id).run();
 
+      console.log(`[Keepnet Auth] Password reset successfully for ${cleanEmail} (user: ${user.id})`);
       return jsonResponse({ success: true, message: 'Password updated successfully' });
     }
 
     // Default: generate reset code and email it to the user
-    const user = await db.prepare('SELECT id, name, email FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
+    const user = await db.prepare('SELECT id, name, email, reset_code, reset_expires FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
     if (!user) {
       // Return success with generic message to avoid email enumeration attacks
       return jsonResponse({
@@ -49,8 +54,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       });
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = Date.now() + 15 * 60 * 1000;
+    // If an existing code was generated less than 3 minutes ago, reuse it so multiple rapid clicks send the same code
+    let code: string;
+    const now = Date.now();
+    const existingCode = user.reset_code ? String(user.reset_code).replace(/\D/g, '').trim() : '';
+    const existingExpires = Number(user.reset_expires) || 0;
+
+    if (existingCode && existingExpires > now && (existingExpires - now) > 12 * 60 * 1000) {
+      code = existingCode;
+    } else {
+      code = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    const expires = now + 15 * 60 * 1000;
 
     await db.prepare('UPDATE users SET reset_code = ?, reset_expires = ? WHERE id = ?')
       .bind(code, expires, user.id).run();

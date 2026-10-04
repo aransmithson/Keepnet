@@ -325,7 +325,7 @@ export const authActions = {
   /** Confirm password reset with the emailed code and set a new password. */
   async confirmPasswordReset(email: string, code: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
-    const cleanCode = code.trim();
+    const cleanCode = String(code || '').replace(/\D/g, '').trim();
 
     if (!cleanCode) {
       return { success: false, error: 'Please enter the 6-digit reset code from your email.' };
@@ -364,12 +364,13 @@ export const authActions = {
 
     const users = loadRegisteredUsers();
     const found = users.find((u) => u.email === cleanEmail);
+    const localStoredCode = found?.resetCode ? String(found.resetCode).replace(/\D/g, '').trim() : '';
 
-    if (!found || found.resetCode !== cleanCode) {
+    if (!found || localStoredCode !== cleanCode) {
       return { success: false, error: 'Invalid verification code. Please check your email and try again.' };
     }
 
-    if (found.resetExpires && Date.now() > found.resetExpires) {
+    if (found.resetExpires && Date.now() > Number(found.resetExpires)) {
       return { success: false, error: 'Reset code has expired. Please request a new one.' };
     }
 
