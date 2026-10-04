@@ -133,27 +133,25 @@ const Sheet = ({
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const pointerDownOnBackdropRef = useRef(false);
 
   useEffect(() => {
     openerRef.current = document.activeElement as HTMLElement | null;
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    // Focus close button on open
-    const timer = setTimeout(() => {
-      if (closeBtnRef.current) closeBtnRef.current.focus();
-    }, 50);
-
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key === 'Tab' && dialogRef.current) {
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
         );
         if (focusable.length === 0) return;
         const first = focusable[0];
@@ -172,21 +170,34 @@ const Sheet = ({
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
-      clearTimeout(timer);
       document.body.style.overflow = origOverflow;
       window.removeEventListener('keydown', onKeyDown);
       if (openerRef.current && typeof openerRef.current.focus === 'function') {
         openerRef.current.focus();
       }
     };
-  }, [onClose]);
+  }, []); // Only runs once on mount and cleans up on unmount
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
+    <div
+      className="sheet-backdrop"
+      onPointerDown={(e) => {
+        // Track whether pointer down began directly on the backdrop (not inside sheet or on inputs)
+        pointerDownOnBackdropRef.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        // Only close if BOTH pointerdown AND click occurred directly on the backdrop
+        if (e.target === e.currentTarget && pointerDownOnBackdropRef.current) {
+          onCloseRef.current();
+        }
+        pointerDownOnBackdropRef.current = false;
+      }}
+    >
       <div
         ref={dialogRef}
         className="sheet"
         onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -195,8 +206,12 @@ const Sheet = ({
           <h2 className="serif">{title}</h2>
           <button
             ref={closeBtnRef}
+            type="button"
             className="sheet-close-btn"
-            onClick={onClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCloseRef.current();
+            }}
             aria-label={`Close ${title}`}
           >
             <X size={18} />
@@ -551,7 +566,18 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
           </label>
           <label className="field">
             <span>Password</span>
-            <input type="password" required autoComplete="current-password" autoCapitalize="none" autoCorrect="off" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              type="password"
+              required
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
           </label>
           <div style={{ textAlign: 'right', marginTop: -4 }}>
             <button type="button" className="link-button" onClick={() => { setTab('reset'); setMsg(null); }}>
@@ -594,7 +620,19 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
           </label>
           <label className="field">
             <span>Password</span>
-            <input type="password" required minLength={6} autoComplete="new-password" autoCapitalize="none" autoCorrect="off" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="At least 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+            />
           </label>
 
           {/* Option on sign up to save locally and not use cloud data */}
@@ -641,7 +679,16 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
               </label>
               <label className="field">
                 <span>New Password</span>
-                <input type="password" required minLength={6} placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  placeholder="New password"
+                  spellCheck={false}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                />
               </label>
               <button type="submit" className="btn-primary" style={{ marginTop: 8 }}>
                 Set New Password
