@@ -104,6 +104,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         nickname: user.nickname || user.name,
         storageMode: user.storage_mode || 'cloud',
         createdAt: user.created_at,
+        isAdmin: user.is_admin === 1 || user.email === 'aransmithson@gmail.com' || user.email === 'aransmithson@googlemail.com',
       },
     });
   } catch (err: any) {

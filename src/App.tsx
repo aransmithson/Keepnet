@@ -15,7 +15,8 @@ import {
 } from './store';
 import { fetchWeather, getDevicePosition, compass, type Weather } from './weather';
 import { useTheme, themeActions } from './theme';
-import { useAuth, authActions } from './auth';
+import { useAuth, authActions, isUserAdmin } from './auth';
+import AdminPanel from './AdminPanel';
 import { syncUserWithCloud, fetchUserCloudData } from './cloud';
 
 // Global PWA installation event capture
@@ -1321,6 +1322,8 @@ const POPULAR_SPECIES = [
   'Barbel', 'Brown trout', 'Rainbow trout', 'Grayling', 'Dace', 'Rudd'
 ];
 
+let cachedSpeciesTags: string[] = POPULAR_SPECIES;
+
 const SpeciesTagPicker = ({
   value,
   onChange,
@@ -1328,7 +1331,25 @@ const SpeciesTagPicker = ({
   value: string;
   onChange: (species: string) => void;
 }) => {
-  const isPreset = POPULAR_SPECIES.some((s) => s.toLowerCase() === (value || '').toLowerCase());
+  const [speciesList, setSpeciesList] = useState<string[]>(cachedSpeciesTags);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/species')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (active && data && Array.isArray(data.species) && data.species.length > 0) {
+          cachedSpeciesTags = data.species;
+          setSpeciesList(data.species);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const isPreset = speciesList.some((s) => s.toLowerCase() === (value || '').toLowerCase());
   const [customText, setCustomText] = useState(isPreset ? '' : value);
 
   const selectPreset = (s: string) => {
@@ -1353,7 +1374,7 @@ const SpeciesTagPicker = ({
       </div>
 
       <div className="species-tag-grid" role="group" aria-label="Select fish species">
-        {POPULAR_SPECIES.map((s) => {
+        {speciesList.map((s) => {
           const isSelected = !customText && value.toLowerCase() === s.toLowerCase();
           return (
             <button
@@ -1921,6 +1942,8 @@ const Profile = () => {
   const { user, storageMode } = useAuth();
   const theme = useTheme();
   const [authOpen, setAuthOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
+  const isAdmin = isUserAdmin(user);
   const [syncing, setSyncing] = useState(false);
   const [savingNickname, setSavingNickname] = useState(false);
   const [nicknameSaved, setNicknameSaved] = useState(false);
@@ -2080,6 +2103,37 @@ const Profile = () => {
         </div>
       </div>
 
+      {/* Exclusive Admin Console Access */}
+      {isAdmin && (
+        <div className="card admin-promo-card">
+          <div className="row-between" style={{ alignItems: 'flex-start' }}>
+            <div>
+              <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#10b981', marginBottom: 4 }}>
+                <ShieldCheck size={14} /> Master Administrator
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+                Keepnet Admin Console
+              </div>
+              <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                Total catch reports, user growth trends, UK fisheries directory, species tags & database backups.
+              </p>
+            </div>
+            <span className="admin-badge">Admin</span>
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <button
+              type="button"
+              id="open-admin-console-btn"
+              className="btn-primary"
+              style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
+              onClick={() => setAdminOpen(true)}
+            >
+              <ShieldCheck size={16} /> Open Admin Panel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* App Preferences & Settings Card (Units + Theme) */}
       <div className="card preferences-card">
         <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
@@ -2213,6 +2267,7 @@ const Profile = () => {
         <Trash2 size={15} style={{ verticalAlign: -2, marginRight: 6 }} /> Clear all journal data
       </button>
 
+      {adminOpen && isAdmin && <AdminPanel onClose={() => setAdminOpen(false)} />}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
   );

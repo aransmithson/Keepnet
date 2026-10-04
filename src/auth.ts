@@ -9,7 +9,14 @@ export type UserAccount = {
   nickname?: string;
   createdAt: string;
   storageMode: StorageMode;
+  isAdmin?: boolean;
 };
+
+export function isUserAdmin(user?: UserAccount | null): boolean {
+  if (!user?.email) return false;
+  const email = user.email.toLowerCase().trim();
+  return email === 'aransmithson@gmail.com' || email === 'aransmithson@googlemail.com' || !!user.isAdmin;
+}
 
 type StoredUser = {
   id: string;
