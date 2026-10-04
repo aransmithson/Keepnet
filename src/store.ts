@@ -48,7 +48,14 @@ export type Catch = {
   userName?: string;
 };
 
-type State = { sessions: Session[]; catches: Catch[]; name: string };
+export type UnitSystem = 'imperial' | 'metric';
+
+type State = {
+  sessions: Session[];
+  catches: Catch[];
+  name: string;
+  unitSystem?: UnitSystem;
+};
 
 export const VENUES: Venue[] = [
   { id: 'dolphinholme', name: 'Dolphinholme', type: 'Coarse fishing', lat: 54.0003, lon: -2.7372, targets: ['Perch', 'Chub'], description: 'Upper River Wyre — quiet glides and deep pools under the weir.' },
@@ -68,6 +75,7 @@ const seed = (): State => ({
   name: 'Angler',
   sessions: [],
   catches: [],
+  unitSystem: 'imperial',
 });
 
 const load = (): State => {
@@ -243,6 +251,9 @@ export const actions = {
     commit({ ...state, name });
     authActions.updateNickname(name);
   },
+  setUnitSystem(unitSystem: UnitSystem) {
+    commit({ ...state, unitSystem });
+  },
   clearAll() {
     try {
       localStorage.removeItem('keepnet:v1');
@@ -255,7 +266,43 @@ export const actions = {
   },
 };
 
-export const fmtWeight = (c: Pick<Catch, 'weightLb' | 'weightOz'>) => `${c.weightLb} lb ${c.weightOz} oz`;
+export const metricToImperial = (kg: number, g: number): { weightLb: number; weightOz: number } => {
+  const totalG = (Math.max(0, kg) || 0) * 1000 + (Math.max(0, g) || 0);
+  const totalOunces = totalG / 28.349523125;
+  const lb = Math.floor(totalOunces / 16);
+  const oz = +(totalOunces - lb * 16).toFixed(2);
+  return { weightLb: lb, weightOz: oz };
+};
+
+export const imperialToMetric = (weightLb: number, weightOz: number): { kg: number; g: number; totalG: number } => {
+  const totalOzVal = (Math.max(0, weightLb) || 0) * 16 + (Math.max(0, weightOz) || 0);
+  const totalG = Math.round(totalOzVal * 28.349523125);
+  const kg = Math.floor(totalG / 1000);
+  const g = totalG % 1000;
+  return { kg, g, totalG };
+};
+
+export const fmtWeight = (
+  c: Pick<Catch, 'weightLb' | 'weightOz'>,
+  unit?: UnitSystem
+): string => {
+  const activeUnit = unit ?? state.unitSystem ?? 'imperial';
+  if (activeUnit === 'metric') {
+    const { kg, g, totalG } = imperialToMetric(c.weightLb, c.weightOz);
+    if (!totalG) return '0 kg';
+    if (totalG < 1000) return `${totalG} g`;
+    if (g === 0) return `${kg} kg`;
+    const decimalKg = +(totalG / 1000).toFixed(2);
+    return `${decimalKg} kg`;
+  }
+  const lb = Math.floor(c.weightLb || 0);
+  const oz = Math.round(c.weightOz || 0);
+  if (!lb && !oz) return '0 lb 0 oz';
+  if (!lb) return `${oz} oz`;
+  if (!oz) return `${lb} lb`;
+  return `${lb} lb ${oz} oz`;
+};
+
 export const totalOz = (c: Pick<Catch, 'weightLb' | 'weightOz'>) => c.weightLb * 16 + c.weightOz;
 
 export const fmtDay = (iso: string) => {

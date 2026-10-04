@@ -4,12 +4,15 @@ import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search, ShieldCheck,
-  Compass, Sparkles
+  Compass, Sparkles, Scale
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
 import Logo from './Logo';
-import { VENUES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage, type Venue, type Session, type Catch } from './store';
+import {
+  VENUES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage,
+  metricToImperial, imperialToMetric, type Venue, type Session, type Catch, type UnitSystem
+} from './store';
 import { fetchWeather, getDevicePosition, compass, type Weather } from './weather';
 import { useTheme, themeActions } from './theme';
 import { useAuth, authActions } from './auth';
@@ -1347,10 +1350,171 @@ const SpeciesTagPicker = ({
   );
 };
 
+/* ---------- Weight Input with Imperial / Metric toggle ---------- */
+
+const WeightInput = ({
+  defaultUnit,
+  initialLb = 0,
+  initialOz = 0,
+  onChange,
+}: {
+  defaultUnit: UnitSystem;
+  initialLb?: number;
+  initialOz?: number;
+  onChange: (weights: { lb: number; oz: number }) => void;
+}) => {
+  const [unit, setUnit] = useState<UnitSystem>(defaultUnit);
+  const [lb, setLb] = useState<number | ''>(initialLb || '');
+  const [oz, setOz] = useState<number | ''>(initialOz || '');
+
+  const initialMetric = imperialToMetric(initialLb, initialOz);
+  const [kg, setKg] = useState<number | ''>(initialMetric.kg || '');
+  const [g, setG] = useState<number | ''>(initialMetric.g || '');
+
+  const updateImperial = (newLb: number | '', newOz: number | '') => {
+    setLb(newLb);
+    setOz(newOz);
+    const validLb = typeof newLb === 'number' ? newLb : 0;
+    const validOz = typeof newOz === 'number' ? newOz : 0;
+    const m = imperialToMetric(validLb, validOz);
+    setKg(m.kg || '');
+    setG(m.g || '');
+    onChange({ lb: validLb, oz: validOz });
+  };
+
+  const updateMetric = (newKg: number | '', newG: number | '') => {
+    setKg(newKg);
+    setG(newG);
+    const validKg = typeof newKg === 'number' ? newKg : 0;
+    const validG = typeof newG === 'number' ? newG : 0;
+    const imp = metricToImperial(validKg, validG);
+    setLb(imp.weightLb || '');
+    setOz(Math.round(imp.weightOz) || '');
+    onChange({ lb: imp.weightLb, oz: imp.weightOz });
+  };
+
+  const handleUnitSwitch = (targetUnit: UnitSystem) => {
+    if (targetUnit === unit) return;
+    setUnit(targetUnit);
+    if (targetUnit === 'metric') {
+      const validLb = typeof lb === 'number' ? lb : 0;
+      const validOz = typeof oz === 'number' ? oz : 0;
+      const m = imperialToMetric(validLb, validOz);
+      setKg(m.kg || '');
+      setG(m.g || '');
+    } else {
+      const validKg = typeof kg === 'number' ? kg : 0;
+      const validG = typeof g === 'number' ? g : 0;
+      const imp = metricToImperial(validKg, validG);
+      setLb(imp.weightLb || '');
+      setOz(Math.round(imp.weightOz) || '');
+    }
+  };
+
+  return (
+    <div className="weight-input-container">
+      <div className="row-between" style={{ alignItems: 'center', marginBottom: 6 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Weight</span>
+        <div className="unit-pill-group" role="group" aria-label="Weight unit">
+          <button
+            type="button"
+            className={`unit-pill-btn ${unit === 'imperial' ? 'selected' : ''}`}
+            onClick={() => handleUnitSwitch('imperial')}
+          >
+            lb / oz
+          </button>
+          <button
+            type="button"
+            className={`unit-pill-btn ${unit === 'metric' ? 'selected' : ''}`}
+            onClick={() => handleUnitSwitch('metric')}
+          >
+            kg / g
+          </button>
+        </div>
+      </div>
+
+      {unit === 'metric' ? (
+        <div className="field-row">
+          <label className="field">
+            <span>Kilograms (kg)</span>
+            <input
+              id="catch-kg"
+              type="number"
+              min={0}
+              step="any"
+              value={kg}
+              placeholder="0"
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.includes('.') && parseFloat(val) >= 0) {
+                  const totalKg = parseFloat(val);
+                  const k = Math.floor(totalKg);
+                  const grams = Math.round((totalKg - k) * 1000);
+                  updateMetric(k, grams);
+                } else {
+                  updateMetric(val === '' ? '' : Math.max(0, parseInt(val, 10) || 0), g);
+                }
+              }}
+            />
+          </label>
+          <label className="field">
+            <span>Grams (g)</span>
+            <input
+              id="catch-g"
+              type="number"
+              min={0}
+              max={999}
+              step={10}
+              value={g}
+              placeholder="0"
+              onChange={(e) => {
+                const val = e.target.value;
+                updateMetric(kg, val === '' ? '' : Math.min(999, Math.max(0, parseInt(val, 10) || 0)));
+              }}
+            />
+          </label>
+        </div>
+      ) : (
+        <div className="field-row">
+          <label className="field">
+            <span>Pounds (lb)</span>
+            <input
+              id="catch-lb"
+              type="number"
+              min={0}
+              value={lb}
+              placeholder="0"
+              onChange={(e) => {
+                const val = e.target.value;
+                updateImperial(val === '' ? '' : Math.max(0, parseInt(val, 10) || 0), oz);
+              }}
+            />
+          </label>
+          <label className="field">
+            <span>Ounces (oz)</span>
+            <input
+              id="catch-oz"
+              type="number"
+              min={0}
+              max={15}
+              value={oz}
+              placeholder="0"
+              onChange={(e) => {
+                const val = e.target.value;
+                updateImperial(lb, val === '' ? '' : Math.min(15, Math.max(0, parseInt(val, 10) || 0)));
+              }}
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () => void }) => {
+  const { unitSystem = 'imperial' } = useStore();
   const [species, setSpecies] = useState(POPULAR_SPECIES[0]);
-  const [lb, setLb] = useState(0);
-  const [oz, setOz] = useState(0);
+  const [weight, setWeight] = useState({ lb: 0, oz: 0 });
   const [bait, setBait] = useState('');
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string>();
@@ -1369,8 +1533,8 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
             actions.addCatch({
               sessionId,
               species: species.trim() || 'Fish',
-              weightLb: lb,
-              weightOz: oz,
+              weightLb: weight.lb,
+              weightOz: weight.oz,
               bait: bait || 'Unknown',
               notes,
               image,
@@ -1386,10 +1550,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
     >
       <PhotoPicker id="catch-photo" value={image} onChange={setImage} label="Photo of your catch" />
       <SpeciesTagPicker value={species} onChange={setSpecies} />
-      <div className="field-row">
-        <label className="field"><span>lb</span><input id="catch-lb" type="number" min={0} value={lb} onChange={(e) => setLb(Math.max(0, +e.target.value))} /></label>
-        <label className="field"><span>oz</span><input id="catch-oz" type="number" min={0} max={15} value={oz} onChange={(e) => setOz(Math.min(15, Math.max(0, +e.target.value)))} /></label>
-      </div>
+      <WeightInput defaultUnit={unitSystem} onChange={setWeight} />
       <label className="field"><span>Bait</span><input id="catch-bait" placeholder="e.g. Worm, Bread, Maggot" value={bait} onChange={(e) => setBait(e.target.value)} /></label>
       <label className="field"><span>Notes</span><textarea id="catch-notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
 
@@ -1417,9 +1578,9 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
 /* ---------- Edit Catch Sheet ---------- */
 
 const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
+  const { unitSystem = 'imperial' } = useStore();
   const [species, setSpecies] = useState(c.species);
-  const [lb, setLb] = useState(c.weightLb);
-  const [oz, setOz] = useState(c.weightOz);
+  const [weight, setWeight] = useState({ lb: c.weightLb, oz: c.weightOz });
   const [bait, setBait] = useState(c.bait);
   const [notes, setNotes] = useState(c.notes ?? '');
   const [image, setImage] = useState<string | undefined>(c.image);
@@ -1428,8 +1589,8 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
   const handleSave = () => {
     actions.updateCatch(c.id, {
       species: species.trim() || 'Fish',
-      weightLb: lb,
-      weightOz: oz,
+      weightLb: weight.lb,
+      weightOz: weight.oz,
       bait: bait || 'Unknown',
       notes,
       image,
@@ -1450,16 +1611,12 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
     >
       <PhotoPicker id="edit-catch-photo" value={image} onChange={setImage} label="Change catch photo" />
       <SpeciesTagPicker value={species} onChange={setSpecies} />
-      <div className="field-row">
-        <label className="field">
-          <span>lb</span>
-          <input type="number" min={0} value={lb} onChange={(e) => setLb(Math.max(0, +e.target.value))} />
-        </label>
-        <label className="field">
-          <span>oz</span>
-          <input type="number" min={0} max={15} value={oz} onChange={(e) => setOz(Math.min(15, Math.max(0, +e.target.value)))} />
-        </label>
-      </div>
+      <WeightInput
+        defaultUnit={unitSystem}
+        initialLb={c.weightLb}
+        initialOz={c.weightOz}
+        onChange={setWeight}
+      />
       <label className="field">
         <span>Bait</span>
         <input placeholder="e.g. Worm, Bread, Maggot" value={bait} onChange={(e) => setBait(e.target.value)} />
@@ -1728,7 +1885,7 @@ const CatchDetail = () => {
 };
 
 const Profile = () => {
-  const { catches, sessions, name } = useStore();
+  const { catches, sessions, name, unitSystem = 'imperial' } = useStore();
   const { user, storageMode } = useAuth();
   const theme = useTheme();
   const [authOpen, setAuthOpen] = useState(false);
@@ -1868,21 +2025,72 @@ const Profile = () => {
         </div>
       </div>
 
-      {/* Appearance & Theme Card */}
-      <div className="card">
-        <div className="row-between">
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>Theme Appearance</div>
-            <p className="muted" style={{ fontSize: 13 }}>Switch between Light and Dark river themes</p>
+      {/* App Preferences & Settings Card (Units + Theme) */}
+      <div className="card preferences-card">
+        <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <Gauge size={14} /> App Preferences
+        </div>
+
+        {/* Units of Measurement */}
+        <div className="pref-row">
+          <div className="pref-info">
+            <div className="pref-title">Units of Measurement</div>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Display and record catches in {unitSystem === 'metric' ? 'Metric (kg, g)' : 'Imperial (lb, oz)'}
+            </p>
           </div>
-          <button
-            className="theme-switch-btn"
-            id="theme-profile-toggle"
-            onClick={() => themeActions.toggleTheme()}
-          >
-            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
-            <span>{theme === 'dark' ? 'Dark Mode' : 'Light Mode'}</span>
-          </button>
+          <div className="pref-segmented-control" role="group" aria-label="Select measurement units">
+            <button
+              type="button"
+              id="pref-unit-imperial"
+              className={`pref-segment-btn ${unitSystem !== 'metric' ? 'active' : ''}`}
+              onClick={() => actions.setUnitSystem('imperial')}
+            >
+              <Scale size={14} />
+              <span>Imperial (lb/oz)</span>
+            </button>
+            <button
+              type="button"
+              id="pref-unit-metric"
+              className={`pref-segment-btn ${unitSystem === 'metric' ? 'active' : ''}`}
+              onClick={() => actions.setUnitSystem('metric')}
+            >
+              <Scale size={14} />
+              <span>Metric (kg/g)</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="pref-divider" />
+
+        {/* Theme & Appearance */}
+        <div className="pref-row">
+          <div className="pref-info">
+            <div className="pref-title">Theme & Appearance</div>
+            <p className="muted" style={{ fontSize: 13 }}>
+              Currently using {theme === 'dark' ? 'Night bankside dark' : 'Daylight river light'} theme
+            </p>
+          </div>
+          <div className="pref-segmented-control" role="group" aria-label="Select theme appearance">
+            <button
+              type="button"
+              id="pref-theme-light"
+              className={`pref-segment-btn ${theme === 'light' ? 'active' : ''}`}
+              onClick={() => themeActions.setTheme('light')}
+            >
+              <Sun size={14} />
+              <span>Light Mode</span>
+            </button>
+            <button
+              type="button"
+              id="pref-theme-dark"
+              className={`pref-segment-btn ${theme === 'dark' ? 'active' : ''}`}
+              onClick={() => themeActions.setTheme('dark')}
+            >
+              <Moon size={14} />
+              <span>Dark Mode</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1931,7 +2139,6 @@ const Navigation = () => {
 const Shell = () => {
   const nav = useNavigate();
   const location = useLocation();
-  const theme = useTheme();
   const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
 
   // Dynamic document title per review recommendation
@@ -1974,15 +2181,6 @@ const Shell = () => {
       <header className="top-bar">
         <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={44} /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            className="icon-btn"
-            id="header-theme-toggle"
-            onClick={() => themeActions.toggleTheme()}
-            aria-label="Toggle light/dark theme"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
           <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
         </div>
       </header>

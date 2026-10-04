@@ -1448,3 +1448,125 @@ a.catch-item:hover { background: var(--bg-color); }
   pointer-events: none;
 }
 
+/* ---------- App Preferences & Settings Card ---------- */
+
+.preferences-card {
+  border-left: 4px solid var(--accent-green);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pref-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 480px) {
+  .pref-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.pref-info {
+  flex: 1;
+}
+
+.pref-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.pref-divider {
+  height: 1px;
+  background: var(--border-color);
+  opacity: 0.7;
+}
+
+.pref-segmented-control {
+  display: flex;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.pref-segment-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.pref-segment-btn:hover {
+  color: var(--text-primary);
+}
+
+.pref-segment-btn.active {
+  background: var(--card-bg);
+  color: var(--accent-green);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme='dark'] .pref-segment-btn.active {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Weight Input Unit Pills ---------- */
+
+.weight-input-container {
+  margin-bottom: 4px;
+}
+
+.unit-pill-group {
+  display: inline-flex;
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.unit-pill-btn {
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.unit-pill-btn:hover {
+  color: var(--text-primary);
+}
+
+.unit-pill-btn.selected {
+  background: var(--accent-green);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+
