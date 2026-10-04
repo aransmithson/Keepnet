@@ -1616,7 +1616,7 @@ const Shell = () => {
   return (
     <div className="app-container">
       <header className="top-bar">
-        <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={34} /></Link>
+        <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={42} /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             className="icon-btn"

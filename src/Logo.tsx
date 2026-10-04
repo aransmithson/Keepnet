@@ -7,7 +7,7 @@ type Props = { height?: number; className?: string };
  * Features a minimalist curved fish leaping above a circular keepnet mesh ring
  * with crisp modern typography. Dynamically adapts between light and dark modes.
  */
-export default function Logo({ height = 34, className }: Props) {
+export default function Logo({ height = 42, className }: Props) {
   const theme = useTheme();
   const isDark = theme === 'dark';
 
@@ -21,7 +21,7 @@ export default function Logo({ height = 34, className }: Props) {
       }}
     >
       <img
-        src={isDark ? '/images/keepnet-logo-dark.jpg' : '/images/keepnet-logo-light.jpg'}
+        src={isDark ? '/images/keepnet-logo-dark.png' : '/images/keepnet-logo-light.png'}
         alt="Keepnet"
         className="keepnet-logo-img"
         style={{
@@ -30,7 +30,6 @@ export default function Logo({ height = 34, className }: Props) {
           maxHeight: `${height}px`,
           objectFit: 'contain',
           display: 'block',
-          borderRadius: '4px',
         }}
       />
     </div>
