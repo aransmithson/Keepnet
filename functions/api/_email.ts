@@ -41,6 +41,35 @@ export async function sendEmail(env: Env, opts: EmailOptions): Promise<{ success
       }
       const errText = await res.text();
       console.error('[Keepnet Email] Resend error:', errText);
+
+      // If in Resend test mode, check if recipient matches owner testing address (e.g. gmail vs googlemail)
+      const match = errText.match(/send testing emails to your own email address \(([^)]+)\)/i);
+      if (match && match[1]) {
+        const ownerEmail = match[1].toLowerCase().trim();
+        const userTo = opts.to.toLowerCase().trim();
+        const userPrefix = userTo.split('@')[0];
+        const ownerPrefix = ownerEmail.split('@')[0];
+        if (userPrefix === ownerPrefix || userTo === ownerEmail) {
+          const retryRes = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              from: fallbackFrom,
+              to: [ownerEmail],
+              subject: opts.subject,
+              html: opts.html,
+              text: opts.text,
+            }),
+          });
+          if (retryRes.ok) {
+            console.log(`[Keepnet Email] Resend sent to owner testing address ${ownerEmail}`);
+            return { success: true, provider: 'resend' };
+          }
+        }
+      }
     } catch (e: any) {
       console.error('[Keepnet Email] Resend exception:', e.message);
     }

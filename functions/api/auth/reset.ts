@@ -15,10 +15,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       return errorResponse('Email is required');
     }
 
+    const altEmail = cleanEmail.endsWith('@gmail.com')
+      ? cleanEmail.replace('@gmail.com', '@googlemail.com')
+      : cleanEmail.endsWith('@googlemail.com')
+      ? cleanEmail.replace('@googlemail.com', '@gmail.com')
+      : cleanEmail;
+
     if (body.action === 'confirm') {
       const { code, newPasswordHash } = body;
       const cleanCode = (code || '').trim();
-      const user = await db.prepare('SELECT * FROM users WHERE email = ?').bind(cleanEmail).first() as any;
+      const user = await db.prepare('SELECT * FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
       if (!user) return errorResponse('No account found for this email address.');
       if (!user.reset_code || user.reset_code !== cleanCode) {
         return errorResponse('Invalid verification code. Please check your email and try again.');
@@ -34,7 +40,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // Default: generate reset code and email it to the user
-    const user = await db.prepare('SELECT id, name FROM users WHERE email = ?').bind(cleanEmail).first() as any;
+    const user = await db.prepare('SELECT id, name, email FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
     if (!user) {
       // Return success with generic message to avoid email enumeration attacks
       return jsonResponse({

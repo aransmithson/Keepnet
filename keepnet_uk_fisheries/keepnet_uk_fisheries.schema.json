@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Keepnet UK pleasure fisheries seed",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "dataset",
+    "as_of",
+    "record_count",
+    "records"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "dataset": {
+      "type": "string"
+    },
+    "as_of": {
+      "type": "string",
+      "format": "date"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "country_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "coordinate_precision_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "coordinate_reference_system": {
+      "type": "string"
+    },
+    "unknown_coordinates": {
+      "type": "string"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fishery"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "fishery": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "country",
+        "latitude",
+        "longitude",
+        "coordinate_precision",
+        "needs_pin_review",
+        "has_coordinates",
+        "source_url",
+        "source_urls",
+        "last_checked"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 3,
+          "description": "Stable identifier. Preserve on refresh; do not key by display name alone."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "country": {
+          "enum": [
+            "England",
+            "Scotland",
+            "Wales",
+            "Northern Ireland"
+          ]
+        },
+        "region": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nearest_town": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "postcode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "postcode_notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "coordinate_precision": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "website": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "access_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fishery_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "access_notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verification_notes": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "postcode_geocoding_allowed": {
+          "type": "boolean",
+          "description": "False when the published postal address is not the fishery location. Does not override Northern Ireland licensing exclusion."
+        },
+        "latitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 49.7,
+          "maximum": 61.2
+        },
+        "longitude": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": -8.8,
+          "maximum": 2.2
+        },
+        "coordinate_source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "address_source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "species_source_url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "coordinate_checked_on": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "postcode_location_quality": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Unmodified Postcodes.io quality code; NOT venue-pin accuracy or distance in metres."
+        },
+        "needs_pin_review": {
+          "type": "boolean"
+        },
+        "has_coordinates": {
+          "type": "boolean",
+          "description": "Only means a coordinate pair exists. It does not establish a correct entrance, production readiness or safe access."
+        },
+        "species": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "source_urls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "uniqueItems": true
+        },
+        "last_checked": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

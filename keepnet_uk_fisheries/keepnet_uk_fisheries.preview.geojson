@@ -1,0 +1,1698 @@
+{
+  "type": "FeatureCollection",
+  "name": "Keepnet fisheries preview pins",
+  "features": [
+    {
+      "type": "Feature",
+      "id": "eng-hallcroft-fishery",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.95409,
+          53.335174
+        ]
+      },
+      "properties": {
+        "id": "eng-hallcroft-fishery",
+        "name": "Hallcroft Fishery",
+        "country": "England",
+        "region": "East Midlands",
+        "nearest_town": "Retford",
+        "address": "Hallcroft Road, Retford, Nottinghamshire",
+        "postcode": "DN22 7RA",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/DN227RA",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://jamesparks.co.uk/hallcroft-fisheries/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_lakes_and_river",
+        "species": [
+          "carp",
+          "bream",
+          "perch",
+          "roach",
+          "pike",
+          "barbel",
+          "chub"
+        ],
+        "access_notes": "Daily and evening pleasure-angling tickets are advertised. The venue includes lakes and a stretch of the River Idle; check applicable water and match restrictions before fishing.",
+        "source_url": "https://jamesparks.co.uk/fishing-with-us/fishing-tarifs/",
+        "source_urls": [
+          "https://jamesparks.co.uk/hallcroft-fisheries/",
+          "https://jamesparks.co.uk/fishing-with-us/fishing-tarifs/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "england-decoy-lakes",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.0974607,
+          52.5651986
+        ]
+      },
+      "properties": {
+        "id": "england-decoy-lakes",
+        "name": "Decoy Lakes",
+        "country": "England",
+        "region": "East of England",
+        "nearest_town": "Whittlesey",
+        "address": "351 Drybread Road, Whittlesey, Peterborough, Cambridgeshire",
+        "postcode": "PE7 2AD",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "venue_map_pin",
+        "coordinate_source_url": "https://www.google.co.uk/maps/place/Decoy+Lakes/@52.5652018,-0.1000356,17z/data=!3m1!4b1!4m6!3m5!1s0x4877fc829ff341f9:0xbbf53091897b9cb8!8m2!3d52.5651986!4d-0.0974607!16s%2Fg%2F1th5hzd7?entry=ttu",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://www.decoylakes.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_lakes",
+        "species": [
+          "carp",
+          "F1 carp",
+          "tench",
+          "barbel",
+          "crucian carp",
+          "roach",
+          "rudd"
+        ],
+        "access_notes": "Day-ticket match and pleasure complex. The site says no day tickets are sold after 11am; check the current arrival window and lake availability. Use the contact address and official map, as another section lists a different street number.",
+        "source_url": "https://www.decoylakes.co.uk/",
+        "source_urls": [
+          "https://www.google.co.uk/maps/place/Decoy+Lakes/@52.5652018,-0.1000356,17z/data=!3m1!4b1!4m6!3m5!1s0x4877fc829ff341f9:0xbbf53091897b9cb8!8m2!3d52.5651986!4d-0.0974607!16s%2Fg%2F1th5hzd7?entry=ttu",
+          "https://www.decoylakes.co.uk/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-bolam-lake",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.869219,
+          55.129302
+        ]
+      },
+      "properties": {
+        "id": "eng-bolam-lake",
+        "name": "Bolam Lake",
+        "country": "England",
+        "region": "North East England",
+        "nearest_town": "Belsay",
+        "address": "Bolam Lake Country Park, near Belsay, Newcastle upon Tyne, Northumberland",
+        "postcode": "NE20 0HE",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/NE200HE",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://beta.northumberland.gov.uk/parks/country-parks-visitor-centres-coastal-sites/bolam-lake-country-park",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "pike",
+          "perch"
+        ],
+        "access_notes": "Public coarse-fishing permits are available, including day permits. Fishing is restricted to permitted banks; no boats or nature-sanctuary fishing, no night fishing, and closed season 15 March to 15 June inclusive.",
+        "source_url": "https://beta.northumberland.gov.uk/parks/country-parks-visitor-centres-coastal-sites/bolam-lake-country-park",
+        "source_urls": [
+          "https://beta.northumberland.gov.uk/parks/country-parks-visitor-centres-coastal-sites/bolam-lake-country-park",
+          "https://northumberland.moderngov.co.uk/documents/s29508/Appendix5ScheduleofFeesandCharges202627.pdf",
+          "https://www.northumberland.gov.uk/NorthumberlandCountyCouncil/media/Neigbourhood-and-Local-Services/NCC-Country-Park-Fishery-general-terms-conditions-and-rules.pdf"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-shotton-hall-pond",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.357062,
+          54.750926
+        ]
+      },
+      "properties": {
+        "id": "eng-shotton-hall-pond",
+        "name": "Shotton Hall Pond",
+        "country": "England",
+        "region": "North East England",
+        "nearest_town": "Peterlee",
+        "address": "Old Shotton Hall, Peterlee, County Durham",
+        "postcode": "SR8 2PH",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/SR82PH",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://shottonhallanglingclub.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "tench",
+          "bream",
+          "roach",
+          "rudd",
+          "perch",
+          "crucian carp",
+          "carp",
+          "eel"
+        ],
+        "access_notes": "Non-member day tickets are sold in person at Hall reception, Monday to Friday only, excluding bank holidays. No fishing during May. Card payment only. Confirm access before travel as the site mentions a pending Hall sale.",
+        "source_url": "https://shottonhallanglingclub.co.uk/",
+        "source_urls": [
+          "https://shottonhallanglingclub.co.uk/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-cheshire-oaks-fisheries",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.911415,
+          53.255816
+        ]
+      },
+      "properties": {
+        "id": "eng-cheshire-oaks-fisheries",
+        "name": "Cheshire Oaks Fisheries",
+        "country": "England",
+        "region": "North West England",
+        "nearest_town": "Ellesmere Port",
+        "address": "Strawberry Way West, Backford, Chester, Cheshire",
+        "postcode": "CH1 6PN",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/CH16PN",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://cheshireoaksfisheries.com/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "F1 carp",
+          "ide",
+          "barbel",
+          "bream",
+          "perch"
+        ],
+        "access_notes": "Day-ticket coarse fishing with separate match, beginner and mixed match/pleasure lakes. Check the current site for rules and lake availability.",
+        "source_url": "https://cheshireoaksfisheries.co.uk/times-and-prices/",
+        "source_urls": [
+          "https://cheshireoaksfisheries.com/",
+          "https://cheshireoaksfisheries.co.uk/times-and-prices/",
+          "https://cheshireoaksfisheries.co.uk/contact/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-fields-farm-fisheries",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.353728,
+          53.157023
+        ]
+      },
+      "properties": {
+        "id": "eng-fields-farm-fisheries",
+        "name": "Fields Farm Fisheries",
+        "country": "England",
+        "region": "North West England",
+        "nearest_town": "Sandbach",
+        "address": "Congleton Road, Sandbach, Cheshire",
+        "postcode": "CW11 4TE",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/CW114TE",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.fieldsfarmfisheries.com/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "catfish",
+          "perch"
+        ],
+        "access_notes": "Day tickets and evening tickets are advertised; the venue says advance booking is not required and payment can be made on the bank. Mixed coarse and specimen pools share the complex.",
+        "source_url": "https://www.fieldsfarmfisheries.com/",
+        "source_urls": [
+          "https://www.fieldsfarmfisheries.com/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-partridge-lakes",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.532665,
+          53.447648
+        ]
+      },
+      "properties": {
+        "id": "eng-partridge-lakes",
+        "name": "Partridge Lakes Fishery",
+        "country": "England",
+        "region": "North West England",
+        "nearest_town": "Culcheth",
+        "address": "Glaziers Lane, Culcheth, Warrington",
+        "postcode": "WA3 4AQ",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/WA34AQ",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://partridgelakes.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "F1 carp",
+          "barbel",
+          "bream",
+          "tench",
+          "perch",
+          "roach",
+          "ide"
+        ],
+        "access_notes": "Day tickets are available online or at the tackle shop, subject to lake availability. Gold Lake is members-only; other named lakes offer pleasure fishing. Check current lake bookings before visiting.",
+        "source_url": "https://partridgelakes.co.uk/faqs/",
+        "source_urls": [
+          "https://partridgelakes.co.uk/",
+          "https://partridgelakes.co.uk/faqs/",
+          "https://fishnorth.co.uk/venues/partridge-lakes/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-ratherheath-tarn",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.793104,
+          54.3552484
+        ]
+      },
+      "properties": {
+        "id": "eng-ratherheath-tarn",
+        "name": "Ratherheath Tarn",
+        "country": "England",
+        "region": "North West England",
+        "nearest_town": "Kendal",
+        "address": "Ratherheath Lane, near Kendal, Cumbria",
+        "postcode": "LA8 9JR",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "official_venue_point",
+        "coordinate_source_url": "https://www.lakedistrictfishing.co.uk/fisheries/coarse-fishing/ratherheath/",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://www.lakedistrictfishing.co.uk/fisheries/coarse-fishing/ratherheath/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "tench",
+          "bream",
+          "roach",
+          "rudd",
+          "perch",
+          "gudgeon",
+          "eel",
+          "crucian carp"
+        ],
+        "access_notes": "Public day tickets must be obtained before entry; the gate code is supplied with the ticket. Closed on published shoot dates. Night fishing is members-only. Electronic catch return required.",
+        "source_url": "https://www.lakedistrictfishing.co.uk/fisheries/coarse-fishing/ratherheath/",
+        "source_urls": [
+          "https://www.lakedistrictfishing.co.uk/fisheries/coarse-fishing/ratherheath/",
+          "https://www.lakedistrictfishing.co.uk/product/ratherheath/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-whitmore-fisheries",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.896776,
+          53.802384
+        ]
+      },
+      "properties": {
+        "id": "eng-whitmore-fisheries",
+        "name": "Whitmore Fisheries",
+        "country": "England",
+        "region": "North West England",
+        "nearest_town": "Kirkham",
+        "address": "Bradshaw Lane, Greenhalgh, Preston, Lancashire",
+        "postcode": "PR4 3HQ",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/PR43HQ",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.whitmorefisheries.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "perch",
+          "rudd",
+          "bream",
+          "roach",
+          "tench",
+          "barbel",
+          "chub",
+          "gudgeon",
+          "ide"
+        ],
+        "access_notes": "Day fishing without advance booking. The official lake guide excludes Island Pond, Lily Pond and Mill Pond from public use. Check current lake availability and rules before visiting.",
+        "source_url": "https://www.whitmorefisheries.co.uk/about.php",
+        "source_urls": [
+          "https://www.whitmorefisheries.co.uk/",
+          "https://www.whitmorefisheries.co.uk/about.php",
+          "https://www.whitmorefisheries.co.uk/lakes.php",
+          "https://www.whitmorefisheries.co.uk/contactus.php"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "england-stafford-moor",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.996314,
+          50.884532
+        ]
+      },
+      "properties": {
+        "id": "england-stafford-moor",
+        "name": "Stafford Moor Fishery",
+        "country": "England",
+        "region": "South West",
+        "nearest_town": "Winkleigh",
+        "address": "Toad Hall, Dolton, Winkleigh, Devon",
+        "postcode": "EX19 8PP",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "venue_map_pin",
+        "coordinate_source_url": "https://maps.app.goo.gl/4Fow7xkRq4P2dbkd7",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://www.charteroak.co.uk/locations/stafford-moor/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_lakes",
+        "species": [
+          "carp",
+          "perch",
+          "bream"
+        ],
+        "access_notes": "Day passes advertised for the coarse-fishing complex. Pleasure lakes and separately booked specimen lakes are available; confirm lake access with the fishery.",
+        "source_url": "https://www.charteroak.co.uk/locations/stafford-moor/",
+        "source_urls": [
+          "https://maps.app.goo.gl/4Fow7xkRq4P2dbkd7",
+          "https://www.charteroak.co.uk/locations/stafford-moor/",
+          "https://www.charteroak.co.uk/general/fishing/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-barston-lakes",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.68614,
+          52.412667
+        ]
+      },
+      "properties": {
+        "id": "eng-barston-lakes",
+        "name": "Barston Lakes",
+        "country": "England",
+        "region": "West Midlands",
+        "nearest_town": "Solihull",
+        "address": "West Midlands Golf Club, Marsh House Farm Lane, Barston, Solihull",
+        "postcode": "B92 0LB",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/B920LB",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.barstonlakes.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp"
+        ],
+        "access_notes": "Day tickets are sold through the golf shop; pay before fishing. Check the fixtures calendar for full or partial lake closures. Overnight fishing requires an additional annual night permit.",
+        "source_url": "https://www.barstonlakes.co.uk/",
+        "source_urls": [
+          "https://www.barstonlakes.co.uk/",
+          "https://www.thelakeatbarston.co.uk/how-to-find-us/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-boldings-pools",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.422081,
+          52.570696
+        ]
+      },
+      "properties": {
+        "id": "eng-boldings-pools",
+        "name": "Boldings Pools",
+        "country": "England",
+        "region": "West Midlands",
+        "nearest_town": "Bridgnorth",
+        "address": "Astley Abbotts, Bridgnorth, Shropshire",
+        "postcode": "WV16 4SS",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/WV164SS",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.boldingspools.com/",
+        "access_type": "pleasure_fishing",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "bream",
+          "tench"
+        ],
+        "access_notes": "The official Deepdale page explicitly offers day pleasure fishing within this multi-pool coarse complex. Confirm ticket arrangements and pool availability with the fishery before visiting.",
+        "source_url": "https://www.boldingspools.com/bridgnorth-fishing-pools/deepdale-pool/",
+        "source_urls": [
+          "https://www.boldingspools.com/",
+          "https://www.boldingspools.com/bridgnorth-fishing-pools/deepdale-pool/",
+          "https://www.boldingspools.com/facilities/",
+          "https://www.boldingspools.com/rules/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-makins-fishery",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.387267,
+          52.490019
+        ]
+      },
+      "properties": {
+        "id": "eng-makins-fishery",
+        "name": "Makins Fishery",
+        "country": "England",
+        "region": "West Midlands",
+        "nearest_town": "Nuneaton",
+        "address": "Bazzard Road, Bramcote, Nuneaton",
+        "postcode": "CV11 6QJ",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/CV116QJ",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.makinsfishery.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [],
+        "access_notes": "Day-ticket pleasure and match fishing. Purchase tickets at the Phase 1 tackle shop before fishing. Lake 1 specimen and overnight sessions have separate tickets and conditions.",
+        "source_url": "https://www.makinsfishery.co.uk/",
+        "source_urls": [
+          "https://www.makinsfishery.co.uk/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-packington-somers",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.667292,
+          52.436295
+        ]
+      },
+      "properties": {
+        "id": "eng-packington-somers",
+        "name": "Packington Somers Fishery",
+        "country": "England",
+        "region": "West Midlands",
+        "nearest_town": "Meriden",
+        "address": "Somers Road, off Hampton Lane, Meriden, near Coventry",
+        "postcode": "CV7 7PL",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/CV77PL",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://packingtonestate.co.uk/sporting/coarse-fishing/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "F1 carp",
+          "tench",
+          "bream",
+          "roach",
+          "perch",
+          "crucian carp"
+        ],
+        "access_notes": "Day and season tickets are advertised for the coarse fishery. Lakes serve both pleasure and match anglers, so confirm current pool availability at the lodge.",
+        "source_url": "https://packingtonestate.co.uk/sporting/coarse-fishing/",
+        "source_urls": [
+          "https://packingtonestate.co.uk/sporting/coarse-fishing/",
+          "https://packingtonestate.co.uk/about/marsh-lane-nature-reserve/membership/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-pillaton-hall-farm",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.085918,
+          52.716621
+        ]
+      },
+      "properties": {
+        "id": "eng-pillaton-hall-farm",
+        "name": "Pillaton Hall Farm Fishing Pools",
+        "country": "England",
+        "region": "West Midlands",
+        "nearest_town": "Penkridge",
+        "address": "Pillaton Hall Farm, Pillaton, Penkridge, Staffordshire",
+        "postcode": "ST19 5RZ",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/ST195RZ",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.pillatonhallfarm.co.uk/fishing/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "bream",
+          "carp",
+          "roach",
+          "crucian carp",
+          "eel",
+          "golden orfe",
+          "perch",
+          "rudd",
+          "tench"
+        ],
+        "access_notes": "Public day tickets are for over-18s, Monday to Thursday excluding bank holidays, booked at least 24 hours in advance. The venue requires two years of fishing experience and individual nets/mats. Seasonal access needs confirmation; the page contains a winter closure notice referring to reopening on 23 March 2026.",
+        "source_url": "https://www.pillatonhallfarm.co.uk/fishing/",
+        "source_urls": [
+          "https://www.pillatonhallfarm.co.uk/fishing/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-tunnel-barn-farm",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.687246,
+          52.303682
+        ]
+      },
+      "properties": {
+        "id": "eng-tunnel-barn-farm",
+        "name": "Tunnel Barn Farm",
+        "country": "England",
+        "region": "West Midlands",
+        "nearest_town": "Shrewley",
+        "address": "Shrewley Common, Shrewley, Warwickshire",
+        "postcode": "CV35 7AN",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/CV357AN",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.tunnelbarnfarm.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [],
+        "access_notes": "Pleasure fishing is advertised, usually with at least one pool reserved for it. Large events can change this; check the published pool-availability page before travel.",
+        "source_url": "https://www.tunnelbarnfarm.co.uk/prices.html",
+        "source_urls": [
+          "https://www.tunnelbarnfarm.co.uk/",
+          "https://www.tunnelbarnfarm.co.uk/prices.html",
+          "https://www.tunnelbarnfarm.co.uk/find-or-contact-us.html"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-woodland-view-fishery",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.202316,
+          52.274037
+        ]
+      },
+      "properties": {
+        "id": "eng-woodland-view-fishery",
+        "name": "Woodland View Fishery",
+        "country": "England",
+        "region": "West Midlands",
+        "nearest_town": "Droitwich",
+        "address": "Hay Lane, Hadley, Droitwich, Worcestershire",
+        "postcode": "WR9 0AU",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/WR90AU",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://woodlandviewfishery.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [],
+        "access_notes": "Pleasure anglers must buy their day or half-day permit at the tackle shop before going to the bank. The complex also hosts booked matches.",
+        "source_url": "https://woodlandviewfishery.co.uk/information/",
+        "source_urls": [
+          "https://woodlandviewfishery.co.uk/",
+          "https://woodlandviewfishery.co.uk/information/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-aston-park-fisheries",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.300323,
+          53.349517
+        ]
+      },
+      "properties": {
+        "id": "eng-aston-park-fisheries",
+        "name": "Aston Park Fisheries",
+        "country": "England",
+        "region": "Yorkshire and the Humber",
+        "nearest_town": "Aston",
+        "address": "Fiddleneck Lane, off Mansfield Road, Aston, Sheffield",
+        "postcode": "S26 5PQ",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/S265PQ",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.astonparkfisheries.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [],
+        "access_notes": "The official FAQ allows pleasure anglers to turn up without reserving a peg, subject to lake-closure signs. Ask the shop which lakes are available. Night fishing has separate conditions.",
+        "source_url": "https://www.astonparkfisheries.co.uk/how-to-find-us/",
+        "source_urls": [
+          "https://www.astonparkfisheries.co.uk/",
+          "https://www.astonparkfisheries.co.uk/how-to-find-us/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-forest-lane-fishery",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.220842,
+          54.091204
+        ]
+      },
+      "properties": {
+        "id": "eng-forest-lane-fishery",
+        "name": "Forest Lane Fishery",
+        "country": "England",
+        "region": "Yorkshire and the Humber",
+        "nearest_town": "Alne",
+        "address": "Forest Lane, Alne, York, North Yorkshire",
+        "postcode": "YO61 1TT",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/YO611TT",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.forestlanefishery.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "F1 carp",
+          "barbel",
+          "tench",
+          "bream",
+          "roach",
+          "perch",
+          "goldfish"
+        ],
+        "access_notes": "Day tickets are advertised for pleasure and match fishing on The Furlong. Check the current calendar and other lake restrictions before selecting a peg.",
+        "source_url": "https://www.forestlanefishery.co.uk/the-furlong/",
+        "source_urls": [
+          "https://www.forestlanefishery.co.uk/",
+          "https://www.forestlanefishery.co.uk/the-furlong/",
+          "https://www.forestlanefishery.co.uk/find-us/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-lindholme-lakes",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.892225,
+          53.55268
+        ]
+      },
+      "properties": {
+        "id": "eng-lindholme-lakes",
+        "name": "Lindholme Lakes",
+        "country": "England",
+        "region": "Yorkshire and the Humber",
+        "nearest_town": "Epworth",
+        "address": "Don Farm, West Carr, Epworth, near Doncaster",
+        "postcode": "DN9 1LF",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/DN91LF",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.lindholmelakes.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "F1 carp"
+        ],
+        "access_notes": "The official site advertises day-ticket, match and pleasure fishing. Check the shop for the lakes available to visitors; some water is associated with private lodges.",
+        "source_url": "https://www.lindholmelakes.co.uk/",
+        "source_urls": [
+          "https://www.lindholmelakes.co.uk/",
+          "https://www.lindholmelakes.co.uk/contact-us/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-oaks-lakes-sessay",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.304153,
+          54.17794
+        ]
+      },
+      "properties": {
+        "id": "eng-oaks-lakes-sessay",
+        "name": "The Oaks Lakes",
+        "country": "England",
+        "region": "Yorkshire and the Humber",
+        "nearest_town": "Thirsk",
+        "address": "Sessay, Thirsk, North Yorkshire",
+        "postcode": "YO7 3BG",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/YO73BG",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.theoakslakes.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [],
+        "access_notes": "Day and evening tickets are advertised. The lake guide separates pleasure/mixed lakes from purpose-built match lakes; check which lake is available before visiting.",
+        "source_url": "https://www.theoakslakes.co.uk/information",
+        "source_urls": [
+          "https://www.theoakslakes.co.uk/",
+          "https://www.theoakslakes.co.uk/information",
+          "https://www.theoakslakes.co.uk/lakes",
+          "https://www.theoakslakes.co.uk/contact-us"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "eng-woodland-lakes-thirsk",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.395399,
+          54.223441
+        ]
+      },
+      "properties": {
+        "id": "eng-woodland-lakes-thirsk",
+        "name": "Woodland Lakes Fishery",
+        "country": "England",
+        "region": "Yorkshire and the Humber",
+        "nearest_town": "Thirsk",
+        "address": "Carlton Miniott, Thirsk, North Yorkshire",
+        "postcode": "YO7 4NJ",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "postcode_centroid",
+        "coordinate_source_url": "https://api.postcodes.io/postcodes/YO74NJ",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": 1,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.woodlandlakesfishery.com/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "tench",
+          "bream",
+          "roach",
+          "rudd",
+          "perch",
+          "barbel",
+          "golden orfe"
+        ],
+        "access_notes": "Day-ticket pleasure and match fishing on a multi-lake complex. Night sessions use selected specimen lakes and a separate booking process. This is the Thirsk venue, distinct from Woodland Lakes holiday lodges at Aughton.",
+        "source_url": "https://www.woodlandlakesfishery.com/",
+        "source_urls": [
+          "https://www.woodlandlakesfishery.com/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-broadwater",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.2280278,
+          54.5005
+        ]
+      },
+      "properties": {
+        "id": "ni-broadwater",
+        "name": "Broadwater",
+        "country": "Northern Ireland",
+        "region": "County Antrim",
+        "nearest_town": "Aghalee",
+        "address": "Soldierstown Road, near Aghalee",
+        "postcode": null,
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_location_pin",
+        "coordinate_source_url": "http://www.google.co.uk/maps/place/54%C2%B030'01.8%22N+6%C2%B013'40.9%22W/@54.5005111,-6.2302247,574m/data=!3m2!1e3!4b1!4m2!3m1!1s0x0:0x0",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/broadwater",
+        "access_type": "permit",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "bream",
+          "hybrids",
+          "perch",
+          "pike",
+          "roach",
+          "rudd",
+          "tench"
+        ],
+        "access_notes": "From age 12, a DAERA coarse or game rod licence and fishing permit are required. Open all year. Public coarse canal water with a surfaced waterside path and parking; boats are not permitted. Take care leaving the car park because road visibility is limited. Coordinate is converted from the explicit latitude/longitude location label in DAERA's map link; entrance suitability still needs review.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/broadwater",
+        "source_urls": [
+          "http://www.google.co.uk/maps/place/54%C2%B030'01.8%22N+6%C2%B013'40.9%22W/@54.5005111,-6.2302247,574m/data=!3m2!1e3!4b1!4m2!3m1!1s0x0:0x0",
+          "https://www.daera-ni.gov.uk/articles/broadwater"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-portna-canal",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.5386331,
+          54.950392
+        ]
+      },
+      "properties": {
+        "id": "ni-portna-canal",
+        "name": "Portna Canal",
+        "country": "Northern Ireland",
+        "region": "County Antrim",
+        "nearest_town": "Kilrea",
+        "address": null,
+        "postcode": null,
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_map_centre",
+        "coordinate_source_url": "http://www.google.co.uk/maps/@54.950392,-6.5386331,568m/data=!3m1!1e3",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/portna-canal",
+        "access_type": "permit",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "bream",
+          "hybrids",
+          "perch",
+          "pike",
+          "roach"
+        ],
+        "access_notes": "From age 12, a DAERA coarse or game rod licence and fishing permit are required. Open all year. Public coarse canal venue. Fishing is restricted to the stretch below the locks; the rocky upstream banks are inaccessible and dangerous. Take care near the River Bann confluence because of deep water and strong current. Parking is available. Static boat fishing is allowed, but trolling is prohibited. Coordinate is the DAERA-published map-view centre.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/portna-canal",
+        "source_urls": [
+          "http://www.google.co.uk/maps/@54.950392,-6.5386331,568m/data=!3m1!1e3",
+          "https://www.daera-ni.gov.uk/articles/portna-canal"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-craigavon-city-park-lake-south",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.3743831,
+          54.454642
+        ]
+      },
+      "properties": {
+        "id": "ni-craigavon-city-park-lake-south",
+        "name": "Craigavon City Park Lake - South",
+        "country": "Northern Ireland",
+        "region": "County Armagh",
+        "nearest_town": "Craigavon",
+        "address": "Craigavon City Park",
+        "postcode": null,
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_map_centre",
+        "coordinate_source_url": "http://www.google.co.uk/maps/@54.454642,-6.3743831,575m/data=!3m1!1e3",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/craigavon-city-park-lake-south",
+        "access_type": "permit",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "bream",
+          "hybrids",
+          "perch",
+          "pike",
+          "roach"
+        ],
+        "access_notes": "From age 12, a DAERA coarse or game rod licence and fishing permit are required. Open all year. Public coarse lake with parking, fishing stands and a surfaced perimeter path. Fishing from non-mechanical or electrically powered boats is permitted. Coordinate is the DAERA-published map-view centre; confirm the access point.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/craigavon-city-park-lake-south",
+        "source_urls": [
+          "http://www.google.co.uk/maps/@54.454642,-6.3743831,575m/data=!3m1!1e3",
+          "https://www.daera-ni.gov.uk/articles/craigavon-city-park-lake-south"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-loughgall-lake",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.6031877,
+          54.4082429
+        ]
+      },
+      "properties": {
+        "id": "ni-loughgall-lake",
+        "name": "Loughgall Lake",
+        "country": "Northern Ireland",
+        "region": "County Armagh",
+        "nearest_town": "Loughgall",
+        "address": "Loughgall Country Park Reception, 11-14 Main Street, Loughgall",
+        "postcode": "BT61 8HZ",
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_venue_pin",
+        "coordinate_source_url": "https://www.google.co.uk/maps/place/Loughgall+Country+Park+%26+Golf+Course/@54.4043016,-6.6112619,1485m/data=!3m1!1e3!4m6!3m5!1s0x4860ed6b0bf5bd61:0x82c42683be4b6b6c!8m2!3d54.4082429!4d-6.6031877!16s%2Fg%2F1tf0q0ft?entry=ttu",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/loughgall-lake",
+        "access_type": "day_ticket",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "bream",
+          "carp",
+          "perch",
+          "pike",
+          "roach",
+          "tench"
+        ],
+        "access_notes": "Council-managed public coarse lake. Anglers aged 12 and over need a DAERA coarse/game rod licence; visitors need a council day ticket. DAERA says reception issues tickets to coarse-permit holders, so confirm the permit/ticket arrangement before travel. Catch and release only. Night fishing requires booking at least 24 hours ahead. The published pin identifies the country park, not a verified fishing entrance.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/loughgall-lake",
+        "source_urls": [
+          "https://www.google.co.uk/maps/place/Loughgall+Country+Park+%26+Golf+Course/@54.4043016,-6.6112619,1485m/data=!3m1!1e3!4m6!3m5!1s0x4860ed6b0bf5bd61:0x82c42683be4b6b6c!8m2!3d54.4082429!4d-6.6031877!16s%2Fg%2F1tf0q0ft?entry=ttu",
+          "https://www.daera-ni.gov.uk/articles/loughgall-lake"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-quoile-basin-river",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.7072201,
+          54.3460899
+        ]
+      },
+      "properties": {
+        "id": "ni-quoile-basin-river",
+        "name": "Quoile Basin & River",
+        "country": "Northern Ireland",
+        "region": "County Down",
+        "nearest_town": "Downpatrick",
+        "address": "Quoile Road, Downpatrick",
+        "postcode": null,
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_waterbody_pin",
+        "coordinate_source_url": "https://www.google.co.uk/maps/place/Quoile+River/@54.3484567,-5.7508539,6775m/data=!3m2!1e3!4b1!4m6!3m5!1s0x486114da2f8aa0d1:0xe98c7de549d84b78!8m2!3d54.3460899!4d-5.7072201!16zL20vMDUzcGRo?entry=ttu",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/quoile-basin-river",
+        "access_type": "permit",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "perch",
+          "pike",
+          "rudd"
+        ],
+        "access_notes": "From age 12, a DAERA coarse or game rod licence and fishing permit are required. Open all year. Public coarse river and basin with access from Quoile Road on the south side. Parking and accessible fishing stands are listed. Boats are not permitted; avoid disturbing wildlife. The published coordinate represents the river rather than a verified parking or fishing access point.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/quoile-basin-river",
+        "source_urls": [
+          "https://www.google.co.uk/maps/place/Quoile+River/@54.3484567,-5.7508539,6775m/data=!3m2!1e3!4b1!4m6!3m5!1s0x486114da2f8aa0d1:0xe98c7de549d84b78!8m2!3d54.3460899!4d-5.7072201!16zL20vMDUzcGRo?entry=ttu",
+          "https://www.daera-ni.gov.uk/articles/quoile-basin-river"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-enagh-lough-caledon",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.838272,
+          54.3589198
+        ]
+      },
+      "properties": {
+        "id": "ni-enagh-lough-caledon",
+        "name": "Enagh Lough",
+        "country": "Northern Ireland",
+        "region": "County Tyrone",
+        "nearest_town": "Caledon",
+        "address": "Dungannon Road (B45), near Caledon",
+        "postcode": null,
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_map_centre",
+        "coordinate_source_url": "http://www.google.co.uk/maps/@54.3589198,-6.838272,576m/data=!3m1!1e3",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/enagh-lough",
+        "access_type": "permit",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "bream",
+          "perch",
+          "pike",
+          "roach",
+          "tench"
+        ],
+        "access_notes": "From age 12, a DAERA coarse or game rod licence and fishing permit are required. Open all year. Public coarse lake near Caledon, with parking, paths and fishing stands, including accessible stands. Boats are not permitted. This is the Caledon venue, not the similarly named lough near Derry. Coordinate is the DAERA-published map-view centre; confirm the access point.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/enagh-lough",
+        "source_urls": [
+          "http://www.google.co.uk/maps/@54.3589198,-6.838272,576m/data=!3m1!1e3",
+          "https://www.daera-ni.gov.uk/articles/enagh-lough"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-lough-creeve",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.8629943,
+          54.4019753
+        ]
+      },
+      "properties": {
+        "id": "ni-lough-creeve",
+        "name": "Lough Creeve",
+        "country": "Northern Ireland",
+        "region": "County Tyrone",
+        "nearest_town": "Benburb",
+        "address": null,
+        "postcode": null,
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_map_centre",
+        "coordinate_source_url": "http://www.google.co.uk/maps/@54.4019753,-6.8629943,1150m/data=!3m1!1e3",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/lough-creeve",
+        "access_type": "permit",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "bream",
+          "perch",
+          "pike",
+          "roach",
+          "tench"
+        ],
+        "access_notes": "From age 12, a DAERA coarse or game rod licence and fishing permit are required. Open all year. Public coarse lake with parking, paths and fishing stands, including accessible stands. Non-mechanical and electrically powered boats are permitted. Follow the signposted approach from Holland's Crossroads. Coordinate is the DAERA-published map-view centre; confirm the entrance.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/lough-creeve",
+        "source_urls": [
+          "http://www.google.co.uk/maps/@54.4019753,-6.8629943,1150m/data=!3m1!1e3",
+          "https://www.daera-ni.gov.uk/articles/lough-creeve"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "ni-lough-macronan",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.8392443,
+          54.4237253
+        ]
+      },
+      "properties": {
+        "id": "ni-lough-macronan",
+        "name": "Lough Macronan",
+        "country": "Northern Ireland",
+        "region": "County Tyrone",
+        "nearest_town": "Benburb",
+        "address": "Brantry Wood",
+        "postcode": null,
+        "postcode_geocoding_allowed": false,
+        "postcode_notes": "No BT postcode-coordinate enrichment included; commercial reuse of Northern Ireland postcode data requires a separate licence.",
+        "coordinate_precision": "official_map_centre",
+        "coordinate_source_url": "http://www.google.co.uk/maps/@54.4237253,-6.8392443,1150m/data=!3m1!1e3",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": true,
+        "has_coordinates": true,
+        "website": "https://www.daera-ni.gov.uk/articles/lough-macronan",
+        "access_type": "permit",
+        "fishery_type": "public_permit_water",
+        "species": [
+          "perch",
+          "pike",
+          "roach",
+          "tench"
+        ],
+        "access_notes": "From age 12, a DAERA coarse or game rod licence and fishing permit are required. Open all year. Public coarse lake reached on foot from Brantry Lough south car park, with roughly a kilometre of forest tracks. Fishing stands are provided; boats are not allowed. Coordinate is the DAERA-published map-view centre, not the parking location.",
+        "source_url": "https://www.daera-ni.gov.uk/articles/lough-macronan",
+        "source_urls": [
+          "http://www.google.co.uk/maps/@54.4237253,-6.8392443,1150m/data=!3m1!1e3",
+          "https://www.daera-ni.gov.uk/articles/lough-macronan"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "uk-wales-springwater-lakes",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.87737,
+          51.9668
+        ]
+      },
+      "properties": {
+        "id": "uk-wales-springwater-lakes",
+        "name": "Springwater Lakes",
+        "country": "Wales",
+        "region": "Carmarthenshire",
+        "nearest_town": "Llanwrda",
+        "address": "Harford, Llanwrda, Carmarthenshire",
+        "postcode": "SA19 8DT",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "published_venue_pin",
+        "coordinate_source_url": "https://www.visitwales.com/accommodation/touring-camping-park/springwater-lakes-560511",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://springwaterlakes.com/",
+        "access_type": "day_ticket",
+        "fishery_type": "mixed_coarse_and_trout",
+        "species": [
+          "carp",
+          "crucian carp",
+          "tench",
+          "roach",
+          "rudd"
+        ],
+        "access_notes": "Public coarse and specimen-lake tickets are advertised separately from resident tickets; buy a ticket before fishing. Overnight sessions require an appointment. Separate trout water is also on site.",
+        "source_url": "https://springwaterlakes.com/facilities/fishing/",
+        "source_urls": [
+          "https://www.visitwales.com/accommodation/touring-camping-park/springwater-lakes-560511",
+          "https://springwaterlakes.com/",
+          "https://springwaterlakes.com/facilities/fishing/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "uk-wales-nine-oaks",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.26553,
+          52.19774
+        ]
+      },
+      "properties": {
+        "id": "uk-wales-nine-oaks",
+        "name": "Nine Oaks Angling Centre",
+        "country": "Wales",
+        "region": "Ceredigion",
+        "nearest_town": "Llanarth",
+        "address": "Oakford, near Llanarth, Ceredigion",
+        "postcode": "SA47 0RW",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "published_venue_pin",
+        "coordinate_source_url": "https://www.visitwales.com/activity/activity/nine-oaks-angling-centre-551701",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://www.nineoaksfishingbreaks.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "mixed_coarse_and_trout",
+        "species": [
+          "carp",
+          "grass carp",
+          "roach",
+          "bream",
+          "tench",
+          "chub",
+          "barbel"
+        ],
+        "access_notes": "Coarse day tickets cover any of the coarse lakes. Coarse fishing is catch-and-release; the complex also has separate fly-only trout lakes.",
+        "source_url": "https://www.nineoaksfishingbreaks.co.uk/coarse-lakes/",
+        "source_urls": [
+          "https://www.visitwales.com/activity/activity/nine-oaks-angling-centre-551701",
+          "https://www.nineoaksfishingbreaks.co.uk/",
+          "https://www.nineoaksfishingbreaks.co.uk/coarse-lakes/",
+          "https://www.nineoaksfishingbreaks.co.uk/angling-centre/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "uk-wales-yet-y-gors",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.00783,
+          51.9732
+        ]
+      },
+      "properties": {
+        "id": "uk-wales-yet-y-gors",
+        "name": "Yet-Y-Gors Fishery",
+        "country": "Wales",
+        "region": "Pembrokeshire",
+        "nearest_town": "Fishguard",
+        "address": "Dwrbach, Fishguard, Pembrokeshire",
+        "postcode": "SA65 9RE",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "published_venue_pin",
+        "coordinate_source_url": "https://www.visitwales.com/activity/activity/yet-y-gors-fishery-573261",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://www.yet-y-gors.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "crucian carp",
+          "F1 carp",
+          "grass carp",
+          "tench",
+          "bream",
+          "roach",
+          "rudd",
+          "perch",
+          "gudgeon",
+          "eel"
+        ],
+        "access_notes": "Public day fishing is advertised on mixed coarse, tench/crucian and specimen carp lakes. Only the fishery nets and unhooking mats may be used; no night fishing. Call ahead in winter.",
+        "source_url": "https://www.yet-y-gors.co.uk/coarse-fishing-fishguard-pembrokeshire/",
+        "source_urls": [
+          "https://www.visitwales.com/activity/activity/yet-y-gors-fishery-573261",
+          "https://www.yet-y-gors.co.uk/",
+          "https://www.yet-y-gors.co.uk/coarse-fishing-fishguard-pembrokeshire/",
+          "https://www.yet-y-gors.co.uk/coarse-fishing-fishguard-pembrokeshire/lakes/"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "uk-wales-dyffryn-springs",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.30421,
+          51.43758
+        ]
+      },
+      "properties": {
+        "id": "uk-wales-dyffryn-springs",
+        "name": "Dyffryn Springs",
+        "country": "Wales",
+        "region": "Vale of Glamorgan",
+        "nearest_town": "Cardiff",
+        "address": "Home Farm, Dyffryn, Vale of Glamorgan",
+        "postcode": "CF5 6SU",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "published_venue_pin",
+        "coordinate_source_url": "https://www.visitwales.com/activity/activity/dyffryn-springs-538121",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://www.fishingatdyffryn.co.uk/",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "ide",
+          "tench",
+          "roach",
+          "bream",
+          "perch"
+        ],
+        "access_notes": "The operator advertises coarse tickets for Waycock, Thaw, Goldsland and Reservoir, with first-come admission and no booking required. Wallace and Worleton are conservation/stock ponds and are excluded from fishing access.",
+        "source_url": "https://www.fishingatdyffryn.co.uk/our-lakes",
+        "source_urls": [
+          "https://www.visitwales.com/activity/activity/dyffryn-springs-538121",
+          "https://www.fishingatdyffryn.co.uk/",
+          "https://www.fishingatdyffryn.co.uk/our-lakes",
+          "https://www.fishingatdyffryn.co.uk/prices"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "uk-wales-commonwood",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.9269,
+          53.07082
+        ]
+      },
+      "properties": {
+        "id": "uk-wales-commonwood",
+        "name": "Commonwood Fishery",
+        "country": "Wales",
+        "region": "Wrexham",
+        "nearest_town": "Wrexham",
+        "address": "Buck Road, Holt, Wrexham",
+        "postcode": "LL13 9TF",
+        "postcode_geocoding_allowed": true,
+        "postcode_notes": null,
+        "coordinate_precision": "published_venue_pin",
+        "coordinate_source_url": "https://www.visitwales.com/activity/activity/commonwood-fishery-535151",
+        "coordinate_checked_on": "2026-10-04",
+        "postcode_location_quality": null,
+        "needs_pin_review": false,
+        "has_coordinates": true,
+        "website": "https://www.commonwoodleisure.com/commonwood-fishery",
+        "access_type": "day_ticket",
+        "fishery_type": "coarse_stillwater",
+        "species": [
+          "carp",
+          "bream",
+          "roach",
+          "perch",
+          "tench",
+          "wels catfish"
+        ],
+        "access_notes": "Day tickets are advertised for the mixed coarse and pleasure lakes. Some specimen lakes require advance booking and have age restrictions; check the relevant lake before booking.",
+        "source_url": "https://fishingwales.net/fishing-locations/commonwood-fishery/",
+        "source_urls": [
+          "https://www.visitwales.com/activity/activity/commonwood-fishery-535151",
+          "https://www.commonwoodleisure.com/commonwood-fishery",
+          "https://fishingwales.net/fishing-locations/commonwood-fishery/",
+          "https://www.gocatch.fish/profile/7b1704e2-396e-46c1-835c-0ff708d1719c"
+        ],
+        "address_source_url": null,
+        "species_source_url": null,
+        "last_checked": "2026-10-04",
+        "verification_notes": "Official-source research checked on the stated date; operating status, booking availability and map entrance not independently confirmed."
+      }
+    }
+  ]
+}
