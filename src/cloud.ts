@@ -92,3 +92,31 @@ export async function syncUserWithCloud(
     return null;
   }
 }
+
+/** Fetch user account sessions and catches directly from Cloudflare D1 without pushing local state. */
+export async function fetchUserCloudData(
+  user: UserAccount
+): Promise<{ sessions: Session[]; catches: Catch[] } | null> {
+  if (user.storageMode === 'local') return null;
+
+  try {
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user,
+        mode: 'download',
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      sessions: data.remoteSessions || [],
+      catches: data.remoteCatches || [],
+    };
+  } catch (err) {
+    console.warn('[Keepnet Cloud] User cloud fetch error', err);
+    return null;
+  }
+}

@@ -16,7 +16,7 @@ import {
 import { fetchWeather, getDevicePosition, compass, type Weather } from './weather';
 import { useTheme, themeActions } from './theme';
 import { useAuth, authActions } from './auth';
-import { syncUserWithCloud } from './cloud';
+import { syncUserWithCloud, fetchUserCloudData } from './cloud';
 
 // Global PWA installation event capture
 let globalInstallPrompt: any = null;
@@ -454,8 +454,10 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
         if (user) {
           actions.setName(user.nickname || user.name || user.email.split('@')[0]);
           if (user.storageMode !== 'local') {
-            syncUserWithCloud(user, sessions, catches).then((data) => {
-              if (data) actions.mergeRemoteData(data.sessions, data.catches);
+            fetchUserCloudData(user).then((data) => {
+              if (data && data.sessions.length > 0) {
+                actions.replaceWithRemoteData(data.sessions, data.catches);
+              }
             });
           }
         }
@@ -1950,9 +1952,9 @@ const Profile = () => {
     if (!user) return;
     setSyncing(true);
     try {
-      const data = await syncUserWithCloud(user, sessions, catches);
-      if (data) {
-        actions.mergeRemoteData(data.sessions, data.catches);
+      const data = await fetchUserCloudData(user);
+      if (data && data.sessions.length > 0) {
+        actions.replaceWithRemoteData(data.sessions, data.catches);
       }
     } finally {
       setSyncing(false);
@@ -2284,6 +2286,17 @@ const Shell = () => {
     window.matchMedia('(display-mode: standalone)').matches ||
     (window.navigator as any).standalone === true
   );
+
+  const auth = useAuth();
+  useEffect(() => {
+    if (auth.user && auth.storageMode === 'cloud') {
+      fetchUserCloudData(auth.user).then((data) => {
+        if (data && data.sessions.length > 0) {
+          actions.replaceWithRemoteData(data.sessions, data.catches);
+        }
+      });
+    }
+  }, [auth.user?.id]);
 
   const handleInstallApp = async () => {
     if (!installPrompt) return;

@@ -258,6 +258,13 @@ export const actions = {
       catches: Array.from(cMap.values()).sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime()),
     });
   },
+  replaceWithRemoteData(remoteSessions: Session[], remoteCatches: Catch[]) {
+    commit({
+      ...state,
+      sessions: [...remoteSessions].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
+      catches: [...remoteCatches].sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime()),
+    });
+  },
   setName(name: string) {
     commit({ ...state, name });
     authActions.updateNickname(name);

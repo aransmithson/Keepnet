@@ -18,8 +18,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const safeSessions = Array.isArray(sessions) ? sessions.slice(0, 50) : [];
     const safeCatches = Array.isArray(catches) ? catches.slice(0, 100) : [];
 
-    // Upsert sessions if provided
-    if (safeSessions.length > 0) {
+    const isDownloadOnly = body.mode === 'download' || body.replace === true;
+
+    // Upsert sessions if provided and not in download-only mode
+    if (!isDownloadOnly && safeSessions.length > 0) {
       const sessionStmt = db.prepare(`
         INSERT INTO sessions (
           id, user_id, user_name, venue_id, venue_name, lat, lon,
@@ -66,8 +68,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await db.batch(batch);
     }
 
-    // Upsert catches if provided
-    if (safeCatches.length > 0) {
+    // Upsert catches if provided and not in download-only mode
+    if (!isDownloadOnly && safeCatches.length > 0) {
       const catchStmt = db.prepare(`
         INSERT INTO catches (
           id, session_id, user_id, user_name, species, weight_lb, weight_oz, bait, caught_at, image, notes, is_shared
