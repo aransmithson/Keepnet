@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams
 import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
-  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search
+  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search, ShieldCheck
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -406,7 +406,7 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
   const [tab, setTab] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
+  const [nickname, setNickname] = useState('');
   const [saveLocallyOnly, setSaveLocallyOnly] = useState(false);
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -422,10 +422,13 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
       const res = await authActions.signIn(email, password);
       if (res.success) {
         const user = authActions.getCurrentUser();
-        if (user && user.storageMode !== 'local') {
-          syncUserWithCloud(user, sessions, catches).then((data) => {
-            if (data) actions.mergeRemoteData(data.sessions, data.catches);
-          });
+        if (user) {
+          actions.setName(user.nickname || user.name || user.email.split('@')[0]);
+          if (user.storageMode !== 'local') {
+            syncUserWithCloud(user, sessions, catches).then((data) => {
+              if (data) actions.mergeRemoteData(data.sessions, data.catches);
+            });
+          }
         }
         onClose();
       } else {
@@ -441,8 +444,10 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
     setMsg(null);
     setLoading(true);
     try {
-      const res = await authActions.signUp(email, password, name, saveLocallyOnly);
+      const cleanNick = (nickname || '').trim() || email.split('@')[0];
+      const res = await authActions.signUp(email, password, cleanNick, saveLocallyOnly);
       if (res.success) {
+        actions.setName(cleanNick);
         const user = authActions.getCurrentUser();
         if (user && user.storageMode !== 'local') {
           syncUserWithCloud(user, sessions, catches).then((data) => {
@@ -542,11 +547,26 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
       {tab === 'signup' && (
         <form onSubmit={handleSignUp} className="stack" style={{ gap: 12 }}>
           <label className="field">
-            <span>Your Name</span>
-            <input type="text" placeholder="Angler name" value={name} onChange={(e) => setName(e.target.value)} />
+            <div className="row-between">
+              <span>Public Angler Nickname</span>
+              <span className="mini-badge private" style={{ fontSize: 10, padding: '2px 6px' }}>
+                <Lock size={10} /> Real email hidden
+              </span>
+            </div>
+            <input
+              type="text"
+              required
+              placeholder="e.g. RiverRoamer, CarpHunter, LuneAngler"
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+            />
+            <span className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+              Only this nickname is shown on your profile, discover map, and shared catches. Your real personal email remains 100% private.
+            </span>
           </label>
+
           <label className="field">
-            <span>Email</span>
+            <span>Email (Private Account Login)</span>
             <input type="email" required autoComplete="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="email" placeholder="angler@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
           </label>
           <label className="field">
@@ -1429,6 +1449,8 @@ const Profile = () => {
   const theme = useTheme();
   const [authOpen, setAuthOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [savingNickname, setSavingNickname] = useState(false);
+  const [nicknameSaved, setNicknameSaved] = useState(false);
 
   const handleSync = async () => {
     if (!user) return;
@@ -1455,10 +1477,50 @@ const Profile = () => {
           <Fish size={32} />
         </div>
         <div style={{ flex: 1 }}>
-          <input className="name-input serif" id="profile-name" value={name} onChange={(e) => actions.setName(e.target.value)} aria-label="Your name" />
-          <div className="muted">
-            {user ? `${user.email} · ` : 'Local Mode · '}
-            Angling since {sessions.length ? new Date(sessions[sessions.length - 1].startedAt).getFullYear() : new Date().getFullYear()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Globe size={11} /> Public Angler Nickname
+            </span>
+            {nicknameSaved && (
+              <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <Check size={11} /> Saved
+              </span>
+            )}
+            {savingNickname && (
+              <span style={{ fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                <RefreshCw size={11} className="spin" /> Saving...
+              </span>
+            )}
+          </div>
+          <input 
+            className="name-input serif" 
+            id="profile-name" 
+            value={name} 
+            onChange={(e) => actions.setName(e.target.value)} 
+            onBlur={async () => {
+              const clean = (name || '').trim();
+              if (clean) {
+                setSavingNickname(true);
+                try {
+                  await authActions.updateNickname(clean);
+                  setNicknameSaved(true);
+                  setTimeout(() => setNicknameSaved(false), 2500);
+                } finally {
+                  setSavingNickname(false);
+                }
+              }
+            }}
+            placeholder="Choose your public nickname..."
+            aria-label="Public Angler Nickname" 
+          />
+          <div className="muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap', fontSize: 12 }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#10b981', fontWeight: 500 }}>
+              <ShieldCheck size={12} /> Email & personal info hidden
+            </span>
+            <span>·</span>
+            <span>
+              Angling since {sessions.length ? new Date(sessions[sessions.length - 1].startedAt).getFullYear() : new Date().getFullYear()}
+            </span>
           </div>
         </div>
       </div>
@@ -1478,12 +1540,22 @@ const Profile = () => {
               {storageMode === 'cloud' && user ? <Cloud size={14} /> : <HardDrive size={14} />}
               {storageMode === 'cloud' && user ? 'Cloud Account' : 'Local Storage Mode'}
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600 }}>
-              {user ? user.email : 'Personal Journal (Local Device Only)'}
+            <div style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {user ? (
+                <>
+                  <Lock size={14} style={{ color: 'var(--muted)' }} />
+                  <span>{user.email}</span>
+                  <span style={{ fontSize: 10, padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: 4, color: 'var(--muted)', fontWeight: 500 }}>
+                    Private
+                  </span>
+                </>
+              ) : (
+                'Personal Journal (Local Device Only)'
+              )}
             </div>
             <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               {storageMode === 'cloud' && user
-                ? 'Your journal syncs with your Keepnet cloud account.'
+                ? 'Your email and personal account details are strictly private and never shown to other anglers.'
                 : 'All catches and sessions are kept private on this phone and not uploaded to the cloud.'}
             </p>
           </div>

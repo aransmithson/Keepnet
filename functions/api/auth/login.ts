@@ -42,7 +42,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name,
+        name: user.nickname || user.name,
+        nickname: user.nickname || user.name,
         storageMode: user.storage_mode || 'cloud',
         createdAt: user.created_at,
       },

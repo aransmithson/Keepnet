@@ -7,7 +7,7 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const db = context.env.DB;
-    const { email, passwordHash, name, storageMode } = await context.request.json() as any;
+    const { email, passwordHash, name, nickname, storageMode } = await context.request.json() as any;
 
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -24,20 +24,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const id = Math.random().toString(36).slice(2, 10);
-    const cleanName = (name || '').trim() || cleanEmail.split('@')[0];
+    const cleanNick = (nickname || name || '').trim() || cleanEmail.split('@')[0];
     const mode = storageMode === 'local' ? 'local' : 'cloud';
 
     await db.prepare(`
-      INSERT INTO users (id, email, password_hash, name, storage_mode, created_at)
-      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `).bind(id, cleanEmail, passwordHash, cleanName, mode).run();
+      INSERT INTO users (id, email, password_hash, name, nickname, storage_mode, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).bind(id, cleanEmail, passwordHash, cleanNick, cleanNick, mode).run();
 
     return jsonResponse({
       success: true,
       user: {
         id,
         email: cleanEmail,
-        name: cleanName,
+        name: cleanNick,
+        nickname: cleanNick,
         storageMode: mode,
         createdAt: new Date().toISOString(),
       },

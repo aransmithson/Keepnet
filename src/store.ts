@@ -239,7 +239,10 @@ export const actions = {
       catches: Array.from(cMap.values()).sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime()),
     });
   },
-  setName(name: string) { commit({ ...state, name }); },
+  setName(name: string) {
+    commit({ ...state, name });
+    authActions.updateNickname(name);
+  },
   clearAll() {
     try {
       localStorage.removeItem('keepnet:v1');

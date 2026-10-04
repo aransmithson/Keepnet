@@ -6,6 +6,7 @@ export type UserAccount = {
   id: string;
   email: string;
   name: string;
+  nickname?: string;
   createdAt: string;
   storageMode: StorageMode;
 };
@@ -15,6 +16,7 @@ type StoredUser = {
   email: string;
   passwordHash: string;
   name: string;
+  nickname?: string;
   createdAt: string;
   /** Storage mode chosen at sign up; restored on sign in. Legacy accounts default to 'cloud'. */
   storageMode?: StorageMode;
@@ -105,7 +107,7 @@ export const authActions = {
   },
 
   /** Sign up with email & password. If saveLocallyOnly is true, user opts out of cloud syncing. */
-  async signUp(email: string, password: string, name: string, saveLocallyOnly: boolean): Promise<{ success: boolean; error?: string }> {
+  async signUp(email: string, password: string, nickname: string, saveLocallyOnly: boolean): Promise<{ success: boolean; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return { success: false, error: 'Please enter a valid email address.' };
@@ -116,11 +118,12 @@ export const authActions = {
 
     const mode: StorageMode = saveLocallyOnly ? 'local' : 'cloud';
     const pwdHash = encodePassword(password);
-    const cleanName = name.trim() || cleanEmail.split('@')[0];
+    const cleanNick = (nickname || '').trim() || cleanEmail.split('@')[0];
     let createdUser: UserAccount = {
       id: Math.random().toString(36).slice(2, 10),
       email: cleanEmail,
-      name: cleanName,
+      name: cleanNick,
+      nickname: cleanNick,
       createdAt: new Date().toISOString(),
       storageMode: mode,
     };
@@ -131,14 +134,17 @@ export const authActions = {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, passwordHash: pwdHash, name: cleanName, storageMode: mode }),
+          body: JSON.stringify({ email: cleanEmail, passwordHash: pwdHash, name: cleanNick, nickname: cleanNick, storageMode: mode }),
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
           return { success: false, error: data.error || 'Cloud registration failed. Please try again.' };
         }
         if (data.user) {
-          createdUser = data.user;
+          createdUser = {
+            ...data.user,
+            nickname: data.user.nickname || cleanNick,
+          };
         }
       } catch (err) {
         console.warn('[Keepnet Auth] D1 registration network fallback', err);
@@ -153,6 +159,7 @@ export const authActions = {
       email: cleanEmail,
       passwordHash: pwdHash,
       name: createdUser.name,
+      nickname: createdUser.nickname,
       createdAt: createdUser.createdAt,
       storageMode: mode,
     };
@@ -373,6 +380,46 @@ export const authActions = {
       user: authState.user ? { ...authState.user, storageMode: mode } : null,
     };
     notify();
+  },
+
+  /** Update user public angler nickname and sync to Cloudflare D1. */
+  async updateNickname(nickname: string): Promise<boolean> {
+    const clean = nickname.trim();
+    if (!clean) return false;
+
+    if (authState.user) {
+      const updatedUser: UserAccount = {
+        ...authState.user,
+        name: clean,
+        nickname: clean,
+      };
+      authState = {
+        ...authState,
+        user: updatedUser,
+      };
+
+      const users = loadRegisteredUsers();
+      const found = users.find((u) => u.email === updatedUser.email);
+      if (found) {
+        found.name = clean;
+        found.nickname = clean;
+        saveRegisteredUsers(users);
+      }
+      notify();
+
+      if (updatedUser.storageMode === 'cloud') {
+        try {
+          await fetch('/api/auth/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: updatedUser.id, nickname: clean }),
+          });
+        } catch (err) {
+          console.warn('[Keepnet Auth] Failed to push updated nickname to D1', err);
+        }
+      }
+    }
+    return true;
   },
 };
 

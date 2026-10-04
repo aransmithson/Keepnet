@@ -7,7 +7,7 @@ export async function pushSessionToCloud(session: Session, user?: UserAccount | 
     const payload = {
       ...session,
       userId: user?.id || session.userId || null,
-      userName: user?.name || session.userName || 'Angler',
+      userName: user?.nickname || user?.name || session.userName || 'Angler',
     };
     const res = await fetch('/api/sessions', {
       method: 'POST',
@@ -27,7 +27,7 @@ export async function pushCatchToCloud(item: Catch, user?: UserAccount | null): 
     const payload = {
       ...item,
       userId: user?.id || item.userId || null,
-      userName: user?.name || item.userName || 'Angler',
+      userName: user?.nickname || user?.name || item.userName || 'Angler',
     };
     const res = await fetch('/api/catches', {
       method: 'POST',
