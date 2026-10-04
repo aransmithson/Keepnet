@@ -4,10 +4,11 @@ type Props = { height?: number; className?: string };
 
 /**
  * Modern Keepnet Brand Logo:
- * Features a minimalist curved fish leaping above a circular keepnet mesh ring
- * with crisp modern typography. Dynamically adapts between light and dark modes.
+ * Features a minimalist curved fish leaping above a circular keepnet mesh ring,
+ * with the net handle extending horizontally to form an underline beneath the "Keepnet" text.
+ * Dynamically adapts between light and dark modes with transparent background.
  */
-export default function Logo({ height = 42, className }: Props) {
+export default function Logo({ height = 44, className }: Props) {
   const theme = useTheme();
   const isDark = theme === 'dark';
 
