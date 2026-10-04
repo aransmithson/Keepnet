@@ -4,7 +4,7 @@ import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search, ShieldCheck,
-  Compass, Sparkles, Scale
+  Compass, Sparkles, Scale, Download, Smartphone
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -17,6 +17,16 @@ import { fetchWeather, getDevicePosition, compass, type Weather } from './weathe
 import { useTheme, themeActions } from './theme';
 import { useAuth, authActions } from './auth';
 import { syncUserWithCloud } from './cloud';
+
+// Global PWA installation event capture
+let globalInstallPrompt: any = null;
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    globalInstallPrompt = e;
+    window.dispatchEvent(new Event('keepnet:installable'));
+  });
+}
 
 /* ---------- Weather logging ---------- */
 
@@ -1912,6 +1922,29 @@ const Profile = () => {
   const [syncing, setSyncing] = useState(false);
   const [savingNickname, setSavingNickname] = useState(false);
   const [nicknameSaved, setNicknameSaved] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(globalInstallPrompt);
+
+  useEffect(() => {
+    const handler = () => setInstallPrompt(globalInstallPrompt);
+    window.addEventListener('keepnet:installable', handler);
+    return () => window.removeEventListener('keepnet:installable', handler);
+  }, []);
+
+  const isStandalone = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  );
+  const isIos = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice?.outcome === 'accepted') {
+      globalInstallPrompt = null;
+      setInstallPrompt(null);
+    }
+  };
 
   const handleSync = async () => {
     if (!user) return;
@@ -2112,6 +2145,48 @@ const Profile = () => {
             </button>
           </div>
         </div>
+
+        <div className="pref-divider" />
+
+        {/* PWA App Installation */}
+        <div className="pref-row">
+          <div className="pref-info">
+            <div className="pref-title">Install Keepnet App</div>
+            <p className="muted" style={{ fontSize: 13 }}>
+              {isStandalone
+                ? 'Keepnet is installed and running in standalone app mode.'
+                : 'Install Keepnet on your home screen or desktop for fast bankside offline logging.'}
+            </p>
+          </div>
+          {isStandalone ? (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#10b981', fontSize: 13, fontWeight: 600 }}>
+              <Check size={16} /> Installed
+            </div>
+          ) : installPrompt ? (
+            <button
+              type="button"
+              id="pref-install-app-btn"
+              className="btn-primary"
+              style={{ fontSize: 13, padding: '7px 14px' }}
+              onClick={handleInstallApp}
+            >
+              <Download size={14} /> Install App
+            </button>
+          ) : isIos ? (
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--surface-sunken)', padding: '6px 10px', borderRadius: 8, maxWidth: 220 }}>
+              Tap <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Share</span> in Safari → <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Add to Home Screen</span>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: 13, padding: '7px 14px' }}
+              onClick={() => alert('To install Keepnet, tap your browser menu (⋮ or Share) and choose "Install App" or "Add to Home Screen".')}
+            >
+              <Smartphone size={14} /> Install Guide
+            </button>
+          )}
+        </div>
       </div>
 
       {best && (
@@ -2196,6 +2271,30 @@ const Shell = () => {
     }
   };
 
+  const [installPrompt, setInstallPrompt] = useState<any>(globalInstallPrompt);
+  const [dismissedInstall, setDismissedInstall] = useState(false);
+
+  useEffect(() => {
+    const handler = () => setInstallPrompt(globalInstallPrompt);
+    window.addEventListener('keepnet:installable', handler);
+    return () => window.removeEventListener('keepnet:installable', handler);
+  }, []);
+
+  const isStandalone = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  );
+
+  const handleInstallApp = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const choice = await installPrompt.userChoice;
+    if (choice?.outcome === 'accepted') {
+      globalInstallPrompt = null;
+      setInstallPrompt(null);
+    }
+  };
+
   return (
     <div className="app-container">
       <header className="top-bar">
@@ -2204,6 +2303,24 @@ const Shell = () => {
           <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
         </div>
       </header>
+      {installPrompt && !dismissedInstall && !isStandalone && (
+        <div className="install-banner">
+          <div className="install-banner-content">
+            <div className="install-banner-text">
+              <strong>Install Keepnet App</strong>
+              <span>Fast offline bankside logging</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <button className="btn-primary" style={{ padding: '6px 12px', fontSize: 12, height: 32 }} onClick={handleInstallApp}>
+                <Download size={13} /> Install
+              </button>
+              <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => setDismissedInstall(true)} aria-label="Dismiss banner">
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <main>
         <Routes>
           <Route path="/" element={<Home onStart={(venue) => setSheet({ venue })} />} />

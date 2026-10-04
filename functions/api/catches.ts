@@ -1,4 +1,5 @@
 import { Env, jsonResponse, errorResponse, corsHeaders } from './_types';
+import { sanitizeInput } from './_crypto';
 
 export const onRequestOptions: PagesFunction<Env> = async () => {
   return new Response(null, { headers: corsHeaders });
@@ -8,23 +9,21 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
   try {
     const db = context.env.DB;
     const url = new URL(context.request.url);
-    const sharedOnly = url.searchParams.get('shared') === '1' || url.searchParams.get('shared') === 'true';
-    const sessionId = url.searchParams.get('sessionId');
-    const userId = url.searchParams.get('userId');
+    const sessionId = sanitizeInput(url.searchParams.get('sessionId'), 64);
+    const userId = sanitizeInput(url.searchParams.get('userId'), 64);
 
     let query = 'SELECT * FROM catches';
     const params: unknown[] = [];
 
-    if (sharedOnly) {
-      query += ' WHERE is_shared = 1 ORDER BY caught_at DESC LIMIT 200';
-    } else if (sessionId) {
+    if (sessionId) {
       query += ' WHERE session_id = ? ORDER BY caught_at DESC';
       params.push(sessionId);
     } else if (userId) {
       query += ' WHERE user_id = ? ORDER BY caught_at DESC';
       params.push(userId);
     } else {
-      query += ' ORDER BY caught_at DESC LIMIT 200';
+      // Security: By default, public queries MUST ONLY return explicitly shared catches
+      query += ' WHERE is_shared = 1 ORDER BY caught_at DESC LIMIT 200';
     }
 
     const { results } = await db.prepare(query).bind(...params).all();
@@ -54,7 +53,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const db = context.env.DB;
     const body = await context.request.json() as any;
-    const catches = Array.isArray(body) ? body : [body];
+    const rawCatches = Array.isArray(body) ? body : [body];
+    const catches = rawCatches.slice(0, 50);
 
     const stmt = db.prepare(`
       INSERT INTO catches (
@@ -73,22 +73,24 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         is_shared = excluded.is_shared
     `);
 
-    const batch = catches.map((c: any) =>
-      stmt.bind(
-        c.id,
-        c.sessionId,
-        c.userId || null,
-        c.userName || 'Angler',
-        c.species,
-        c.weightLb ?? 0,
-        c.weightOz ?? 0,
-        c.bait || 'Unknown',
-        c.caughtAt || new Date().toISOString(),
-        c.image || null,
-        c.notes || null,
+    const batch = catches.map((c: any) => {
+      const lb = Number(c.weightLb);
+      const oz = Number(c.weightOz);
+      return stmt.bind(
+        sanitizeInput(c.id, 64) || Math.random().toString(36).slice(2, 10),
+        sanitizeInput(c.sessionId, 64) || 'session_default',
+        sanitizeInput(c.userId, 64) || null,
+        sanitizeInput(c.userName, 60) || 'Angler',
+        sanitizeInput(c.species, 80) || 'Fish',
+        Number.isFinite(lb) && lb >= 0 ? Math.min(lb, 1000) : 0,
+        Number.isFinite(oz) && oz >= 0 ? Math.min(oz, 15) : 0,
+        sanitizeInput(c.bait, 100) || 'Unknown',
+        sanitizeInput(c.caughtAt, 40) || new Date().toISOString(),
+        c.image && typeof c.image === 'string' && c.image.startsWith('data:image/') ? c.image : null,
+        c.notes ? sanitizeInput(c.notes, 2000) : null,
         c.isShared ? 1 : 0
-      )
-    );
+      );
+    });
 
     if (batch.length > 0) {
       await db.batch(batch);

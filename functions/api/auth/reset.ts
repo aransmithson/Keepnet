@@ -1,5 +1,6 @@
 import { Env, jsonResponse, errorResponse, corsHeaders } from '../_types';
 import { sendEmail, buildPasswordResetEmail } from '../_email';
+import { hashPassword, timingSafeEqual, sanitizeInput } from '../_crypto';
 
 export const onRequestOptions: PagesFunction<Env> = async () => {
   return new Response(null, { headers: corsHeaders });
@@ -9,10 +10,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const db = context.env.DB;
     const body = await context.request.json() as any;
-    const cleanEmail = (body.email || '').trim().toLowerCase();
+    const cleanEmail = sanitizeInput(body.email, 120).toLowerCase();
 
-    if (!cleanEmail) {
-      return errorResponse('Email is required');
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return errorResponse('Valid email address is required', 400);
     }
 
     const altEmail = cleanEmail.endsWith('@gmail.com')
@@ -22,32 +23,81 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       : cleanEmail;
 
     if (body.action === 'confirm') {
-      const { code, newPasswordHash } = body;
-      const cleanCode = String(code || '').replace(/\D/g, '').trim();
-      const user = await db.prepare('SELECT * FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
-      if (!user) return errorResponse('No account found for this email address.');
+      const { code, newPassword, newPasswordHash } = body;
+      const cleanCode = String(code || '').replace(/\D/g, '').trim().slice(0, 6);
+      const rawNewPwd = (newPassword || '').trim();
+
+      if (!cleanCode || cleanCode.length !== 6) {
+        return errorResponse('Please enter a valid 6-digit verification code', 400);
+      }
+
+      if (rawNewPwd && (rawNewPwd.length < 6 || rawNewPwd.length > 128)) {
+        return errorResponse('New password must be between 6 and 128 characters', 400);
+      }
+
+      const user = await db.prepare('SELECT * FROM users WHERE email = ? OR email = ?')
+        .bind(cleanEmail, altEmail)
+        .first() as any;
+
+      if (!user) {
+        return errorResponse('No account found for this email address.', 404);
+      }
 
       const storedCode = String(user.reset_code || '').replace(/\D/g, '').trim();
-      console.log(`[Keepnet Auth] Reset confirmation for ${cleanEmail}: stored="${storedCode}", submitted="${cleanCode}"`);
+      const currentAttempts = Number(user.reset_attempts) || 0;
 
-      if (!storedCode || storedCode !== cleanCode) {
-        return errorResponse('Invalid verification code. Please check your email and try again.');
+      // Rate limit / lockout on reset attempts (prevent brute force)
+      if (currentAttempts >= 5) {
+        await db.prepare('UPDATE users SET reset_code = NULL, reset_expires = NULL, reset_attempts = 0 WHERE id = ?')
+          .bind(user.id)
+          .run();
+        return errorResponse('Too many failed code attempts. This reset code has been invalidated for your security. Please request a new code.', 429);
       }
+
+      const isMatch = storedCode.length === 6 && timingSafeEqual(storedCode, cleanCode);
+
+      if (!storedCode || !isMatch) {
+        const nextAttempts = currentAttempts + 1;
+        if (nextAttempts >= 5) {
+          await db.prepare('UPDATE users SET reset_code = NULL, reset_expires = NULL, reset_attempts = 0 WHERE id = ?')
+            .bind(user.id)
+            .run();
+          return errorResponse('Too many failed code attempts. This reset code has been invalidated for your security. Please request a new code.', 429);
+        }
+        await db.prepare('UPDATE users SET reset_attempts = ? WHERE id = ?')
+          .bind(nextAttempts, user.id)
+          .run();
+        return errorResponse(`Invalid verification code. (${5 - nextAttempts} attempts remaining).`, 401);
+      }
+
       if (user.reset_expires && Date.now() > Number(user.reset_expires)) {
-        return errorResponse('This reset code has expired. Please request a new code.');
+        await db.prepare('UPDATE users SET reset_code = NULL, reset_expires = NULL, reset_attempts = 0 WHERE id = ?')
+          .bind(user.id)
+          .run();
+        return errorResponse('This reset code has expired. Please request a new code.', 410);
       }
 
-      await db.prepare('UPDATE users SET password_hash = ?, reset_code = NULL, reset_expires = NULL WHERE id = ?')
-        .bind(newPasswordHash, user.id).run();
+      // Hash new password with salted PBKDF2-SHA256
+      const finalHash = rawNewPwd ? await hashPassword(rawNewPwd) : (newPasswordHash || user.password_hash);
+
+      // Invalidate reset code, clear failed logins, and revoke active sessions
+      await db.prepare(`
+        UPDATE users
+        SET password_hash = ?, reset_code = NULL, reset_expires = NULL, reset_attempts = 0, failed_logins = 0, locked_until = 0, auth_token = NULL
+        WHERE id = ?
+      `).bind(finalHash, user.id).run();
 
       console.log(`[Keepnet Auth] Password reset successfully for ${cleanEmail} (user: ${user.id})`);
       return jsonResponse({ success: true, message: 'Password updated successfully' });
     }
 
     // Default: generate reset code and email it to the user
-    const user = await db.prepare('SELECT id, name, email, reset_code, reset_expires FROM users WHERE email = ? OR email = ?').bind(cleanEmail, altEmail).first() as any;
+    const user = await db.prepare('SELECT id, name, email, reset_code, reset_expires FROM users WHERE email = ? OR email = ?')
+      .bind(cleanEmail, altEmail)
+      .first() as any;
+
     if (!user) {
-      // Return success with generic message to avoid email enumeration attacks
+      // Mitigate email enumeration attacks with standard timing and generic response
       return jsonResponse({
         success: true,
         message: 'If an account exists for this email, a verification code has been sent to your inbox.',
@@ -68,7 +118,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const expires = now + 15 * 60 * 1000;
 
-    await db.prepare('UPDATE users SET reset_code = ?, reset_expires = ? WHERE id = ?')
+    await db.prepare('UPDATE users SET reset_code = ?, reset_expires = ?, reset_attempts = 0 WHERE id = ?')
       .bind(code, expires, user.id).run();
 
     // Dispatch the password reset email
@@ -82,7 +132,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     console.log(`[Keepnet Auth] Password reset code dispatched for ${cleanEmail} via ${emailResult.provider || 'fallback'}`);
 
-    // SECURITY: Never return the code in the JSON response
+    // SECURITY: Never return the code in the client response
     return jsonResponse({
       success: true,
       message: 'A 6-digit verification code has been sent to your email. Please check your inbox.',

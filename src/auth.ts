@@ -134,11 +134,14 @@ export const authActions = {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, passwordHash: pwdHash, name: cleanNick, nickname: cleanNick, storageMode: mode }),
+          body: JSON.stringify({ email: cleanEmail, password, passwordHash: pwdHash, name: cleanNick, nickname: cleanNick, storageMode: mode }),
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
           return { success: false, error: data.error || 'Cloud registration failed. Please try again.' };
+        }
+        if (data.token) {
+          sessionStorage.setItem('keepnet:auth_token', data.token);
         }
         if (data.user) {
           createdUser = {
@@ -205,9 +208,10 @@ export const authActions = {
       const data = await res.json();
       if (res.ok && data.success && data.user) {
         remoteUser = data.user;
-      } else if (res.status === 400 || (data && data.error && data.error.includes('Incorrect password'))) {
-        return { success: false, error: data.error || 'Incorrect password.' };
-      } else if (data && data.error && !data.error.includes('No account found')) {
+        if (data.token) {
+          sessionStorage.setItem('keepnet:auth_token', data.token);
+        }
+      } else if (!res.ok && data && data.error) {
         return { success: false, error: data.error };
       }
     } catch {
@@ -341,7 +345,7 @@ export const authActions = {
       const res = await fetch('/api/auth/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, action: 'confirm', code: cleanCode, newPasswordHash: newHash }),
+        body: JSON.stringify({ email: cleanEmail, action: 'confirm', code: cleanCode, newPassword, newPasswordHash: newHash }),
       });
       const data = await res.json();
       if (res.ok && data.success) {

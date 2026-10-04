@@ -1735,5 +1735,41 @@ a.catch-item:hover { background: var(--bg-color); }
   border-bottom-color: var(--accent-green);
 }
 
+/* PWA Install Banner */
+.install-banner {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+  z-index: 40;
+}
+.install-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 10px;
+}
+.install-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+.install-banner-text strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.install-banner-text span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+
 
 

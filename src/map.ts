@@ -12,7 +12,16 @@ export interface MapEngine {
 }
 
 const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
-const CARTO_KEY = (import.meta.env.VITE_CARTO_API_KEY as string | undefined) || 'cb1_48za_1_6b60ca908e97d25a3e98ec53';
+const CARTO_KEY = import.meta.env.VITE_CARTO_API_KEY as string | undefined;
+
+function escapeHtml(str: string): string {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 const GREEN = '#014731';
 const COPPER = '#C9772B';
@@ -119,15 +128,25 @@ async function createGoogle(el: HTMLElement, center: [number, number], zoom: num
 
 /* ---------------- Leaflet (CARTO with verified key + Esri fallback) ---------------- */
 
-const leafletPin = (cls: string, label = '') =>
-  L.divIcon({ className: '', html: `<div class="map-pin ${cls}"><span>${label}</span></div>`, iconSize: [30, 30], iconAnchor: [15, 30] });
+const leafletPin = (cls: string, label = '') => {
+  const safeCls = escapeHtml(cls);
+  const safeLabel = escapeHtml(label);
+  return L.divIcon({
+    className: '',
+    html: `<div class="map-pin ${safeCls}"><span>${safeLabel}</span></div>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 30],
+  });
+};
 
 function createLeaflet(el: HTMLElement, center: [number, number], zoom: number, isDark: boolean): MapEngine {
   const map = L.map(el, { zoomControl: false }).setView(center, zoom);
 
-  // CARTO basemap using verified key with clean Dark Matter / Voyager styles
+  // CARTO basemap with clean Dark Matter / Voyager styles
   const cartoStyle = isDark ? 'dark_all' : 'voyager';
-  const tileUrl = `https://{s}.basemaps.cartocdn.com/rastertiles/${cartoStyle}/{z}/{x}/{y}.png?key=${CARTO_KEY}`;
+  const tileUrl = CARTO_KEY
+    ? `https://{s}.basemaps.cartocdn.com/rastertiles/${cartoStyle}/{z}/{x}/{y}.png?key=${encodeURIComponent(CARTO_KEY)}`
+    : `https://{s}.basemaps.cartocdn.com/rastertiles/${cartoStyle}/{z}/{x}/{y}.png`;
 
   L.tileLayer(tileUrl, {
     maxZoom: 20,

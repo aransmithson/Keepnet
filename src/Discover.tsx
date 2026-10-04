@@ -388,7 +388,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             >
               <Plus size={18} /> Start Session Here
             </button>
-            {selectedFishery.website && (
+            {selectedFishery.website && (selectedFishery.website.startsWith('http://') || selectedFishery.website.startsWith('https://')) && (
               <a
                 href={selectedFishery.website}
                 target="_blank"
