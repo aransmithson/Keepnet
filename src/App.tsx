@@ -936,7 +936,6 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
   const [loggingForSession, setLoggingForSession] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const active = sessions.find((s) => !s.endedAt);
-  const next = VENUES[0];
 
   // Unlogged-in or new users get the dedicated welcome landing page
   if (!user) {
@@ -980,7 +979,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
             </div>
             <h1 className="welcome-title serif">Every cast, every catch, every story.</h1>
             <p className="welcome-explainer">
-              Keepnet is your personal angling companion. Record every catch with automatic live weather, log swim locations and personal bests, and explore verified fisheries across the UK — with 100% privacy control.
+              Keepnet is your personal angling companion. Record every catch with automatic live weather, log swim locations and personal bests, and explore shared community waters across the UK — with 100% privacy control.
             </p>
             <div className="welcome-actions">
               <button
@@ -996,7 +995,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => onStart(next)}
+                onClick={() => onStart()}
                 id="welcome-guest-btn"
                 title="Start a quick session as a guest on this device"
               >
@@ -1006,7 +1005,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
             <div className="welcome-pill-row">
               <span className="welcome-pill"><ShieldCheck size={14} style={{ color: '#4ade80' }} /> 100% Private Option</span>
               <span className="welcome-pill"><Cloud size={14} style={{ color: '#60a5fa' }} /> Live GPS Weather</span>
-              <span className="welcome-pill"><Fish size={14} style={{ color: '#fbbf24' }} /> Verified UK Waters</span>
+              <span className="welcome-pill"><Fish size={14} style={{ color: '#fbbf24' }} /> Community Swims</span>
               <span className="welcome-pill"><HardDrive size={14} style={{ color: '#c084fc' }} /> Works Offline</span>
             </div>
           </div>
@@ -1052,32 +1051,11 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
             <div className="welcome-feature-icon">
               <MapPin size={22} />
             </div>
-            <h3 className="welcome-feature-title">Interactive Discover Map</h3>
+            <h3 className="welcome-feature-title">Community Angler Map</h3>
             <p className="welcome-feature-desc">
-              Explore verified lakes, rivers, and canal fisheries with rules, target species, and community catches shared by fellow anglers in real time.
+              Explore public waters, swims, and catches shared by fellow community anglers in real time. See what species are biting near you.
             </p>
           </div>
-        </div>
-
-        {/* Featured Fishery Card */}
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div className="eyebrow">Featured Fishery</div>
-          <div className="row-between" style={{ alignItems: 'flex-start', marginBottom: 10 }}>
-            <div>
-              <h3 className="serif" style={{ fontSize: 22, margin: '2px 0 6px' }}>{next.name}</h3>
-              <p className="muted" style={{ fontSize: 13, margin: 0 }}>{next.description}</p>
-            </div>
-            <Link to="/discover" className="view-all" style={{ fontSize: 13, flexShrink: 0, marginTop: 4 }}>
-              Map <ChevronRight size={14} />
-            </Link>
-          </div>
-          <div className="tag-row" style={{ marginBottom: 14 }}>
-            <div className="tag"><MapPin size={13} /> {next.type}</div>
-            <div className="tag"><span style={{ color: 'var(--danger)' }}>◎</span> Targets: {next.targets.join(', ')}</div>
-          </div>
-          <button className="btn-primary" style={{ width: '100%' }} onClick={() => onStart(next)}>
-            <Plus size={18} /> Start a Session at {next.name}
-          </button>
         </div>
 
         {/* Bottom CTA Banner */}
@@ -1157,17 +1135,13 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
         {/* Next / Quick Session Card */}
         {!active && (
           <div className="card">
-            <div className="eyebrow">Quick Start Session</div>
-            <Link to="/discover" className="row-between" style={{ marginBottom: 12 }}>
-              <h2 className="serif" style={{ fontSize: 24 }}>{next.name}</h2>
-              <ChevronRight size={20} color="var(--text-secondary)" />
-            </Link>
-            <div className="tag-row">
-              <div className="tag"><MapPin size={14} /> {next.type}</div>
-              <div className="tag"><span style={{ color: 'var(--danger)' }}>◎</span> Target: {next.targets.join(', ')}</div>
-            </div>
-            <button className="btn-primary" id="start-session-btn" onClick={() => onStart(next)}>
-              <Plus size={20} /> Start session
+            <div className="eyebrow">Start Fishing</div>
+            <h2 className="serif" style={{ fontSize: 24, margin: '4px 0 8px' }}>Ready for your next session?</h2>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+              Log your swim, capture live weather conditions via GPS, and record every catch.
+            </p>
+            <button className="btn-primary" id="start-session-btn" onClick={() => onStart()}>
+              <Plus size={20} /> New Fishing Session
             </button>
           </div>
         )}
