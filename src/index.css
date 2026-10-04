@@ -1569,4 +1569,171 @@ a.catch-item:hover { background: var(--bg-color); }
   font-weight: 600;
 }
 
+/* ---------- Discover UK Fisheries & Filters ---------- */
+
+.discover-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.discover-search-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.discover-search-wrap input {
+  width: 100%;
+  padding-left: 38px;
+  padding-right: 32px;
+  height: 42px;
+  border-radius: 12px;
+}
+
+.discover-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.discover-search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.filter-pills-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.filter-pills-row::-webkit-scrollbar {
+  display: none;
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.filter-pill:hover {
+  border-color: var(--accent-green);
+  color: var(--text-primary);
+}
+
+.filter-pill.active {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.filter-pill.active-copper {
+  background: var(--copper, #C9772B);
+  border-color: var(--copper, #C9772B);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.fishery-species-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.fishery-species-tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 14px;
+  background: var(--accent-light);
+  color: var(--accent-green);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.fishery-notes-box {
+  background: var(--accent-light);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 12px 0;
+  border-left: 3px solid var(--accent-green);
+}
+
+.accuracy-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(0, 0, 0, 0.03);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+
+[data-theme='dark'] .accuracy-notice {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.directory-tabs {
+  display: flex;
+  border-bottom: 2px solid var(--border-color);
+  margin-top: 24px;
+  margin-bottom: 14px;
+  gap: 8px;
+}
+
+.dir-tab-btn {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dir-tab-btn.active {
+  color: var(--accent-green);
+  border-bottom-color: var(--accent-green);
+}
+
+
 

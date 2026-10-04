@@ -9,6 +9,21 @@ export type Venue = {
   lon: number;
   targets: string[];
   description: string;
+  country?: string;
+  region?: string;
+  nearestTown?: string | null;
+  address?: string | null;
+  postcode?: string | null;
+  website?: string | null;
+  accessType?: string;
+  fisheryType?: string;
+  accessNotes?: string;
+  verificationNotes?: string;
+  needsPinReview?: boolean;
+  hasCoordinates?: boolean;
+  coordinatePrecision?: string;
+  sourceUrl?: string | null;
+  sourceUrls?: string[];
 };
 
 export type Session = {
@@ -57,13 +72,9 @@ type State = {
   unitSystem?: UnitSystem;
 };
 
-export const VENUES: Venue[] = [
-  { id: 'dolphinholme', name: 'Dolphinholme', type: 'Coarse fishing', lat: 54.0003, lon: -2.7372, targets: ['Perch', 'Chub'], description: 'Upper River Wyre — quiet glides and deep pools under the weir.' },
-  { id: 'lune-caton', name: 'River Lune, Caton', type: 'River', lat: 54.0758, lon: -2.7150, targets: ['Chub', 'Dace', 'Grayling'], description: 'Classic Lune beats with gravel runs and slack eddies.' },
-  { id: 'wyre-garstang', name: 'River Wyre, Garstang', type: 'River', lat: 53.9025, lon: -2.7735, targets: ['Roach', 'Chub', 'Pike'], description: 'Slow-moving town stretch — great for trotting in winter.' },
-  { id: 'bank-house', name: 'Bank House Fly Fishery', type: 'Stillwater', lat: 54.1060, lon: -2.6400, targets: ['Rainbow trout', 'Brown trout'], description: 'Spring-fed lakes with clear water and wary fish.' },
-  { id: 'lancaster-canal', name: 'Lancaster Canal, Galgate', type: 'Canal', lat: 53.9930, lon: -2.7900, targets: ['Perch', 'Roach', 'Bream'], description: 'Tree-lined towpath with boats moored for shade.' },
-];
+import { MAP_FISHERIES } from './fisheries';
+
+export const VENUES: Venue[] = MAP_FISHERIES;
 
 export const SPECIES = ['Perch', 'Chub', 'Roach', 'Pike', 'Bream', 'Dace', 'Grayling', 'Rainbow trout', 'Brown trout', 'Carp', 'Tench', 'Rudd'];
 
