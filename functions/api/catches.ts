@@ -1,134 +1,72 @@
 import { Env, jsonResponse, errorResponse, corsHeaders } from './_types';
 import { sanitizeInput } from './_crypto';
 import { requireAuth, getAuthenticatedUser, verifyOwnership } from './_auth';
+import { ApiError, apiError, catchRow, prepareCatch, checkRecordOwner, checkCatchParent, visibleCatch } from './_journal';
 
-export const onRequestOptions: PagesFunction<Env> = async () => {
-  return new Response(null, { headers: corsHeaders });
+export const onRequestOptions: PagesFunction<Env> = async () => new Response(null, { headers:corsHeaders });
+
+export const onRequestGet: PagesFunction<Env> = async context => {
+  try {
+    const db=context.env.DB,url=new URL(context.request.url);
+    const userId=sanitizeInput(url.searchParams.get('userId'),64),sessionId=sanitizeInput(url.searchParams.get('sessionId'),64),recordId=sanitizeInput(url.searchParams.get('id'),64);
+    const user=await getAuthenticatedUser(context);
+    if(recordId) return jsonResponse({success:true,catches:[catchRow(await visibleCatch(db,recordId,user))]});
+    let query='SELECT * FROM catches'; const params:string[]=[];
+    if(userId){
+      if(!user || !verifyOwnership(user,userId)) return errorResponse('Authentication and ownership required',user?403:401);
+      query+=' WHERE user_id = ?';params.push(userId);
+    }else if(sessionId){
+      const session=await db.prepare('SELECT user_id,is_shared,is_confidential FROM sessions WHERE id = ?').bind(sessionId).first<any>();
+      if(!session) return jsonResponse({success:true,catches:[]});
+      const owner=!!user && verifyOwnership(user,session.user_id);
+      if(!owner && (session.is_shared!==1 || session.is_confidential===1)) return errorResponse('Session not found or private',404);
+      query+=' WHERE session_id = ?';params.push(sessionId);
+      if(!owner) query+=' AND is_shared = 1 AND is_confidential = 0';
+    }else{query+=' WHERE is_shared = 1 AND is_confidential = 0';}
+    query+=' ORDER BY caught_at DESC';if(!userId && !sessionId)query+=' LIMIT 200';
+    const {results}=await db.prepare(query).bind(...params).all();
+    return jsonResponse({success:true,catches:(results || []).map(catchRow)});
+  }catch(err){return apiError(err,'Failed to fetch catches');}
 };
 
-export const onRequestGet: PagesFunction<Env> = async (context) => {
-  try {
-    const db = context.env.DB;
-    const url = new URL(context.request.url);
-    const sessionId = sanitizeInput(url.searchParams.get('sessionId'), 64);
-    const userId = sanitizeInput(url.searchParams.get('userId'), 64);
-
-    let query = 'SELECT * FROM catches';
-    const params: unknown[] = [];
-
-    if (userId) {
-      // Security: Accessing personal private catches requires authenticated ownership
-      const user = await getAuthenticatedUser(context);
-      if (!user) {
-        return errorResponse('Authentication required to access personal catch records', 401);
-      }
-      if (!verifyOwnership(user, userId)) {
-        return errorResponse('Forbidden: You can only access your own catch records', 403);
-      }
-
-      query += ' WHERE user_id = ? ORDER BY caught_at DESC';
-      params.push(userId);
-    } else if (sessionId) {
-      // Security: Check if session is public or belongs to authenticated caller
-      const sessionRow = await db.prepare('SELECT user_id, is_shared FROM sessions WHERE id = ?').bind(sessionId).first<any>();
-      if (!sessionRow) {
-        return jsonResponse({ success: true, catches: [] });
-      }
-
-      if (sessionRow.is_shared !== 1) {
-        const user = await getAuthenticatedUser(context);
-        if (!user || !verifyOwnership(user, sessionRow.user_id)) {
-          return errorResponse('Forbidden: This session and its catches are private', 403);
-        }
-      }
-
-      query += ' WHERE session_id = ? ORDER BY caught_at DESC';
-      params.push(sessionId);
-    } else {
-      // Security: By default, public queries MUST ONLY return explicitly shared catches
-      query += ' WHERE is_shared = 1 ORDER BY caught_at DESC LIMIT 200';
+export const onRequestPost: PagesFunction<Env> = async context => {
+  try{
+    const auth=await requireAuth(context);if(!auth.success)return auth.response;
+    const db=context.env.DB,body=await context.request.json();const entries=Array.isArray(body)?body:[body];
+    if(entries.length>50)throw new ApiError('Send up to 50 catches per batch',413);
+    const prepared=entries.map(c=>prepareCatch(db,c,auth.user));
+    const deletedCatchIds:string[]=[];const saved= [] as typeof prepared;
+    for(const record of prepared){
+      await checkRecordOwner(db,'catches',record.id,auth.user.id);
+      const deletion=await db.prepare('SELECT user_id FROM catch_deletions WHERE catch_id = ?').bind(record.id).first<any>();
+      if(deletion){if(deletion.user_id!==auth.user.id)throw new ApiError('Cannot change another account journal',403);deletedCatchIds.push(record.id);continue;}
+      await checkCatchParent(db,record.sessionId,auth.user.id);saved.push(record);
     }
-
-    const { results } = await db.prepare(query).bind(...params).all();
-
-    const formatted = (results || []).map((row: any) => ({
-      id: row.id,
-      sessionId: row.session_id,
-      userId: row.user_id,
-      userName: row.user_name,
-      species: row.species,
-      weightLb: Number(row.weight_lb || 0),
-      weightOz: Number(row.weight_oz || 0),
-      bait: row.bait,
-      caughtAt: row.caught_at,
-      image: row.image || undefined,
-      notes: row.notes || undefined,
-      isShared: row.is_shared === 1,
-    }));
-
-    return jsonResponse({ success: true, catches: formatted });
-  } catch (err: any) {
-    return errorResponse(err.message || 'Failed to fetch catches', 500);
-  }
+    if(saved.length)await db.batch(saved.map(record=>record.statement));
+    return jsonResponse({success:true,count:saved.length,savedCatchIds:saved.map(record=>record.id),deletedCatchIds});
+  }catch(err){return apiError(err,'Failed to save catches');}
 };
 
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  try {
-    const auth = await requireAuth(context);
-    if (!auth.success) {
-      return auth.response;
-    }
-    const currentUser = auth.user;
-
-    const db = context.env.DB;
-    const body = await context.request.json() as any;
-    const rawCatches = Array.isArray(body) ? body : [body];
-    const catches = rawCatches.slice(0, 50);
-
-    const stmt = db.prepare(`
-      INSERT INTO catches (
-        id, session_id, user_id, user_name, species, weight_lb, weight_oz, bait, caught_at, image, notes, is_shared
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        session_id = excluded.session_id,
-        user_name = excluded.user_name,
-        species = excluded.species,
-        weight_lb = excluded.weight_lb,
-        weight_oz = excluded.weight_oz,
-        bait = excluded.bait,
-        caught_at = excluded.caught_at,
-        image = excluded.image,
-        notes = excluded.notes,
-        is_shared = excluded.is_shared
-      WHERE catches.user_id = ? OR catches.user_id IS NULL
-    `);
-
-    const batch = catches.map((c: any) => {
-      const lb = Number(c.weightLb);
-      const oz = Number(c.weightOz);
-      return stmt.bind(
-        sanitizeInput(c.id, 64) || Math.random().toString(36).slice(2, 10),
-        sanitizeInput(c.sessionId, 64) || 'session_default',
-        currentUser.id,
-        currentUser.nickname || currentUser.name || sanitizeInput(c.userName, 60) || 'Angler',
-        sanitizeInput(c.species, 80) || 'Fish',
-        Number.isFinite(lb) && lb >= 0 ? Math.min(lb, 1000) : 0,
-        Number.isFinite(oz) && oz >= 0 ? Math.min(oz, 15) : 0,
-        sanitizeInput(c.bait, 100) || 'Unknown',
-        sanitizeInput(c.caughtAt, 40) || new Date().toISOString(),
-        c.image && typeof c.image === 'string' && c.image.startsWith('data:image/') ? c.image : null,
-        c.notes ? sanitizeInput(c.notes, 2000) : null,
-        c.isShared ? 1 : 0,
-        currentUser.id
-      );
-    });
-
-    if (batch.length > 0) {
-      await db.batch(batch);
-    }
-
-    return jsonResponse({ success: true, count: batch.length });
-  } catch (err: any) {
-    return errorResponse(err.message || 'Failed to save catch', 500);
-  }
+export const onRequestDelete: PagesFunction<Env> = async context => {
+  try{
+    const auth=await requireAuth(context);if(!auth.success)return auth.response;
+    const db=context.env.DB,catchId=sanitizeInput(new URL(context.request.url).searchParams.get('id'),64);
+    if(!catchId)throw new ApiError('Catch ID is required');
+    const existing=await db.prepare('SELECT user_id FROM catches WHERE id = ?').bind(catchId).first<any>();
+    const tombstone=await db.prepare('SELECT user_id FROM catch_deletions WHERE catch_id = ?').bind(catchId).first<any>();
+    if((existing && !verifyOwnership(auth.user,existing.user_id)) || (tombstone && !verifyOwnership(auth.user,tombstone.user_id)))throw new ApiError('Cannot delete another account catch',403);
+    // Also tombstone never-uploaded local catches so a delayed upload cannot resurrect them.
+    const ownerId=existing?.user_id || tombstone?.user_id || auth.user.id;
+    await db.batch([
+      db.prepare(`INSERT OR IGNORE INTO catch_deletions (catch_id,user_id,deleted_at)
+        SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM catches WHERE id=? AND user_id!=?)`)
+        .bind(catchId,ownerId,new Date().toISOString(),catchId,ownerId),
+      db.prepare('DELETE FROM catch_comments WHERE catch_id = ? AND EXISTS(SELECT 1 FROM catch_deletions WHERE catch_id=? AND user_id=?)').bind(catchId,catchId,ownerId),
+      db.prepare('DELETE FROM catch_likes WHERE catch_id = ? AND EXISTS(SELECT 1 FROM catch_deletions WHERE catch_id=? AND user_id=?)').bind(catchId,catchId,ownerId),
+      db.prepare('DELETE FROM catches WHERE id = ? AND user_id = ?').bind(catchId,ownerId),
+    ]);
+    const deleted=await db.prepare('SELECT user_id FROM catch_deletions WHERE catch_id = ?').bind(catchId).first<any>();
+    if(deleted?.user_id!==ownerId)throw new ApiError('Cannot delete another account catch',403);
+    return jsonResponse({success:true,deletedCatchIds:[catchId]});
+  }catch(err){return apiError(err,'Failed to delete catch');}
 };

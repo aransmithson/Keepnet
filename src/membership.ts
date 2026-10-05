@@ -7,3 +7,8 @@ export function usePremiumMembership(): boolean {
   useAuth();
   return actions.isPremium();
 }
+export function useMembershipPending(): boolean {
+  const state = useStore();
+  const { user } = useAuth();
+  return !!user && state.membershipVerified === false && !actions.isPremium();
+}

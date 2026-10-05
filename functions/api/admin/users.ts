@@ -61,9 +61,9 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     }
 
     if (tierFilter === 'premium') {
-      query += ` AND s.tier = 'premium' AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)`;
+      query += ` AND s.tier = 'premium' AND (s.expires_at IS NULL OR julianday(s.expires_at) > julianday('now'))`;
     } else if (tierFilter === 'lite') {
-      query += ` AND (s.tier IS NULL OR s.tier = 'lite' OR (s.expires_at IS NOT NULL AND s.expires_at <= CURRENT_TIMESTAMP))`;
+      query += ` AND (s.tier IS NULL OR s.tier = 'lite' OR (s.expires_at IS NOT NULL AND julianday(s.expires_at) <= julianday('now')))`;
     }
 
     if (statusFilter === 'locked') {
@@ -164,7 +164,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const lockDurationMs = Number(body.durationMs) || (7 * 24 * 60 * 60 * 1000); // default 7 days
       const lockUntil = Date.now() + lockDurationMs;
 
-      await db.prepare('UPDATE users SET locked_until = ?, failed_logins = 5 WHERE id = ?')
+      await db.prepare('UPDATE users SET locked_until = ?, failed_logins = 5, auth_token = NULL WHERE id = ?')
         .bind(lockUntil, userId)
         .run();
 
@@ -224,10 +224,17 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return errorResponse('Owner account cannot be deleted', 400);
       }
 
-      await db.prepare('DELETE FROM catches WHERE user_id = ?').bind(userId).run().catch(() => {});
-      await db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId).run().catch(() => {});
-      await db.prepare('DELETE FROM user_subscriptions WHERE user_id = ?').bind(userId).run().catch(() => {});
-      await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+      await db.batch([
+        db.prepare('DELETE FROM catch_comments WHERE user_id = ? OR catch_id IN (SELECT id FROM catches WHERE user_id = ?)').bind(userId, userId),
+        db.prepare('DELETE FROM catch_likes WHERE user_id = ? OR catch_id IN (SELECT id FROM catches WHERE user_id = ?)').bind(userId, userId),
+        db.prepare('DELETE FROM catches WHERE user_id = ?').bind(userId),
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId),
+        db.prepare('DELETE FROM user_subscriptions WHERE user_id = ?').bind(userId),
+        db.prepare('DELETE FROM coupon_redemptions WHERE user_id = ?').bind(userId),
+        db.prepare('DELETE FROM trial_claims WHERE user_id = ?').bind(userId),
+        db.prepare('DELETE FROM catch_deletions WHERE user_id = ?').bind(userId),
+        db.prepare('DELETE FROM users WHERE id = ?').bind(userId),
+      ]);
 
       return jsonResponse({
         success: true,

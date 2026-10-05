@@ -8,29 +8,20 @@ import { UK_FISHERIES, calculateDistanceMiles, type Fishery } from './fisheries'
 import { createMap, type MapEngine, type MapMarker } from './map';
 import { getDevicePosition } from './weather';
 import { useTheme } from './theme';
-import { actions, type Venue } from './store';
-import { usePremiumMembership } from './membership';
-import { useAuth } from './auth';
-import { fetchUserCloudData } from './cloud';
+import type { Venue } from './store';
+import { usePremiumMembership, useMembershipPending } from './membership';
 
 export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void }) => {
   const nav = useNavigate();
   const isPremiumActive = usePremiumMembership();
-  const { user } = useAuth();
-
-  useEffect(() => {
-    if (user && user.storageMode === 'cloud') {
-      fetchUserCloudData(user).then((data) => {
-        if (data?.subscription) {
-          actions.setSubscription(data.subscription.tier, data.subscription.appliedCoupon, data.subscription.expiresAt);
-        }
-      });
-    }
-  }, [user]);
+  const membershipPending = useMembershipPending();
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MapEngine | null>(null);
-  const [, setReady] = useState(0);
+  const [ready, setReady] = useState(0);
   const [fallback, setFallback] = useState(false);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState(false);
+  const [mapRetry, setMapRetry] = useState(0);
 
   // Search & Filter state
   const [search, setSearch] = useState('');
@@ -53,10 +44,12 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
 
   // Create map
   useEffect(() => {
-    if (!el.current) return;
+    if (!isPremiumActive || !el.current) return;
     let cancelled = false;
     let engine: MapEngine | null = null;
     el.current.innerHTML = '';
+    setMapLoading(true);
+    setMapError(false);
     const initialCenter: [number, number] = userLocation
       ? [userLocation.lat, userLocation.lon]
       : [53.5, -2.2];
@@ -67,9 +60,10 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
       engine = m;
       map.current = m;
       setReady((n) => n + 1);
-    });
+      setMapLoading(false);
+    }).catch(() => { if (!cancelled) { setMapError(true); setMapLoading(false); } });
     return () => { cancelled = true; engine?.destroy(); map.current = null; };
-  }, [theme, fallback]);
+  }, [theme, fallback, isPremiumActive, mapRetry, userLocation]);
 
   // Handle Find Fisheries Near Me
   const handleFindNearMe = async () => {
@@ -159,7 +153,11 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
         setSelectedFishery(target);
       }
     });
-  }, [processedFisheries, userLocation]);
+  }, [processedFisheries, userLocation, ready]);
+
+  useEffect(() => {
+    if (selectedFishery && !processedFisheries.some(fishery => fishery.id === selectedFishery.id)) setSelectedFishery(null);
+  }, [processedFisheries, selectedFishery]);
 
   const focusFishery = (f: Fishery) => {
     setSelectedFishery(f);
@@ -176,7 +174,9 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
   const countries = ['All', 'England', 'Wales', 'Scotland', 'Northern Ireland'];
 
 
-  // If user is on Lite tier (not Premium / Trial), show static benefits preview per monetisation plan
+  if (membershipPending) return <div className="content fisheries-page"><div className="page-header"><button type="button" className="icon-btn" onClick={() => nav('/discover')} aria-label="Back to Discover"><ArrowLeft size={20} /></button><h1 className="page-title">UK Fisheries & Venues</h1></div><section className="card" role="status"><h2>Checking membership…</h2><p className="muted">The directory will open after Keepnet confirms your account access. Connect to the internet to continue.</p><Link className="btn-secondary" to="/subscription">Membership details</Link></section></div>;
+
+  // Show the benefits preview only after account membership is known.
   if (!isPremiumActive) {
     const previewVenues = UK_FISHERIES.slice(0, 3);
     return (
@@ -197,7 +197,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
           <button
             type="button"
             className="icon-btn"
-            onClick={() => nav(-1)}
+            onClick={() => nav('/discover')}
             aria-label="Go back"
             id="fisheries-back-btn"
           >
@@ -219,10 +219,10 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
             <Sparkles size={14} /> Specimen Suite
           </div>
           <h2 className="serif" style={{ fontSize: 24, margin: '8px 0 6px' }}>
-            60+ Verified UK Fisheries & Venues
+            Explore {UK_FISHERIES.length} UK Fisheries & Venues
           </h2>
           <p className="muted" style={{ fontSize: 13, maxWidth: 540, margin: '0 auto 16px', lineHeight: 1.5 }}>
-            While your personal fishing journal is always 100% free with Keepnet Lite, Premium adds live GPS distance sorting, Google Maps turn-by-turn directions, and day-ticket intel for 60+ UK commercial waters.
+            Your personal journal stays available with Lite. Premium adds fishery search, GPS distance sorting, venue information and links to directions.
           </p>
 
           <div className="discover-benefits-grid">
@@ -230,7 +230,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
               <Compass size={18} color="var(--accent-green)" />
               <div>
                 <strong>Find Fisheries Near Me</strong>
-                <span>GPS distance calculation to 60+ commercial waters</span>
+                <span>Compare distances to UK waters from your location</span>
               </div>
             </div>
             <div className="discover-benefit-item">
@@ -244,7 +244,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
               <NavIcon size={18} color="var(--copper, #C9772B)" />
               <div>
                 <strong>Turn-by-Turn Directions</strong>
-                <span>Direct navigation to fishery gates via Google Maps</span>
+                <span>Open venue directions in Google Maps</span>
               </div>
             </div>
             <div className="discover-benefit-item">
@@ -262,7 +262,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
               id="fisheries-start-trial-btn"
               className="btn-primary"
               style={{ height: 46, padding: '0 20px', fontSize: 14, gap: 8 }}
-              onClick={() => actions.applyCoupon('KEEPNET1M')}
+              onClick={() => nav('/subscription')}
             >
               <Gift size={16} /> Start 1-Month Free Trial
             </button>
@@ -273,7 +273,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
               className="btn-secondary"
               style={{ height: 46, padding: '0 18px', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
-              <span>Unlock Premium (£1.49/mo or £10.49/yr)</span>
+              <span>View membership details</span>
               <ChevronRight size={15} />
             </Link>
           </div>
@@ -287,7 +287,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
           <div className="static-preview-header">
             <div>
               <h2 className="serif" style={{ fontSize: 18, margin: 0 }}>Sample UK Fisheries</h2>
-              <span className="muted" style={{ fontSize: 12 }}>60+ waters available in Keepnet Premium</span>
+              <span className="muted" style={{ fontSize: 12 }}>{UK_FISHERIES.length} waters in the directory</span>
             </div>
             <span className="static-preview-pill">
               <EyeOff size={12} /> Static Preview
@@ -316,7 +316,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
                   type="button"
                   className="count-pill"
                   style={{ background: 'var(--accent-light)', color: 'var(--accent-green)', fontSize: 11, fontWeight: 600, cursor: 'pointer', border: 'none' }}
-                  onClick={() => actions.applyCoupon('KEEPNET1M')}
+                  onClick={() => nav('/subscription')}
                 >
                   Unlock
                 </button>
@@ -335,7 +335,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
         <button
           type="button"
           className="icon-btn"
-          onClick={() => nav(-1)}
+            onClick={() => nav('/discover')}
           aria-label="Go back"
           id="fisheries-back-btn"
         >
@@ -361,7 +361,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
             <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
               {userLocation
                 ? `GPS active · Showing ${processedFisheries.length} waters sorted closest to you`
-                : 'Sort 60+ verified commercial lakes, syndicates and rivers by distance'}
+                : `Search ${UK_FISHERIES.length} lakes, fisheries and rivers by distance`}
             </p>
           </div>
           <button
@@ -414,6 +414,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
             key={c}
             type="button"
             className={`pill-btn ${country === c ? 'active' : ''}`}
+                aria-pressed={country === c}
             onClick={() => setCountry(c)}
             style={{
               padding: '5px 12px',
@@ -422,7 +423,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
               fontWeight: 600,
               border: '1px solid var(--border-color)',
               background: country === c ? 'var(--accent-green)' : 'var(--surface-sunken)',
-              color: country === c ? '#fff' : 'var(--text-secondary)',
+              color: country === c ? 'var(--accent-contrast)' : 'var(--text-secondary)',
               cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
@@ -438,7 +439,10 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
         ref={el}
         className="map-container"
         style={{ height: 260, borderRadius: 14, marginBottom: 16, overflow: 'hidden' }}
+        aria-label="Map of UK fisheries"
       />
+      {mapLoading && <p className="map-status" role="status">Loading fishery map…</p>}
+      {mapError && <div className="map-status" role="alert"><p>The map could not load. You can still use the fisheries list below.</p><button type="button" className="btn-secondary" onClick={() => setMapRetry(value => value + 1)}>Retry map</button></div>}
 
       {/* Selected Fishery Detail Card */}
       {selectedFishery && (
@@ -492,6 +496,8 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
             </p>
           )}
 
+          {selectedFishery.needsPinReview && <p className="muted fishery-pin-note">The map pin is approximate. Check the venue address and entrance before travelling.</p>}
+
           <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -506,7 +512,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
             </button>
 
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${selectedFishery.lat},${selectedFishery.lon}`}
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(selectedFishery.needsPinReview || !selectedFishery.hasCoordinates ? [selectedFishery.name, selectedFishery.address, selectedFishery.postcode].filter(Boolean).join(', ') : `${selectedFishery.lat},${selectedFishery.lon}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="btn-secondary"
@@ -551,6 +557,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
                 key={f.id}
                 id={`fishery-row-${f.id}`}
                 className={`list-row ${isSelected ? 'selected' : ''}`}
+                aria-pressed={isSelected}
                 onClick={() => focusFishery(f)}
                 style={{ textAlign: 'left', width: '100%' }}
               >

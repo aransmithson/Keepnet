@@ -48,7 +48,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const totalCouponsRedeemed = await db.prepare('SELECT count(*) as total FROM coupon_redemptions').first('total').catch(() => 0);
     const activeTrials = await db.prepare(`
       SELECT count(*) as total FROM user_subscriptions 
-      WHERE tier = 'premium' AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+      WHERE tier = 'premium' AND (expires_at IS NULL OR julianday(expires_at) > julianday('now'))
     `).first('total').catch(() => 0);
     const couponBreakdown = await db.prepare(`
       SELECT coupon_code as code, count(*) as count 

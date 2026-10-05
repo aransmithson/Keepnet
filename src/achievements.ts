@@ -878,7 +878,8 @@ export function evaluateAchievements(
 ): UnlockedAchievement[] {
   return ACHIEVEMENTS.map((def) => {
     const { current, unlocked } = def.checkProgress(catches, sessions, social);
-    const progress = Math.min(100, Math.round((current / def.target) * 100));
+    const currentInTargetUnits = def.category === 'size' && def.unit === 'lb' ? current * 16 : current;
+    const progress = Math.min(100, Math.round((currentInTargetUnits / def.target) * 100));
     return {
       ...def,
       current,

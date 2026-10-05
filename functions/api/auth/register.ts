@@ -46,26 +46,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const token = generateToken();
 
     if (existing) {
-      if (existing.password_hash === 'temp_reset_pending') {
-        await db.prepare('UPDATE users SET password_hash = ?, name = ?, nickname = ?, storage_mode = ?, auth_token = ? WHERE id = ?')
-          .bind(secureHash, cleanNick, cleanNick, mode, token, existing.id).run();
-        return jsonResponse({
-          success: true,
-          token,
-          user: {
-            id: existing.id,
-            email: cleanEmail,
-            name: cleanNick,
-            nickname: cleanNick,
-            storageMode: mode,
-            createdAt: new Date().toISOString(),
-          },
-        });
-      }
       return errorResponse('An account with this email already exists. Please sign in or reset your password.', 409);
     }
 
-    const id = Math.random().toString(36).slice(2, 10);
+    const id = crypto.randomUUID();
 
     await db.prepare(`
       INSERT INTO users (id, email, password_hash, name, nickname, storage_mode, auth_token, created_at)

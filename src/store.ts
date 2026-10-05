@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { Weather } from './weather';
+import { getAccountScope, onAccountScopeChange, scopedStorageKey } from './accountScope';
 
 export type Venue = {
   id: string;
@@ -27,6 +28,8 @@ export type Venue = {
 };
 
 export type Session = {
+  sharingConfirmed?: boolean;
+  updatedAt?: string;
   id: string;
   venueId: string;
   venueName: string;
@@ -50,6 +53,8 @@ export type Session = {
 };
 
 export type Catch = {
+  sharingConfirmed?: boolean;
+  updatedAt?: string;
   id: string;
   sessionId: string;
   species: string;
@@ -75,6 +80,8 @@ export type UnitSystem = 'imperial' | 'metric';
 export type SubscriptionTier = 'lite' | 'premium';
 
 type State = {
+  deletedCatchIds?: string[];
+  savedCatchIds?: string[];
   sessions: Session[];
   catches: Catch[];
   name: string;
@@ -93,6 +100,7 @@ type State = {
   appliedCoupon?: string | null;
   /** Timestamp when current subscription or trial expires */
   subscriptionExpiresAt?: string | null;
+  membershipVerified?: boolean;
 };
 
 import { MAP_FISHERIES } from './fisheries';
@@ -101,7 +109,7 @@ export const VENUES: Venue[] = MAP_FISHERIES;
 
 export const SPECIES = ['Perch', 'Chub', 'Roach', 'Pike', 'Bream', 'Dace', 'Grayling', 'Rainbow trout', 'Brown trout', 'Carp', 'Tench', 'Rudd'];
 
-const KEY = 'keepnet:v2:live';
+const KEY = 'keepnet:v3:journal';
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 
 /** Production launch initial state: clean, empty journal. */
@@ -117,26 +125,72 @@ const seed = (): State => ({
   subscriptionTier: 'lite',
   appliedCoupon: null,
   subscriptionExpiresAt: null,
+  membershipVerified: false,
 });
 
 const load = (): State => {
+  let preserved: State | undefined;
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(scopedStorageKey(KEY));
     if (raw) return JSON.parse(raw);
-  } catch { /* ignore corrupt storage */ }
+    const legacy = localStorage.getItem('keepnet:v2:live');
+    if (legacy) {
+      const old: State = JSON.parse(legacy);
+      const currentProfile = JSON.parse(localStorage.getItem('keepnet:current_user') || '{}').user;
+      const guestOnly = [...old.sessions, ...old.catches].every(item => !item.userId);
+      const profileName = currentProfile?.id === getAccountScope() ? currentProfile.nickname || currentProfile.name : getAccountScope() === 'guest' && guestOnly ? old.name : 'Angler';
+      preserved = { ...seed(), name: profileName || 'Angler', unitSystem: old.unitSystem,
+        sessions: old.sessions.filter(item => (item.userId || 'guest') === getAccountScope()).map(item => ({ ...item, isShared: false, sharingConfirmed: false })),
+        catches: old.catches.filter(item => (item.userId || 'guest') === getAccountScope()).map(item => ({ ...item, isShared: false, sharingConfirmed: false })),
+      };
+      const owners = new Set([...old.sessions, ...old.catches].map(item => item.userId || 'guest'));
+      owners.add(getAccountScope());
+      for (const owner of owners) {
+        const key = scopedStorageKey(KEY, owner);
+        if (!localStorage.getItem(key)) {
+          const ownedSessions = old.sessions.filter(item => (item.userId || 'guest') === owner);
+          const ownedCatches = old.catches.filter(item => (item.userId || 'guest') === owner);
+          localStorage.setItem(key, JSON.stringify({
+          ...seed(), ...(owner === getAccountScope() ? { name: profileName || 'Angler', unitSystem: old.unitSystem } : {}),
+          sessions: ownedSessions.map(item => ({ ...item, isShared: false, sharingConfirmed: false })),
+          catches: ownedCatches.map(item => ({ ...item, isShared: false, sharingConfirmed: false })),
+        }));
+          // Re-upload known fields lost by the legacy cloud schema before downloading it.
+          if (owner !== 'guest') {
+            const current = JSON.parse(localStorage.getItem('keepnet:current_user') || '{}');
+            const cloudMode = current.user?.id === owner && (current.user.storageMode || current.storageMode) === 'cloud';
+            const queueKey = scopedStorageKey('keepnet:v3:pending', owner);
+            const previous = JSON.parse(localStorage.getItem(queueKey) || localStorage.getItem('keepnet:pending_cloud_queue') || '{}');
+            const queue: { sessions: Record<string, Session>; catches: Record<string, Catch>; deletedCatches: Record<string, string> } = { sessions: {}, catches: {}, deletedCatches: previous.deletedCatches || {} };
+            for (const kind of ['sessions', 'catches'] as const) for (const [recordId, record] of Object.entries(previous[kind] || {})) {
+              if ((record as Session).userId === owner) (queue[kind] as Record<string, Session | Catch>)[recordId] = record as Session | Catch;
+            }
+            for (const session of ownedSessions) if (cloudMode || session.isShared) queue.sessions[session.id] = { ...session, isShared: false, sharingConfirmed: false };
+            for (const catchItem of ownedCatches) if (cloudMode || catchItem.isShared) {
+              queue.catches[catchItem.id] = { ...catchItem, isShared: false, sharingConfirmed: false };
+              const parent = ownedSessions.find(session => session.id === catchItem.sessionId);
+              if (parent && !queue.sessions[parent.id]) queue.sessions[parent.id] = { ...parent, notes: undefined, photo: undefined, photos: [], isShared: false };
+            }
+            localStorage.setItem(queueKey, JSON.stringify(queue));
+          }
+        }
+      }
+      return JSON.parse(localStorage.getItem(scopedStorageKey(KEY)) || 'null') || seed();
+    }
+  } catch {
+    if (preserved) return { ...preserved, storageError: 'Your journal is preserved in memory, but device storage could not finish the account migration. Sync or free device storage before closing this tab.' };
+  }
   return seed();
 };
 
 let state: State = load();
+let socialRevision = 0;
 const listeners = new Set<() => void>();
 
 const commit = (next: State) => {
-  state = next;
+  state = { ...next, storageError: null };
   try {
-    localStorage.setItem(KEY, JSON.stringify(state));
-    if (state.storageError) {
-      state = { ...state, storageError: null };
-    }
+    localStorage.setItem(scopedStorageKey(KEY), JSON.stringify(state));
   } catch (err: any) {
     const isQuota = err?.name === 'QuotaExceededError' || err?.code === 22 || err?.code === 1014;
     state = {
@@ -152,24 +206,39 @@ const commit = (next: State) => {
 
 export const useStore = () =>
   useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb); }, () => state);
+onAccountScopeChange(() => { state = load(); listeners.forEach(listener => listener()); });
 
 import {
   pushSessionToCloud, pushCatchToCloud, syncCatchLikeToCloud,
-  redeemCouponOnCloud, cancelSubscriptionOnCloud
+  redeemCouponOnCloud, cancelSubscriptionOnCloud, deleteCatchOnCloud, getPendingJournal, clearPendingJournal, isSessionOnCloud
 } from './cloud';
 import { authActions } from './auth';
 
+async function syncCatchWithParent(item: Catch, user: ReturnType<typeof authActions.getCurrentUser>) {
+  if (!user) return;
+  const parent = state.sessions.find(session => session.id === item.sessionId);
+  if (parent && (!isSessionOnCloud(parent.id) || getPendingJournal().sessions[parent.id])) {
+    const session = user.storageMode === 'local' ? { ...parent, photo: undefined, photos: [], notes: undefined, isShared: !!parent.isShared && !parent.isConfidential } : parent;
+    void pushSessionToCloud(session, user);
+  }
+  await pushCatchToCloud(item, user);
+}
+
 export const actions = {
+  getSnapshot(): State { return state; },
+  getSocialRevision(): number { return socialRevision; },
   startSession(v: { venueId: string; venueName: string; lat: number; lon: number; photo?: string; isShared?: boolean }): Session {
     const user = authActions.getCurrentUser();
     const s: Session = {
       id: uid(),
       isShared: v.isShared ?? false,
+      sharingConfirmed: !!v.isShared,
       userId: user?.id,
       userName: user?.name || state.name || 'Angler',
       ...v,
       photos: v.photo ? [v.photo] : [],
       startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     commit({ ...state, sessions: [s, ...state.sessions] });
     if (s.isShared || user?.storageMode === 'cloud') {
@@ -178,12 +247,13 @@ export const actions = {
     return s;
   },
   updateSession(id: string, patch: Partial<Session>) {
+    const wasShared = !!state.sessions.find(s => s.id === id)?.isShared;
     let updated: Session | undefined;
     commit({
       ...state,
       sessions: state.sessions.map((s) => {
         if (s.id === id) {
-          updated = { ...s, ...patch };
+          updated = { ...s, ...patch, sharingConfirmed: patch.isShared === undefined ? s.sharingConfirmed : !!patch.isShared, updatedAt: new Date().toISOString(), isShared: (patch.isConfidential ?? s.isConfidential) ? false : patch.isShared ?? s.isShared };
           return updated;
         }
         return s;
@@ -191,7 +261,7 @@ export const actions = {
     });
     if (updated) {
       const user = authActions.getCurrentUser();
-      if (updated.isShared || user?.storageMode === 'cloud') {
+      if (wasShared || updated.isShared || user?.storageMode === 'cloud') {
         pushSessionToCloud(updated, user);
       }
     }
@@ -203,7 +273,7 @@ export const actions = {
       ...state,
       sessions: state.sessions.map((s) => {
         if (s.id === id) {
-          updated = { ...s, photo, photos: [...(s.photos ?? []), photo] };
+          updated = { ...s, photo, photos: [...(s.photos ?? []), photo], updatedAt: new Date().toISOString() };
           return updated;
         }
         return s;
@@ -223,20 +293,24 @@ export const actions = {
       id: uid(),
       userId: user?.id,
       userName: user?.name || state.name || 'Angler',
+      isShared: c.isConfidential ? false : !!c.isShared,
+      sharingConfirmed: !!c.isShared && !c.isConfidential,
+      updatedAt: new Date().toISOString(),
     };
     commit({ ...state, catches: [n, ...state.catches] });
     if (n.isShared || user?.storageMode === 'cloud') {
-      pushCatchToCloud(n, user);
+      void syncCatchWithParent(n, user);
     }
     return n;
   },
   updateCatch(id: string, patch: Partial<Catch>) {
+    const wasShared = !!state.catches.find(c => c.id === id)?.isShared;
     let updated: Catch | undefined;
     commit({
       ...state,
       catches: state.catches.map((c) => {
         if (c.id === id) {
-          updated = { ...c, ...patch };
+          updated = { ...c, ...patch, sharingConfirmed: patch.isShared === undefined ? c.sharingConfirmed : !!patch.isShared, updatedAt: new Date().toISOString(), isShared: (patch.isConfidential ?? c.isConfidential) ? false : patch.isShared ?? c.isShared };
           return updated;
         }
         return c;
@@ -244,13 +318,15 @@ export const actions = {
     });
     if (updated) {
       const user = authActions.getCurrentUser();
-      if (updated.isShared || user?.storageMode === 'cloud') {
-        pushCatchToCloud(updated, user);
+      if (wasShared || updated.isShared || user?.storageMode === 'cloud') {
+        void syncCatchWithParent(updated, user);
       }
     }
   },
   deleteCatch(id: string) {
-    commit({ ...state, catches: state.catches.filter((c) => c.id !== id) });
+    const existing = state.catches.find(c => c.id === id);
+    commit({ ...state, catches: state.catches.filter((c) => c.id !== id), deletedCatchIds: [...new Set([...(state.deletedCatchIds || []), id])] });
+    if (existing && authActions.getCurrentUser()) void deleteCatchOnCloud(id);
   },
   toggleSessionShare(id: string): boolean {
     let nextShared = false;
@@ -259,8 +335,8 @@ export const actions = {
       ...state,
       sessions: state.sessions.map((s) => {
         if (s.id === id) {
-          nextShared = !s.isShared;
-          target = { ...s, isShared: nextShared };
+          nextShared = !s.isShared && !s.isConfidential;
+          target = { ...s, isShared: nextShared, sharingConfirmed: nextShared, updatedAt: new Date().toISOString() };
           return target;
         }
         return s;
@@ -279,8 +355,8 @@ export const actions = {
       ...state,
       catches: state.catches.map((c) => {
         if (c.id === id) {
-          nextShared = !c.isShared;
-          target = { ...c, isShared: nextShared };
+          nextShared = !c.isShared && !c.isConfidential;
+          target = { ...c, isShared: nextShared, sharingConfirmed: nextShared, updatedAt: new Date().toISOString() };
           return target;
         }
         return c;
@@ -288,7 +364,7 @@ export const actions = {
     });
     if (target) {
       const user = authActions.getCurrentUser();
-      pushCatchToCloud(target, user);
+      void syncCatchWithParent(target, user);
     }
     return nextShared;
   },
@@ -297,72 +373,30 @@ export const actions = {
    * Ensures unsynced bankside catches and offline session photos are never overwritten.
    */
   replaceWithRemoteData(
-    remoteSessions: Session[],
-    remoteCatches: Catch[],
-    remoteSubscription?: { tier?: SubscriptionTier; appliedCoupon?: string | null; expiresAt?: string | null }
+    remoteSessions: Session[], remoteCatches: Catch[],
+    remoteSubscription?: { tier?: SubscriptionTier; appliedCoupon?: string | null; expiresAt?: string | null },
+    deletedCatchIds: string[] = []
   ) {
-    // 1. Preserve local sessions that do not exist remotely yet
-    const remoteSessionIds = new Set(remoteSessions.map((s) => s.id));
-    const localOnlySessions = state.sessions.filter((s) => !remoteSessionIds.has(s.id));
-
-    // 2. For matching sessions, preserve local photos or notes that remote lacks
-    const localSessionMap = new Map(state.sessions.map((s) => [s.id, s]));
-    const mergedRemoteSessions = remoteSessions.map((remote) => {
-      const local = localSessionMap.get(remote.id);
-      if (!local) return remote;
-      // Preserve any local photos added offline
-      const combinedPhotos = Array.from(new Set([...(local.photos || []), ...(remote.photos || [])]));
-      return {
-        ...remote,
-        photo: remote.photo || local.photo,
-        photos: combinedPhotos.length > 0 ? combinedPhotos : undefined,
-        notes: remote.notes || local.notes,
-      };
-    });
-
-    const finalSessions = [...mergedRemoteSessions, ...localOnlySessions]
-      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
-
-    // 3. Preserve local catches that do not exist remotely yet
-    const remoteCatchIds = new Set(remoteCatches.map((c) => c.id));
-    const localOnlyCatches = state.catches.filter((c) => !remoteCatchIds.has(c.id));
-
-    // 4. For matching catches, preserve local image or notes if remote is blank
-    const localCatchMap = new Map(state.catches.map((c) => [c.id, c]));
-    const mergedRemoteCatches = remoteCatches.map((remote) => {
-      const local = localCatchMap.get(remote.id);
-      if (!local) return remote;
-      return {
-        ...remote,
-        image: remote.image || local.image,
-        notes: remote.notes || local.notes,
-      };
-    });
-
-    const finalCatches = [...mergedRemoteCatches, ...localOnlyCatches]
-      .sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime());
-
-    const nextSub = remoteSubscription && remoteSubscription.tier
-      ? {
-          subscriptionTier: remoteSubscription.tier,
-          appliedCoupon: remoteSubscription.appliedCoupon !== undefined ? remoteSubscription.appliedCoupon : state.appliedCoupon,
-          subscriptionExpiresAt: remoteSubscription.expiresAt !== undefined ? remoteSubscription.expiresAt : null,
-        }
-      : {};
-
+    const scope = getAccountScope();
+    const pending = getPendingJournal();
+    const deleted = new Set([...(state.deletedCatchIds || []), ...deletedCatchIds, ...Object.keys(pending.deletedCatches)]);
+    const belongs = (item: Session | Catch) => !item.userId || item.userId === scope;
+    const reconcile = <T extends Session | Catch>(local: T[], remote: T[], dirty: Record<string, T>) => {
+      const merged = new Map(local.filter(belongs).map(item => [item.id, item]));
+      for (const server of remote.filter(belongs)) {
+        const saved = merged.get(server.id);
+        if (saved && (dirty[server.id] || (saved.updatedAt && server.updatedAt && new Date(saved.updatedAt).getTime() > new Date(server.updatedAt).getTime()))) continue;
+        merged.set(server.id, saved ? { ...saved, ...server } : server);
+      }
+      return [...merged.values()];
+    };
     commit({
       ...state,
-      sessions: finalSessions,
-      catches: finalCatches,
-      ...nextSub,
+      sessions: reconcile(state.sessions, remoteSessions, pending.sessions).sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)),
+      catches: reconcile(state.catches, remoteCatches, pending.catches).filter(item => !deleted.has(item.id)).sort((a, b) => Date.parse(b.caughtAt) - Date.parse(a.caughtAt)),
+      deletedCatchIds: [...deleted],
+      ...(remoteSubscription?.tier ? { membershipVerified: true, subscriptionTier: remoteSubscription.tier, appliedCoupon: remoteSubscription.appliedCoupon || null, subscriptionExpiresAt: remoteSubscription.expiresAt || null } : {}),
     });
-
-    // Automatically push any unsynced local catches and sessions to D1
-    const user = authActions.getCurrentUser();
-    if (user && user.storageMode === 'cloud') {
-      localOnlySessions.forEach((s) => pushSessionToCloud(s, user));
-      localOnlyCatches.forEach((c) => pushCatchToCloud(c, user));
-    }
   },
   mergeRemoteData(remoteSessions: Session[], remoteCatches: Catch[]) {
     this.replaceWithRemoteData(remoteSessions, remoteCatches);
@@ -374,7 +408,7 @@ export const actions = {
   },
   setName(name: string) {
     commit({ ...state, name });
-    authActions.updateNickname(name);
+
   },
   setUnitSystem(unitSystem: UnitSystem) {
     commit({ ...state, unitSystem });
@@ -382,7 +416,15 @@ export const actions = {
   setEquippedAchievement(id: string | null) {
     commit({ ...state, equippedAchievementId: id });
   },
+  isCatchSaved(id: string): boolean { return (state.savedCatchIds || []).includes(id); },
+  toggleCatchSave(id: string) {
+    const saved = state.savedCatchIds || [];
+    commit({ ...state, savedCatchIds: saved.includes(id) ? saved.filter(item => item !== id) : [...saved, id] });
+  },
   toggleCatchLike(catchId: string): boolean {
+    if (!authActions.getCurrentUser()) return false;
+    ++socialRevision;
+    const scope = getAccountScope();
     const currentLiked = state.likedCatchIds || [];
     const isLiked = currentLiked.includes(catchId);
     const nextLiked = isLiked
@@ -390,7 +432,7 @@ export const actions = {
       : [...currentLiked, catchId];
 
     const currentLikes = { ...(state.catchLikes || {}) };
-    const currentCount = currentLikes[catchId] ?? 0;
+    const currentCount = this.getCatchLikesCount(catchId);
     const nextCount = isLiked ? Math.max(0, currentCount - 1) : currentCount + 1;
     currentLikes[catchId] = nextCount;
 
@@ -410,7 +452,11 @@ export const actions = {
       likesGivenCount: nextLikesGiven,
     });
 
-    syncCatchLikeToCloud(catchId, !isLiked).catch(() => {});
+    syncCatchLikeToCloud(catchId, !isLiked).then(count => {
+      if (scope !== getAccountScope() || this.isCatchLiked(catchId) !== !isLiked) return;
+      if (count !== null) this.setCatchLikes(catchId, count);
+      else commit({ ...state, likedCatchIds: isLiked ? [...new Set([...(state.likedCatchIds || []), catchId])] : (state.likedCatchIds || []).filter(id => id !== catchId), catchLikes: { ...state.catchLikes, [catchId]: currentCount }, catches: state.catches.map(item => item.id === catchId ? { ...item, likesCount: currentCount } : item), likesGivenCount: Math.max(0, (state.likesGivenCount || 0) + (isLiked ? 1 : -1)) });
+    });
     return !isLiked;
   },
   isCatchLiked(catchId: string): boolean {
@@ -437,57 +483,29 @@ export const actions = {
       catchLikes: { ...(state.catchLikes || {}), ...likes },
     });
   },
+  setLikedCatchIds(ids: string[]) {
+    ++socialRevision;
+    commit({ ...state, likedCatchIds: [...new Set(ids)] });
+  },
   getTotalLikesReceived(): number {
     return state.catches.reduce((acc, c) => acc + (this.getCatchLikesCount(c.id, c.likesCount) || 0), 0);
   },
-  applyCoupon(code: string): { success: boolean; message: string } {
-    const clean = (code || '').trim().toUpperCase();
-    if (!clean) {
-      return { success: false, message: 'Please enter a coupon code.' };
-    }
-    const validCodes = ['KEEPNET1M', 'TRIAL1MONTH', 'ANGLER30', 'FISHFREE', 'PRO1MONTH', 'KEEPNETPRO', 'CARP1MONTH', 'FREETRIAL30', 'SPECIMEN30'];
-    const isValid = validCodes.includes(clean)
-      || clean.includes('TRIAL')
-      || clean.includes('FREE')
-      || clean.includes('1M')
-      || clean.includes('30')
-      || clean.includes('MONTH');
-    if (!isValid) {
-      return { success: false, message: 'Invalid coupon code. Try code "KEEPNET1M" for a 1-month trial.' };
-    }
-    const oneMonth = new Date();
-    oneMonth.setDate(oneMonth.getDate() + 30);
-    const expiresAt = oneMonth.toISOString();
-
-    commit({
-      ...state,
-      subscriptionTier: 'premium',
-      appliedCoupon: clean,
-      subscriptionExpiresAt: expiresAt,
-    });
-
-    // Cloud persistence for authenticated users
-    const user = authActions.getCurrentUser();
-    if (user && user.storageMode === 'cloud') {
-      redeemCouponOnCloud(clean, user.id).catch(() => {});
-    }
-
-    return {
-      success: true,
-      message: `Coupon "${clean}" applied! Your 1-Month Free Trial of Keepnet Premium is now active until ${oneMonth.toLocaleDateString('en-GB')}.`,
-    };
+  async applyCoupon(code: string): Promise<{ success: boolean; message: string }> {
+    const clean = code.trim().toUpperCase();
+    if (!clean) return { success: false, message: 'Please enter a coupon code.' };
+    if (!authActions.getCurrentUser()) return { success: false, message: 'Sign in before redeeming a trial.' };
+    const scope = getAccountScope();
+    const result = await redeemCouponOnCloud(clean);
+    if (scope !== getAccountScope()) return { success: false, message: 'Account changed. Please try again.' };
+    if (result.success && result.tier) this.setSubscription(result.tier, result.appliedCoupon, result.expiresAt);
+    return result;
   },
-  cancelCouponTrial() {
-    commit({
-      ...state,
-      subscriptionTier: 'lite',
-      appliedCoupon: null,
-      subscriptionExpiresAt: null,
-    });
-    const user = authActions.getCurrentUser();
-    if (user && user.storageMode === 'cloud') {
-      cancelSubscriptionOnCloud().catch(() => {});
-    }
+  async cancelCouponTrial(): Promise<boolean> {
+    const scope = getAccountScope();
+    if (!state.appliedCoupon || !authActions.getCurrentUser()) return false;
+    if (!await cancelSubscriptionOnCloud() || scope !== getAccountScope()) return false;
+    this.setSubscription('lite');
+    return true;
   },
   setSubscription(tier: SubscriptionTier, appliedCoupon: string | null = null, expiresAt: string | null = null) {
     commit({
@@ -495,12 +513,14 @@ export const actions = {
       subscriptionTier: tier,
       appliedCoupon,
       subscriptionExpiresAt: expiresAt,
+      membershipVerified: true,
     });
   },
   isPremium(): boolean {
     const user = authActions.getCurrentUser();
     // Platform owner / administrator always has full specimen suite access unlocked
-    if (user && (user.email === 'aransmithson@gmail.com' || user.email === 'aransmithson@googlemail.com' || !!user.isAdmin)) {
+    if (!user) return false;
+    if (user.isAdmin) {
       return true;
     }
     if (state.subscriptionTier !== 'premium') return false;
@@ -510,8 +530,9 @@ export const actions = {
   clearAll() {
     try {
       localStorage.removeItem('keepnet:v1');
-      localStorage.removeItem('keepnet:v2:live');
+      localStorage.removeItem(scopedStorageKey(KEY));
     } catch { /* ignore */ }
+    clearPendingJournal();
     commit(seed());
   },
   reset() {
@@ -521,7 +542,7 @@ export const actions = {
 
 export const metricToImperial = (kg: number, g: number): { weightLb: number; weightOz: number } => {
   const totalG = (Math.max(0, kg) || 0) * 1000 + (Math.max(0, g) || 0);
-  const totalOunces = totalG / 28.349523125;
+  const totalOunces = Math.round(totalG / 28.349523125 * 100) / 100;
   const lb = Math.floor(totalOunces / 16);
   const oz = +(totalOunces - lb * 16).toFixed(2);
   return { weightLb: lb, weightOz: oz };
@@ -548,8 +569,9 @@ export const fmtWeight = (
     const decimalKg = +(totalG / 1000).toFixed(2);
     return `${decimalKg} kg`;
   }
-  const lb = Math.floor(c.weightLb || 0);
-  const oz = Math.round(c.weightOz || 0);
+  const ounces = Math.round((c.weightLb || 0) * 16 + (c.weightOz || 0));
+  const lb = Math.floor(ounces / 16);
+  const oz = ounces % 16;
   if (!lb && !oz) return '0 lb 0 oz';
   if (!lb) return `${oz} oz`;
   if (!oz) return `${lb} lb`;

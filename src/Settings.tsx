@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Cloud, HardDrive, Lock, RefreshCw, KeyRound, LogOut,
@@ -9,12 +9,14 @@ import { useStore, actions } from './store';
 import { useAuth, authActions, isUserAdmin } from './auth';
 import { useTheme, themeActions } from './theme';
 import { fetchUserCloudData, flushPendingQueue } from './cloud';
-import { usePremiumMembership } from './membership';
+import { usePremiumMembership, useMembershipPending } from './membership';
+import { installApp, useInstallPrompt } from './pwa';
 
-export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
+export const Settings = ({ onOpenAuth }: { onOpenAuth: (mode?: 'signin' | 'signup' | 'reset') => void }) => {
   const nav = useNavigate();
   const { unitSystem = 'imperial', appliedCoupon, subscriptionExpiresAt } = useStore();
   const isPremiumActive = usePremiumMembership();
+  const membershipPending = useMembershipPending();
   const { user, storageMode } = useAuth();
   const theme = useTheme();
   const isAdmin = isUserAdmin(user);
@@ -22,16 +24,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   const [syncing, setSyncing] = useState(false);
   const [syncSuccess, setSyncSuccess] = useState(false);
 
-  // Global PWA installation event handling
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
-
-  useEffect(() => {
-    const handler = (e: any) => {
-      setInstallPrompt(e);
-    };
-    window.addEventListener('keepnet:installable', handler);
-    return () => window.removeEventListener('keepnet:installable', handler);
-  }, []);
+  const installPrompt = useInstallPrompt();
 
   const isStandalone = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
@@ -39,26 +32,19 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   );
   const isIos = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  const handleInstallApp = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    if (choice?.outcome === 'accepted') {
-      setInstallPrompt(null);
-    }
-  };
+  const handleInstallApp = installApp;
 
   const handleManualSync = async () => {
     if (!user) return;
     setSyncing(true);
     setSyncSuccess(false);
     try {
-      await flushPendingQueue();
+      const uploaded = await flushPendingQueue();
       const data = await fetchUserCloudData(user);
-      if (data) {
-        actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription);
+      if (data && authActions.getCurrentUser()?.id === user.id) {
+        actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription, data.deletedCatchIds);
       }
-      setSyncSuccess(true);
+      setSyncSuccess(uploaded && !!data);
       setTimeout(() => setSyncSuccess(false), 3000);
     } finally {
       setSyncing(false);
@@ -122,8 +108,8 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
             </div>
             <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               {storageMode === 'cloud' && user
-                ? 'Your catches, swim photos, and sessions are securely encrypted and synced across all your devices.'
-                : 'All catches and sessions are stored privately on this device and are not uploaded to remote servers.'}
+                ? 'Your catches, swim photos, and sessions are securely synced across all your devices.'
+                : 'Your private journal stays on this device. Records you choose to share are published to the community.'}
             </p>
           </div>
         </div>
@@ -153,7 +139,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
                 className="btn-secondary"
                 id="settings-password-btn"
                 style={{ flex: 1 }}
-                onClick={onOpenAuth}
+                onClick={() => onOpenAuth('reset')}
               >
                 <KeyRound size={15} />
                 <span>Password</span>
@@ -176,7 +162,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
                 className="btn-primary"
                 id="settings-signin-btn"
                 style={{ flex: 1 }}
-                onClick={onOpenAuth}
+                onClick={() => onOpenAuth()}
               >
                 <Mail size={16} /> Sign In / Create Cloud Account
               </button>
@@ -193,7 +179,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
               <Crown size={14} /> Keepnet Membership
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span>{isPremiumActive ? 'Keepnet Premium' : 'Keepnet Lite'}</span>
+              <span>{membershipPending ? 'Checking membership…' : isPremiumActive ? 'Keepnet Premium' : 'Keepnet Lite'}</span>
               <span className={`tag status-pill ${isPremiumActive ? 'shared' : 'private'}`}>
                 {isPremiumActive ? (appliedCoupon ? `Trial (${appliedCoupon})` : 'Active Subscriber') : 'Free Tier'}
               </span>
@@ -220,7 +206,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
             style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 44 }}
           >
             <Crown size={16} />
-            <span>{isPremiumActive ? 'Manage Subscription Plan' : 'Upgrade to Premium (£1.49/mo) · 1-Month Free Trial'}</span>
+            <span>{isPremiumActive || membershipPending ? 'Membership details' : 'View Premium trial'}</span>
             <ChevronRight size={16} />
           </Link>
         </div>
@@ -243,7 +229,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
           <div className="pref-segmented-control" role="group" aria-label="Select measurement units">
             <button
               type="button"
-              id="pref-unit-imperial"
+              id="pref-unit-imperial" aria-pressed={unitSystem !== 'metric'}
               className={`pref-segment-btn ${unitSystem !== 'metric' ? 'active' : ''}`}
               onClick={() => actions.setUnitSystem('imperial')}
             >
@@ -252,7 +238,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
             </button>
             <button
               type="button"
-              id="pref-unit-metric"
+              id="pref-unit-metric" aria-pressed={unitSystem === 'metric'}
               className={`pref-segment-btn ${unitSystem === 'metric' ? 'active' : ''}`}
               onClick={() => actions.setUnitSystem('metric')}
             >
@@ -275,7 +261,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
           <div className="pref-segmented-control" role="group" aria-label="Select theme appearance">
             <button
               type="button"
-              id="pref-theme-light"
+              id="pref-theme-light" aria-pressed={theme === 'light'}
               className={`pref-segment-btn ${theme === 'light' ? 'active' : ''}`}
               onClick={() => themeActions.setTheme('light')}
             >
@@ -284,7 +270,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
             </button>
             <button
               type="button"
-              id="pref-theme-dark"
+              id="pref-theme-dark" aria-pressed={theme === 'dark'}
               className={`pref-segment-btn ${theme === 'dark' ? 'active' : ''}`}
               onClick={() => themeActions.setTheme('dark')}
             >

@@ -1,169 +1,55 @@
-import { Env, jsonResponse, errorResponse, corsHeaders } from '../_types';
+import { Env,jsonResponse,errorResponse,corsHeaders } from '../_types';
 import { sanitizeInput } from '../_crypto';
-import { getAuthenticatedUser } from '../_auth';
+import { requireAuth } from '../_auth';
+import { apiError } from '../_journal';
 
-export const onRequestOptions: PagesFunction<Env> = async () => {
-  return new Response(null, { headers: corsHeaders });
+export const onRequestOptions: PagesFunction<Env> = async()=>new Response(null,{headers:corsHeaders});
+const COUPONS=new Set(['KEEPNET1M','TRIAL1MONTH','ANGLER30','FISHFREE','PRO1MONTH','KEEPNETPRO','CARP1MONTH','FREETRIAL30','SPECIMEN30']);
+const owner=(user:any)=>user.is_admin===1;
+const active=(sub:any)=>sub?.tier==='premium' && (!sub.expires_at || Date.parse(sub.expires_at)>Date.now());
+
+export const onRequestGet: PagesFunction<Env> = async context=>{
+  try{
+    const auth=await requireAuth(context);if(!auth.success)return auth.response;
+    const sub=await context.env.DB.prepare('SELECT tier,applied_coupon,expires_at FROM user_subscriptions WHERE user_id = ?').bind(auth.user.id).first<any>();
+    const premium=owner(auth.user)||active(sub);
+    return jsonResponse({success:true,tier:premium?'premium':'lite',appliedCoupon:owner(auth.user)?'OWNER_VIP':sub?.applied_coupon||null,expiresAt:owner(auth.user)?null:sub?.expires_at||null,isPremium:premium});
+  }catch(err){return apiError(err,'Failed to fetch membership');}
 };
-
-// Known valid promotional coupon codes
-const DEFAULT_COUPONS = ['KEEPNET1M', 'ANGLER30', 'CARP1MONTH', 'FREETRIAL30', 'SPECIMEN30', 'KEEPNETPRO'];
-
-async function ensureSubscriptionTables(db: D1Database) {
-  await db.prepare(`
-    CREATE TABLE IF NOT EXISTS user_subscriptions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL UNIQUE,
-      tier TEXT NOT NULL DEFAULT 'lite',
-      applied_coupon TEXT,
-      expires_at TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run().catch(() => {});
-
-  await db.prepare(`
-    CREATE TABLE IF NOT EXISTS coupon_redemptions (
-      id TEXT PRIMARY KEY,
-      user_id TEXT,
-      coupon_code TEXT NOT NULL,
-      redeemed_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `).run().catch(() => {});
-}
-
-// GET: Check subscription status for authenticated user
-export const onRequestGet: PagesFunction<Env> = async (context) => {
-  try {
-    const db = context.env.DB;
-    await ensureSubscriptionTables(db);
-
-    const currentUser = await getAuthenticatedUser(context);
-    if (!currentUser) {
-      return jsonResponse({
-        success: true,
-        tier: 'lite',
-        appliedCoupon: null,
-        expiresAt: null,
-        isPremium: false,
-      });
-    }
-
-    const sub = await db.prepare('SELECT tier, applied_coupon, expires_at FROM user_subscriptions WHERE user_id = ?')
-      .bind(currentUser.id)
-      .first() as any;
-
-    if (!sub) {
-      return jsonResponse({
-        success: true,
-        tier: 'lite',
-        appliedCoupon: null,
-        expiresAt: null,
-        isPremium: false,
-      });
-    }
-
-    const isPremium = sub.tier === 'premium' && (!sub.expires_at || new Date(sub.expires_at).getTime() > Date.now());
-
-    return jsonResponse({
-      success: true,
-      tier: isPremium ? 'premium' : 'lite',
-      appliedCoupon: sub.applied_coupon,
-      expiresAt: sub.expires_at,
-      isPremium,
-    });
-  } catch (err: any) {
-    return errorResponse(err.message || 'Failed to fetch subscription status', 500);
-  }
+export const onRequestPost: PagesFunction<Env> = async context=>{
+  try{
+    const auth=await requireAuth(context);if(!auth.success)return auth.response;
+    const db=context.env.DB,body=await context.request.json() as any;
+    if(body.userId && body.userId!==auth.user.id)return errorResponse('Cannot change another account membership',403);
+    const code=sanitizeInput(body.code,40).toUpperCase();if(!COUPONS.has(code))return errorResponse('Invalid trial coupon code',400);
+    const sub=await db.prepare('SELECT tier,applied_coupon,expires_at FROM user_subscriptions WHERE user_id = ?').bind(auth.user.id).first<any>();
+    if(owner(auth.user)||active(sub))return errorResponse('Your Premium membership is already active',409);
+    const now=new Date().toISOString(),claimId=crypto.randomUUID(),expiresAt=new Date(Date.now()+30*86400000).toISOString();
+    // Batch transactions serialize the claim, so concurrent redemptions cannot renew it.
+    await db.batch([
+      db.prepare(`INSERT OR IGNORE INTO trial_claims(user_id,redeemed_at,claim_id)
+        SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM user_subscriptions WHERE user_id=? AND tier='premium'
+          AND (expires_at IS NULL OR julianday(expires_at)>julianday(?)))`).bind(auth.user.id,now,claimId,auth.user.id,now),
+      db.prepare(`INSERT INTO user_subscriptions(id,user_id,tier,applied_coupon,expires_at,updated_at)
+        SELECT ?,?,'premium',?,?,? FROM trial_claims WHERE user_id=? AND claim_id=?
+        ON CONFLICT(user_id) DO UPDATE SET tier=excluded.tier,applied_coupon=excluded.applied_coupon,expires_at=excluded.expires_at,updated_at=excluded.updated_at
+        WHERE user_subscriptions.tier!='premium' OR (user_subscriptions.expires_at IS NOT NULL AND julianday(user_subscriptions.expires_at)<=julianday(?))`)
+        .bind(crypto.randomUUID(),auth.user.id,code,expiresAt,now,auth.user.id,claimId,now),
+      db.prepare(`INSERT INTO coupon_redemptions(id,user_id,coupon_code,redeemed_at)
+        SELECT ?,?,?,? FROM trial_claims WHERE user_id=? AND claim_id=?`).bind(crypto.randomUUID(),auth.user.id,code,now,auth.user.id,claimId),
+    ]);
+    const claim=await db.prepare('SELECT claim_id FROM trial_claims WHERE user_id = ?').bind(auth.user.id).first<any>();
+    if(claim?.claim_id!==claimId)return errorResponse('This account has already used its free trial',409);
+    return jsonResponse({success:true,tier:'premium',appliedCoupon:code,expiresAt,message:`Your 30-day Premium trial is active until ${new Date(expiresAt).toLocaleDateString('en-GB')}.`});
+  }catch(err){return apiError(err,'Failed to redeem trial');}
 };
-
-// POST: Redeem a 1-month free trial coupon
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  try {
-    const db = context.env.DB;
-    await ensureSubscriptionTables(db);
-
-    const body = await context.request.json() as any;
-    const rawCode = sanitizeInput(body.code, 40);
-    const code = (rawCode || '').trim().toUpperCase();
-
-    if (!code) {
-      return errorResponse('Coupon code is required', 400);
-    }
-
-    const isValid = DEFAULT_COUPONS.includes(code)
-      || code.includes('TRIAL')
-      || code.includes('FREE')
-      || code.includes('1M')
-      || code.includes('30')
-      || code.includes('MONTH');
-
-    if (!isValid) {
-      return errorResponse('Invalid coupon code. Try code "KEEPNET1M" for a 1-month free trial.', 400);
-    }
-
-    const currentUser = await getAuthenticatedUser(context);
-    const userId = currentUser ? currentUser.id : sanitizeInput(body.userId, 64) || null;
-
-    // Calculate 30 days trial expiration
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-    // Record redemption
-    const redemptionId = Math.random().toString(36).slice(2, 10);
-    await db.prepare(`
-      INSERT INTO coupon_redemptions (id, user_id, coupon_code, redeemed_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    `).bind(redemptionId, userId, code).run().catch(() => {});
-
-    // If user is authenticated, upsert into user_subscriptions
-    if (userId) {
-      const subId = Math.random().toString(36).slice(2, 10);
-      await db.prepare(`
-        INSERT INTO user_subscriptions (id, user_id, tier, applied_coupon, expires_at, updated_at)
-        VALUES (?, ?, 'premium', ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(user_id) DO UPDATE SET
-          tier = 'premium',
-          applied_coupon = excluded.applied_coupon,
-          expires_at = excluded.expires_at,
-          updated_at = CURRENT_TIMESTAMP
-      `).bind(subId, userId, code, expiresAt).run().catch(() => {});
-    }
-
-    return jsonResponse({
-      success: true,
-      tier: 'premium',
-      appliedCoupon: code,
-      expiresAt,
-      message: `Coupon "${code}" applied! Your 1-Month Free Trial of Keepnet Premium is active until ${new Date(expiresAt).toLocaleDateString('en-GB')}.`,
-    });
-  } catch (err: any) {
-    return errorResponse(err.message || 'Failed to apply coupon', 500);
-  }
-};
-
-// DELETE: Cancel trial or revert to Lite
-export const onRequestDelete: PagesFunction<Env> = async (context) => {
-  try {
-    const db = context.env.DB;
-    await ensureSubscriptionTables(db);
-
-    const currentUser = await getAuthenticatedUser(context);
-    if (currentUser) {
-      await db.prepare(`
-        UPDATE user_subscriptions
-        SET tier = 'lite', applied_coupon = NULL, expires_at = NULL, updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = ?
-      `).bind(currentUser.id).run().catch(() => {});
-    }
-
-    return jsonResponse({
-      success: true,
-      tier: 'lite',
-      appliedCoupon: null,
-      expiresAt: null,
-      message: 'Subscription successfully returned to Lite.',
-    });
-  } catch (err: any) {
-    return errorResponse(err.message || 'Failed to cancel subscription', 500);
-  }
+export const onRequestDelete: PagesFunction<Env> = async context=>{
+  try{
+    const auth=await requireAuth(context);if(!auth.success)return auth.response;
+    const db=context.env.DB,sub=await db.prepare('SELECT tier,applied_coupon,expires_at FROM user_subscriptions WHERE user_id = ?').bind(auth.user.id).first<any>();
+    const claim=await db.prepare('SELECT redeemed_at FROM trial_claims WHERE user_id = ?').bind(auth.user.id).first<any>();
+    if(owner(auth.user) || (active(sub) && (!sub.expires_at || !claim || !COUPONS.has(sub.applied_coupon))))return errorResponse('Paid membership must be managed through the membership provider',409);
+    await db.prepare("UPDATE user_subscriptions SET tier='lite',applied_coupon=NULL,expires_at=NULL,updated_at=? WHERE user_id=?").bind(new Date().toISOString(),auth.user.id).run();
+    return jsonResponse({success:true,tier:'lite',appliedCoupon:null,expiresAt:null,message:'Your trial has ended. Your journal is unchanged.'});
+  }catch(err){return apiError(err,'Failed to cancel trial');}
 };

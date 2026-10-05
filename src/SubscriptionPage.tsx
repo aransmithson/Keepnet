@@ -1,398 +1,65 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  ArrowLeft, Crown, Check, Sparkles, Tag, ShieldCheck,
-  Calendar, Zap, EyeOff, Camera, FileText, Gift, X
-} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Crown, Check, Sparkles, Tag, ShieldCheck, Gift, RefreshCw } from 'lucide-react';
 import { useStore, actions } from './store';
-import { usePremiumMembership } from './membership';
+import { usePremiumMembership, useMembershipPending } from './membership';
+import { useAuth, isUserAdmin } from './auth';
 
 export const SubscriptionPage = () => {
   const nav = useNavigate();
+  const { user } = useAuth();
   const { appliedCoupon, subscriptionExpiresAt } = useStore();
-
-  const isPremiumActive = usePremiumMembership();
+  const premium = usePremiumMembership();
+  const membershipPending = useMembershipPending();
+  const admin = isUserAdmin(user);
+  const trial = Boolean(appliedCoupon && !appliedCoupon.startsWith('ADMIN_'));
   const [couponInput, setCouponInput] = useState('');
+  const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
 
-  const handleApplyCoupon = (codeToApply?: string) => {
-    const code = codeToApply || couponInput;
-    if (!code.trim()) {
-      setFeedback({ type: 'error', message: 'Please enter a coupon code.' });
-      return;
-    }
-    const res = actions.applyCoupon(code);
-    if (res.success) {
-      setFeedback({ type: 'success', message: res.message });
-      setCouponInput('');
-    } else {
-      setFeedback({ type: 'error', message: res.message });
-    }
+  const handleApplyCoupon = async () => {
+    if (pending || membershipPending) return;
+    if (!user) { setFeedback({ type: 'error', message: 'Sign in before redeeming a membership code.' }); return; }
+    if (!couponInput.trim()) { setFeedback({ type: 'error', message: 'Enter a membership code.' }); return; }
+    setPending(true);
+    setFeedback(null);
+    try {
+      const result = await actions.applyCoupon(couponInput);
+      setFeedback({ type: result.success ? 'success' : 'error', message: result.message });
+      if (result.success) setCouponInput('');
+    } catch { setFeedback({ type: 'error', message: 'Your code could not be redeemed. Check your connection and try again.' }); }
+    finally { setPending(false); }
   };
 
-  const handleCancelTrial = () => {
-    if (window.confirm('Do you want to end your free trial and return to Lite? Your personal catches and journal will remain completely intact.')) {
-      actions.cancelCouponTrial();
-      setFeedback({ type: 'success', message: 'Trial ended. You are now on the Keepnet Lite plan.' });
-    }
+  const handleCancelTrial = async () => {
+    if (pending || !window.confirm('End your trial and return to Lite? Your personal journal will stay available.')) return;
+    setPending(true);
+    setFeedback(null);
+    try {
+      const result = await actions.cancelCouponTrial();
+      setFeedback({ type: result ? 'success' : 'error', message: result ? 'Your trial has ended. Your free journal stays available.' : 'Your trial could not be ended. Please try again.' });
+    } catch { setFeedback({ type: 'error', message: 'Your trial could not be ended. Check your connection and try again.' }); }
+    finally { setPending(false); }
   };
 
-  // Calculate days remaining in trial
-  const daysRemaining = subscriptionExpiresAt
-    ? Math.max(0, Math.ceil((new Date(subscriptionExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : null;
-
-  return (
-    <div className="content subscription-page">
-      {/* Top Header */}
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={() => nav(-1)}
-          aria-label="Go back"
-          id="sub-back-btn"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div style={{ flex: 1 }}>
-          <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)' }}>
-            <Crown size={13} /> Membership & Plans
-          </div>
-          <h1 className="serif page-title" style={{ margin: 0, fontSize: 22 }}>
-            Keepnet Premium
-          </h1>
-        </div>
-      </div>
-
-      {/* Active Trial Banner if currently active */}
-      {isPremiumActive && (
-        <div className="card active-trial-card">
-          <div className="row-between" style={{ alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <div className="trial-badge-icon">
-                <Crown size={22} />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <span className="serif" style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    Keepnet Premium Active
-                  </span>
-                  <span className="trial-status-pill">
-                    {appliedCoupon ? `Trial (${appliedCoupon})` : 'Active Subscriber'}
-                  </span>
-                </div>
-                <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
-                  {subscriptionExpiresAt ? (
-                    <>
-                      Valid until <strong>{new Date(subscriptionExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>
-                      {daysRemaining !== null && ` · ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining`}
-                    </>
-                  ) : (
-                    'Unlimited Pro Bankside Intelligence enabled.'
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {appliedCoupon && (
-              <button
-                type="button"
-                className="btn-secondary"
-                style={{ height: 32, fontSize: 12, padding: '0 10px', marginTop: 2 }}
-                onClick={handleCancelTrial}
-                title="Cancel trial and return to Lite"
-              >
-                Cancel Trial
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 1-Month Free Trial Coupon Entry Card */}
-      {!isPremiumActive && <>
-        <div className="card coupon-card" id="coupon-redemption-card">
-          <div className="row-between" style={{ alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div className="coupon-icon-wrap">
-                <Gift size={18} />
-              </div>
-              <div>
-                <h2 className="serif" style={{ margin: 0, fontSize: 16 }}>
-                  Redeem Free Trial Coupon
-                </h2>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  Enjoy 1 month of Keepnet Premium with zero credit card required
-                </span>
-              </div>
-            </div>
-            <span className="count-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 700, fontSize: 11 }}>
-              1 Month Free
-            </span>
-          </div>
-
-          {/* Quick Suggestion Chips */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            <span className="muted" style={{ fontSize: 12 }}>Recommended:</span>
-            <button
-              type="button"
-              className="coupon-quick-chip"
-              onClick={() => {
-                setCouponInput('KEEPNET1M');
-                handleApplyCoupon('KEEPNET1M');
-              }}
-              title="Click to apply KEEPNET1M"
-            >
-              <Tag size={12} />
-              <span>KEEPNET1M</span>
-            </button>
-            <button
-              type="button"
-              className="coupon-quick-chip"
-              onClick={() => {
-                setCouponInput('ANGLER30');
-                handleApplyCoupon('ANGLER30');
-              }}
-              title="Click to apply ANGLER30"
-            >
-              <Tag size={12} />
-              <span>ANGLER30</span>
-            </button>
-          </div>
-
-          {/* Input & Submit Form */}
-          <div className="coupon-form-row">
-            <input
-              type="text"
-              id="coupon-code-input"
-              className="coupon-input"
-              placeholder="Enter promo or coupon code..."
-              value={couponInput}
-              onChange={(e) => setCouponInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleApplyCoupon();
-                }
-              }}
-              aria-label="Coupon code for free trial"
-            />
-            <button
-              type="button"
-              id="apply-coupon-btn"
-              className="btn-primary"
-              style={{ height: 42, padding: '0 16px', fontSize: 13, minWidth: 110 }}
-              onClick={() => handleApplyCoupon()}
-            >
-              Apply Code
-            </button>
-          </div>
-
-          {feedback && (
-            <div className={`coupon-feedback-banner ${feedback.type}`}>
-              {feedback.type === 'success' ? <Check size={16} /> : <X size={16} />}
-              <span>{feedback.message}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Billing Cycle Toggle */}
-        <div className="billing-cycle-switch-wrap">
-          <div className="billing-cycle-toggle" role="group" aria-label="Subscription billing frequency">
-            <button
-              type="button"
-              className={`billing-btn ${billingCycle === 'annual' ? 'active' : ''}`}
-              onClick={() => setBillingCycle('annual')}
-            >
-              <span>Annual (Save 41%)</span>
-              <span className="best-value-pill">Best Value</span>
-            </button>
-            <button
-              type="button"
-              className={`billing-btn ${billingCycle === 'monthly' ? 'active' : ''}`}
-              onClick={() => setBillingCycle('monthly')}
-            >
-              <span>Monthly</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Lite Free Forever Reassurance */}
-        <div className="lite-free-reassurance-banner" style={{ margin: '8px 0 20px' }}>
-          <div className="lite-free-reassurance-icon">
-            <ShieldCheck size={20} />
-          </div>
-          <div className="lite-free-reassurance-content">
-            <strong>Keepnet Lite is 100% Free Forever</strong>
-            <span>
-              You will never be charged to log catches, record fishing sessions, or track personal bests. Premium is strictly an optional add-on for live community waters &amp; fisheries discovery.
-            </span>
-          </div>
-        </div>
-
-      </>}
-      {/* Plans Comparison Grid */}
-      <div className="plans-grid">
-        {/* Plan 1: Lite (Free Forever) */}
-        {!isPremiumActive && <div className="card plan-card current-plan">
-          <div className="plan-header">
-            <div>
-              <div className="eyebrow" style={{ color: 'var(--text-secondary)' }}>Personal Catch Journal</div>
-              <h3 className="serif plan-title">Keepnet Lite</h3>
-            </div>
-            <div className="plan-price">
-              <span className="serif" style={{ fontSize: 26, fontWeight: 700 }}>£0</span>
-              <span className="muted" style={{ fontSize: 12 }}> / forever</span>
-            </div>
-          </div>
-
-          <p className="muted" style={{ fontSize: 13, margin: '8px 0 16px' }}>
-            Essential bankside logging and dependable personal catch journal — guaranteed 100% free forever.
-          </p>
-
-          <div className="plan-status-row">
-            <span className="plan-active-chip">
-              <Check size={13} /> Active Plan (Free Forever)
-            </span>
-          </div>
-
-          <ul className="plan-features-list">
-            <li><Check size={15} color="var(--accent-green)" /> <span>Unlimited catches & fishing sessions</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Personal diary, species & weight logging</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Manual venue & swim naming (retained forever)</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Personal bests & bankside hours tracking</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Core achievements & avatar flair</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>100% offline bankside PWA support</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Standard photo storage</span></li>
-            <li className="muted"><EyeOff size={15} /> <span>Discover Map & Fisheries: Preview mode</span></li>
-          </ul>
-        </div>}
-        {/* Plan 2: Premium Subscription */}
-        <div className={`card plan-card featured ${isPremiumActive ? 'current-plan' : ''}`}>
-          <div className="featured-ribbon">
-            <Sparkles size={12} /> Specimen Suite
-          </div>
-
-          <div className="plan-header">
-            <div>
-              <div className="eyebrow" style={{ color: 'var(--copper, #C9772B)' }}>Bankside Intelligence & Discover</div>
-              <h3 className="serif plan-title">Keepnet Premium</h3>
-            </div>
-            {!isPremiumActive && <div className="plan-price">
-              {billingCycle === 'annual' ? (
-                <>
-                  <span className="serif" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-green)' }}>£10.49</span>
-                  <span className="muted" style={{ fontSize: 12 }}> / year</span>
-                  <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 2 }}>Just ~87p / month · Save 41%</div>
-                </>
-              ) : (
-                <>
-                  <span className="serif" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-green)' }}>£1.49</span>
-                  <span className="muted" style={{ fontSize: 12 }}> / month</span>
-                </>
-              )}
-            </div>}
-          </div>
-
-          <p className="muted" style={{ fontSize: 13, margin: '8px 0 16px' }}>
-            {isPremiumActive ? 'Your membership includes these features.' : 'Full live Discover map, 60+ UK fisheries, solunar feeding windows, and tactical intel.'}
-          </p>
-
-          <div className="plan-status-row">
-            {isPremiumActive ? (
-              <span className="plan-active-chip premium">
-                <Crown size={13} /> Active Plan
-              </span>
-            ) : (
-              <button
-                type="button"
-                className="btn-primary"
-                style={{ width: '100%', height: 42, fontSize: 13, gap: 6 }}
-                onClick={() => {
-                  const input = document.getElementById('coupon-code-input') as HTMLInputElement;
-                  if (input) {
-                    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    input.focus();
-                  }
-                }}
-              >
-                <Gift size={15} /> Redeem 1 Month Free Trial
-              </button>
-            )}
-          </div>
-
-          <ul className="plan-features-list">
-            <li>
-              <Crown size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Live Discover Map & Community Waters</strong>
-                <div className="muted" style={{ fontSize: 11 }}>Explore public waters, shared sessions & community catches</div>
-              </div>
-            </li>
-            <li>
-              <Crown size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Full UK Fisheries Directory (60+ Venues)</strong>
-                <div className="muted" style={{ fontSize: 11 }}>GPS distance sorting, ticket info, rules & directions</div>
-              </div>
-            </li>
-            <li>
-              <Zap size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Atmospheric & Barometric Predictor</strong>
-                <div className="muted" style={{ fontSize: 11 }}>Feeding run correlations on pressure swings</div>
-              </div>
-            </li>
-            <li>
-              <Calendar size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Solunar Major & Minor Bite Windows</strong>
-                <div className="muted" style={{ fontSize: 11 }}>Moon phase & localized solar bite peaks</div>
-              </div>
-            </li>
-            <li>
-              <EyeOff size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Syndicate Stealth Cloak</strong>
-                <div className="muted" style={{ fontSize: 11 }}>Air-gaps GPS coordinates & keeps secret waters private</div>
-              </div>
-            </li>
-            <li>
-              <Camera size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Uncompressed 4K Photo Vault</strong>
-                <div className="muted" style={{ fontSize: 11 }}>Full camera resolution trophy photography</div>
-              </div>
-            </li>
-            <li>
-              <FileText size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Printable PDF Dossiers & PB Certificates</strong>
-                <div className="muted" style={{ fontSize: 11 }}>1-click exports for syndicate catch returns</div>
-              </div>
-            </li>
-            <li>
-              <Sparkles size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Golden Pro Avatar Ring & Prestige</strong>
-                <div className="muted" style={{ fontSize: 11 }}>Distinctive badge styling across community feeds</div>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      {/* Safety & Integrity Guarantee Notice */}
-      <div className="accuracy-notice" style={{ marginTop: 20 }}>
-        <ShieldCheck size={18} style={{ flexShrink: 0, marginTop: 1, color: 'var(--accent-green)' }} />
-        <span style={{ fontSize: 12, lineHeight: 1.45 }}>
-          <strong>Keepnet Angler Guarantee:</strong> You can cancel anytime. If your subscription or trial ever ends, your personal catch records, photos, and journal history remain 100% accessible to you forever.
-        </span>
-      </div>
-    </div>
-  );
+  return <div className="content subscription-page">
+    <div className="page-header"><button type="button" className="icon-btn" onClick={() => nav('/profile')} aria-label="Back to profile"><ArrowLeft size={20} /></button><div><div className="eyebrow"><Crown size={15} /> Membership</div><h1 className="page-title">{premium || membershipPending ? 'Your membership' : 'Keepnet Premium'}</h1></div></div>
+    {feedback && <div className={`coupon-feedback-banner ${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'}><span>{feedback.message}</span></div>}
+    {premium ? <section className="card active-trial-card" aria-labelledby="membership-status-title">
+      <div className="membership-status-heading"><span className="trial-badge-icon"><Crown size={24} aria-hidden="true" /></span><div><h2 id="membership-status-title">Premium active</h2><span className="trial-status-pill">{admin ? 'Administrator access' : trial ? 'Trial membership' : appliedCoupon ? 'Membership pass' : 'Active membership'}</span></div></div>
+      <p className="muted">{subscriptionExpiresAt ? <>Available until <strong>{new Date(subscriptionExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>. Your membership will return to Lite when this access ends.</> : 'Your account has ongoing Premium access.'}</p>
+      {trial && !admin ? <><p className="muted membership-management-note">This trial does not start a paid subscription or charge your card.</p><button type="button" className="btn-secondary" disabled={pending} onClick={handleCancelTrial}>{pending ? 'Updating…' : 'End trial and return to Lite'}</button></> : <p className="muted membership-management-note">{admin ? 'This access comes from your administrator role.' : 'This page shows your current account access. There is no automatic payment or renewal to manage in Keepnet.'}</p>}
+    </section> : membershipPending ? <section className="card" role="status"><h2>Checking membership…</h2><p className="muted">Your account access will appear after Keepnet connects. Your personal journal stays available while you wait.</p></section> : <>
+      <section className="card coupon-card" id="coupon-redemption-card" aria-labelledby="coupon-title"><div className="membership-status-heading"><span className="coupon-icon-wrap"><Gift size={22} aria-hidden="true" /></span><div><h2 id="coupon-title">Try Premium for a month</h2><p className="muted">No card or automatic subscription required.</p></div></div>
+        <p className="muted">Use a trial code below, or enter a membership code you have been given.</p>
+        <div className="coupon-suggestions">{['KEEPNET1M', 'ANGLER30'].map(code => <button className="coupon-quick-chip" key={code} type="button" aria-label={`Use membership code ${code}`} onClick={() => setCouponInput(code)} disabled={pending}><Tag size={15} />{code}</button>)}</div>
+        {user ? <form className="coupon-form-row" onSubmit={event => { event.preventDefault(); handleApplyCoupon(); }}><label className="coupon-label"><span className="sr-only">Membership code</span><input id="coupon-code-input" className="coupon-input" placeholder="Enter membership code" value={couponInput} onChange={event => setCouponInput(event.target.value)} autoCapitalize="characters" autoComplete="off" disabled={pending} /></label><button className="btn-primary" type="submit" disabled={pending || !couponInput.trim()}>{pending ? <RefreshCw size={16} className="spin" /> : <Gift size={16} />}{pending ? 'Redeeming…' : 'Redeem code'}</button></form> : <Link className="btn-primary" to="/settings">Sign in to redeem a code</Link>}
+      </section>
+      <section className="card plan-card current-plan" aria-labelledby="lite-title"><div className="plan-header"><h2 className="plan-title" id="lite-title">Your free journal</h2><span className="plan-active-chip"><Check size={15} /> Keepnet Lite</span></div><p className="muted">Your sessions, catches and personal bests remain available when Premium access ends.</p><ul className="plan-features-list"><li><Check size={17} /> Sessions and catch logging</li><li><Check size={17} /> Photos, weights and personal notes</li><li><Check size={17} /> Personal bests and achievements</li><li><Check size={17} /> Private journal on your device</li></ul></section>
+    </>}
+    <section className="card plan-card featured" aria-labelledby="premium-benefits-title"><div className="plan-header"><div><div className="eyebrow"><Sparkles size={15} /> {premium ? 'Included with your access' : 'Premium features'}</div><h2 className="plan-title" id="premium-benefits-title">More from the water</h2></div></div><ul className="plan-features-list"><li><Crown size={17} /><span>Browse the UK fisheries directory, search waters and compare distances from your location.</span></li><li><Crown size={17} /><span>Add comments and rig advice to shared community catches.</span></li><li><Crown size={17} /><span>Keep confidential catches and water locations private.</span></li></ul>{premium && <Link to="/fisheries" className="btn-secondary">Explore fisheries</Link>}</section>
+    <p className="membership-journal-note"><ShieldCheck size={18} aria-hidden="true" /><span>Your personal fishing journal stays yours. Keep photos and records private, and choose what to share.</span></p>
+  </div>;
 };
 
 export default SubscriptionPage;

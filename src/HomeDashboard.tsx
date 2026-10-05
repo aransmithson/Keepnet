@@ -3,9 +3,11 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, Clock, Fish, Globe, Heart, Images, Lock, MapPin, MessageSquare, MoreHorizontal, Plus } from 'lucide-react';
 import { actions, fmtDay, fmtTime, fmtWeight, useStore, type Catch } from './store';
 import { fetchCatchComments, fetchCatchLikes } from './cloud';
+import { useAuth } from './auth';
 import './HomeDashboard.css';
 
 function RecentCatchCard({ catchItem, commentCount }: { catchItem: Catch; commentCount?: number }) {
+  const { user } = useAuth();
   const { catchLikes = {}, likedCatchIds = [] } = useStore();
   const photos = [...new Set([catchItem.image, ...(catchItem.images || [])].filter((photo): photo is string => Boolean(photo)))];
   const shared = catchItem.isShared && !catchItem.isConfidential;
@@ -30,7 +32,7 @@ function RecentCatchCard({ catchItem, commentCount }: { catchItem: Catch; commen
             <button className={liked ? 'liked' : ''} aria-pressed={liked} aria-label={`${liked ? 'Unlike' : 'Like'} ${catchItem.species} catch, ${likes} likes`} onClick={() => {
               if (catchLikes[catchItem.id] === undefined) actions.setCatchLikes(catchItem.id, likes);
               actions.toggleCatchLike(catchItem.id);
-            }}><Heart size={17} fill={liked ? 'currentColor' : 'none'} /><span>{likes}</span></button>
+            }} disabled={!user}><Heart size={17} fill={liked ? 'currentColor' : 'none'} /><span>{likes}</span></button>
             <Link to={`${reportUrl}#comments-section`} aria-label={`View comments on ${catchItem.species} catch${commentCount === undefined ? '' : `, ${commentCount} comments`}`}><MessageSquare size={16} /><span>{commentCount ?? '—'}</span></Link>
           </div>}
         </div>
@@ -52,7 +54,7 @@ export default function HomeDashboard({ onStart, onLogCatch }: { onStart: () => 
     let cancelled = false;
     fetchCatchLikes().then(likes => { if (!cancelled && Object.keys(likes).length) actions.setAllCatchLikes(likes); });
     for (const id of ids) {
-      fetchCatchComments(id).then(comments => { if (!cancelled) setCommentCounts(current => ({ ...current, [id]: comments.length })); });
+      fetchCatchComments(id).then(comments => { if (!cancelled) setCommentCounts(current => ({ ...current, [id]: comments.length })); }).catch(() => { /* An unavailable count stays unknown. */ });
     }
     return () => { cancelled = true; };
   }, [sharedIds]);

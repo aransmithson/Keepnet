@@ -1,6 +1,7 @@
 import { Env, jsonResponse, errorResponse, corsHeaders } from './_types';
 import { sanitizeInput } from './_crypto';
 import { getAuthenticatedUser } from './_auth';
+import { visibleCatch, apiError } from './_journal';
 
 export const onRequestOptions: PagesFunction<Env> = async () => {
   return new Response(null, { headers: corsHeaders });
@@ -31,11 +32,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const catchId = sanitizeInput(url.searchParams.get('catchId'), 64);
 
     if (catchId) {
+      await visibleCatch(db, catchId, await getAuthenticatedUser(context));
       const { results } = await db.prepare(`
         SELECT id, catch_id, user_id, user_name, is_premium, comment, created_at
         FROM catch_comments
         WHERE catch_id = ?
-        ORDER BY created_at ASC
+        ORDER BY created_at DESC
       `).bind(catchId).all();
 
       return jsonResponse({
@@ -47,9 +49,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     // Return comment counts grouped by catch_id
     const { results } = await db.prepare(`
-      SELECT catch_id, count(*) as count
-      FROM catch_comments
-      GROUP BY catch_id
+      SELECT cc.catch_id, count(*) as count
+      FROM catch_comments cc JOIN catches c ON c.id = cc.catch_id
+      WHERE c.is_shared = 1 AND c.is_confidential = 0
+      GROUP BY cc.catch_id
     `).all();
 
     const counts: Record<string, number> = {};
@@ -59,7 +62,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
     return jsonResponse({ success: true, commentCounts: counts });
   } catch (err: any) {
-    return errorResponse(err.message || 'Failed to fetch comments', 500);
+    return apiError(err, 'Failed to fetch comments');
   }
 };
 
@@ -84,6 +87,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (!rawComment) {
       return errorResponse('Comment cannot be empty', 400);
     }
+    await visibleCatch(db, catchId, user);
 
     // Sanitize comment text (strip HTML tags, limit to 1000 characters)
     const cleanComment = sanitizeInput(rawComment, 1000).replace(/[<>]/g, '');
@@ -92,7 +96,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     // ENFORCE: Commenting is STRICTLY for Keepnet Premium members
-    const isOwner = user.email === 'aransmithson@gmail.com' || user.email === 'aransmithson@googlemail.com' || user.is_admin === 1;
+    const isOwner = user.is_admin === 1;
     let isPremium = isOwner;
 
     if (!isPremium) {
@@ -140,7 +144,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       },
     });
   } catch (err: any) {
-    return errorResponse(err.message || 'Failed to post comment', 500);
+    return apiError(err, 'Failed to post comment');
   }
 };
 
@@ -167,7 +171,7 @@ export const onRequestDelete: PagesFunction<Env> = async (context) => {
       return errorResponse('Comment not found', 404);
     }
 
-    const isOwner = user.email === 'aransmithson@gmail.com' || user.email === 'aransmithson@googlemail.com' || user.is_admin === 1;
+    const isOwner = user.is_admin === 1;
     if (comment.user_id !== user.id && !isOwner) {
       return errorResponse('Forbidden: You can only delete your own comments', 403);
     }

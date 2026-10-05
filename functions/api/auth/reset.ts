@@ -113,7 +113,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (existingCode && existingExpires > now && (existingExpires - now) > 12 * 60 * 1000) {
       code = existingCode;
     } else {
-      code = Math.floor(100000 + Math.random() * 900000).toString();
+      // Cryptographic rejection sampling avoids predictable codes and modulo bias.
+      const random = new Uint32Array(1);
+      do { crypto.getRandomValues(random); } while (random[0] >= Math.floor(2 ** 32 / 900000) * 900000);
+      code = String(100000 + random[0] % 900000);
     }
 
     const expires = now + 15 * 60 * 1000;

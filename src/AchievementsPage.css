@@ -29,16 +29,16 @@
 .badge-gallery-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
 .badge-gallery-heading h1 { font: 700 clamp(28px, 7.4vw, 34px)/1.2 'Inter', sans-serif; letter-spacing: -.8px; margin-bottom: 6px; }
 .badge-gallery-heading p { font-size: 15px; line-height: 1.5; color: var(--text-secondary); max-width: 370px; }
-.badge-search-toggle { background: transparent; color: var(--text-secondary); border: 0; padding: 9px 0 9px 5px; cursor: pointer; }
+.badge-search-toggle { background: transparent; color: var(--text-secondary); border: 0; padding: 9px; min-width: 44px; min-height: 44px; cursor: pointer; }
 .badge-gallery-search { display: flex; align-items: center; gap: 9px; border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 12px; margin-bottom: 16px; color: var(--text-secondary); }
 .badge-gallery-search input { background: transparent; border: 0; outline: none; color: var(--text-primary); width: 100%; min-width: 0; font: inherit; font-size: 13px; }
-.badge-category-bar { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 5px; }
+.badge-category-bar { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; padding: 6px 0; }
 .badge-category-bar::-webkit-scrollbar { display: none; }
-.badge-category-bar button { flex-shrink: 0; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 30px; background: transparent; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
-.badge-category-bar button.active { background: linear-gradient(115deg, #02b878, #09d78b); border-color: #08ce88; color: white; box-shadow: 3px 0 0 #064e35; }
+.badge-category-bar button { flex-shrink: 0; padding: 10px 12px; min-height: 44px; border: 1px solid var(--border-color); border-radius: 30px; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.badge-category-bar button.active { background: var(--accent-gradient); border-color: var(--accent-green); color: var(--accent-contrast); box-shadow: 3px 0 0 var(--accent-soft); }
 .badge-collection-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 11px 0 22px; font-size: 11px; color: var(--text-secondary); }
 .badge-collection-summary strong { color: var(--text-primary); }
-.badge-collection-summary button { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 11px; padding: 5px 0; }
+.badge-collection-summary button { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 13px; min-height: 44px; padding: 5px 0; }
 .badge-collection-summary button.active { color: #20df97; }
 .badge-collection { display: flex; flex-direction: column; gap: 24px; }
 .badge-collection-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -72,7 +72,7 @@
 .angler-medallion.selected { --rim: #00cc87; --rim-light: #94ffda; --face: #087e57; --face-dark: #023021; --symbol: #4ef6b2; box-shadow: 0 0 0 4px #031b12, 0 0 22px #00dc8850; }
 .angler-medallion.unearned.selected { --rim: #67776b; --rim-light: #97a69b; --face: #28352e; --face-dark: #15221b; --symbol: #9eada3; filter: none; box-shadow: 0 0 0 3px #123e2b, 0 0 18px #00dc8820; }
 .badge-collection-item:hover .angler-medallion { transform: translateY(-3px); }
-.badge-name { font-size: 12px; line-height: 1.35; text-align: center; overflow-wrap: anywhere; max-width: 100%; }
+.badge-name { font-size: 13px; line-height: 1.4; text-align: center; overflow-wrap: anywhere; max-width: 100%; }
 .badge-collection-item.is-earned { color: var(--text-primary); }
 .badge-collection-item.is-selected .badge-name { color: var(--text-primary); font-weight: 600; }
 .badge-detail-panel { position: relative; display: flex; gap: 16px; align-items: flex-start; border: 1px solid var(--border-color); background: var(--panel-gradient); border-radius: 15px; padding: 18px; margin-top: -6px; }
@@ -80,14 +80,14 @@
 .badge-detail-panel > .angler-medallion { width: 58px; margin-top: 1px; }
 .badge-detail-copy { flex: 1; min-width: 0; }
 .badge-detail-copy h2 { font: 600 17px/1.3 'Inter', sans-serif; margin-bottom: 5px; }
-.badge-detail-copy p { color: var(--text-secondary); font-size: 12px; line-height: 1.5; margin-bottom: 5px; }
+.badge-detail-copy p { color: var(--text-secondary); font-size: 14px; line-height: 1.5; margin-bottom: 5px; }
 .badge-detail-progress { display: block; font-size: 13px; color: var(--accent-green); }
 .badge-achieved-status { display: flex; align-items: center; gap: 7px; color: var(--accent-green); font-size: 13px; font-weight: 600; margin-top: 10px; }
 .badge-achieved-status svg { background: #20df97; color: #042619; border-radius: 50%; padding: 3px; width: 21px; height: 21px; }
-.badge-equip-action { border: 0; background: none; color: var(--accent-green); font-size: 11px; padding: 9px 0 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.badge-equip-action { border: 0; background: none; color: var(--accent-green); font-size: 13px; min-height: 44px; padding: 9px 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .badge-detail-track { height: 4px; background: #294335; border-radius: 4px; margin-top: 10px; overflow: hidden; }
 .badge-detail-track span { display: block; height: 100%; background: #21d994; }
-.badge-locked-status { display: block; color: var(--text-secondary); font-size: 10px; margin-top: 7px; }
+.badge-locked-status { display: block; color: var(--text-secondary); font-size: 12px; margin-top: 7px; }
 .badge-profile-link { display: inline-flex; gap: 6px; align-items: center; color: var(--text-secondary); font-size: 12px; margin-top: 28px; text-decoration: none; }
 .badge-empty { text-align: center; color: var(--text-secondary); padding: 30px 10px; }
 .badge-empty h2 { font: 600 17px 'Inter', sans-serif; margin: 10px 0; color: var(--text-primary); }
@@ -97,7 +97,7 @@
 @media (max-width: 360px) {
   .badge-gallery-page { padding-left: 16px; padding-right: 16px; }
   .badge-collection-row { gap: 9px; }
-  .badge-name { font-size: 11px; }
+  .badge-name { font-size: 13px; }
   .angler-medallion { border-width: 3px; }
   .badge-detail-panel { gap: 12px; padding: 15px; }
 }

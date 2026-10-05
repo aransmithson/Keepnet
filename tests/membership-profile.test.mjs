@@ -23,13 +23,13 @@ reviewStorage.set('keepnet:v2:live', JSON.stringify({
 }));
 const server = await createServer({
   ssr: { noExternal: ['leaflet'] },
-  appType: 'custom', server: { middlewareMode: true },
+  appType: 'custom', server: { middlewareMode: true, hmr: false },
   plugins: [{
     name: 'isolated-route-render-review', enforce: 'pre',
     resolveId(id) { if (id === 'leaflet') return '\0review-leaflet'; },
     load(id) { if (id === '\0review-leaflet') return 'export default {};'; },
     transform(source, id) {
-      if (/src\/(store|auth|theme|cloud)\.ts$/.test(id.replaceAll('\\', '/'))) {
+      if (/src\/(store|auth|theme|cloud|journalSync)\.ts$/.test(id.replaceAll('\\', '/'))) {
         // These are client stores. Read their snapshots for this static review only.
         const snapshot = id.replaceAll('\\', '/').endsWith('/src/auth.ts') ? 'globalThis.keepnetReviewAuth ?? getSnapshot()' : 'getSnapshot()';
         return source.replace("import { useSyncExternalStore } from 'react';", `const useSyncExternalStore = (_subscribe, getSnapshot) => ${snapshot};`);
@@ -44,15 +44,17 @@ const server = await createServer({
 });
 try {
   const { default: App } = await server.ssrLoadModule('/src/App.tsx');
+  const { authActions } = await server.ssrLoadModule('/src/auth.ts');
+  authActions.getCurrentUser = () => globalThis.keepnetReviewAuth?.user ?? null;
   const routes = [
     ['/', 'Time by the water.'],
     ['/sessions', 'Fishing Sessions'],
     ['/sessions?tab=catches', 'Pike'],
     ['/sessions/review-session', 'Review Water'],
     ['/catches/review-catch', 'Catch Details'],
-    ['/catches/sample-pike-1', 'Catch Details'],
+    ['/catches/unavailable-record', 'Loading catch'],
     ['/discover', 'For You'],
-    ['/discover?search=1', 'Search catches, anglers, or waters'],
+    ['/discover?search=1', 'Search catches, anglers or waters'],
     ['/profile', 'Review Angler'],
     ['/settings', 'App Theme'],
     ['/achievements', 'Achievements'],
@@ -66,12 +68,13 @@ try {
     assert.ok(html.includes(expected), `${route} must render its main content`);
     if (route.startsWith('/catches/')) {
       assert.ok(!html.includes('class="top-bar"'), 'Catch details must not duplicate the logo header');
-      assert.ok(html.includes('sticky-catch-footer'), 'Catch details retain the action footer');
+      if (route === '/catches/review-catch') assert.ok(html.includes('sticky-catch-footer'), 'Available catch details retain the action footer');
+      else assert.ok(html.includes('Return to catches'), 'Unknown catches show an explicit loading state and return link');
     } else {
       assert.ok(html.includes('aria-label="Main navigation"'), `${route} retains navigation`);
     }
     if (route === '/discover') assert.ok(!html.includes('Close filters'), 'Feed starts without the search panel');
-    if (route === '/discover?search=1') assert.ok(html.includes('Close filters'), 'Header search exposes feed filters');
+    if (route === '/discover?search=1') assert.ok(html.includes('Hide search'), 'Header search exposes feed filters');
     if (route === '/achievements') {
       assert.equal((html.match(/class="badge-collection-item /g) || []).length, 46);
       assert.equal((html.match(/id="selected-badge-detail"/g) || []).length, 1);
@@ -89,15 +92,13 @@ try {
   globalThis.keepnetReviewAuth = { storageMode: 'local', user: { id: 'review-user', name: 'Review Angler', email: 'review@example.invalid', storageMode: 'local', isAdmin: true } };
   const { actions } = await server.ssrLoadModule('/src/store.ts');
   actions.setSubscription('premium');
-  for (const [route, expected] of [['/', 'Time by the water.'], ['/fisheries', 'fisheries-map-container'], ['/settings', 'pref-theme-dark'], ['/subscription', 'Keepnet Premium'], ['/admin', 'Total Catch Reports']]) {
+  for (const [route, expected] of [['/', 'Time by the water.'], ['/fisheries', 'fisheries-map-container'], ['/settings', 'pref-theme-dark'], ['/subscription', 'Your membership'], ['/admin', 'Total Catch Reports']]) {
     globalThis.keepnetReviewRoute = route;
     const html = renderToStaticMarkup(createElement(App));
     assert.ok(html.includes(expected), `Signed-in member ${route} must render`);
     console.log(`PASS member ${route}`);
   }
 
-  const { authActions } = await server.ssrLoadModule('/src/auth.ts');
-  authActions.getCurrentUser = () => globalThis.keepnetReviewAuth?.user ?? null;
   const renderRoute = route => {
     globalThis.keepnetReviewRoute = route;
     return renderToStaticMarkup(createElement(App));
@@ -116,16 +117,16 @@ try {
     const membership = renderRoute('/subscription');
     const settings = renderRoute('/settings');
     const fisheries = renderRoute('/fisheries');
-    const catchDetail = renderRoute('/catches/sample-pike-1');
-    assert.equal(profile.includes('Manage Premium membership'), premium, label);
+    const catchDetail = renderRoute('/catches/review-catch');
+    assert.equal(profile.includes('Premium membership details'), premium, label);
     assert.equal(profile.includes('1-Month Free Trial Available'), !premium, label);
     assert.equal(profile.includes('Keepnet Membership &amp; 1-Month Free Trial'), !premium, label);
     assert.equal(membership.includes('id="coupon-redemption-card"'), !premium, label);
-    assert.equal(membership.includes('Redeem 1 Month Free Trial'), !premium, label);
-    assert.equal(membership.includes('Subscription billing frequency'), !premium, label);
-    assert.equal(settings.includes('Upgrade to Premium'), !premium, label);
+    assert.equal(membership.includes('Try Premium for a month'), !premium, label);
+    assert.ok(!membership.includes('Subscription billing frequency'), 'No unsupported billing controls');
+    assert.equal(settings.includes('View Premium trial'), !premium, label);
     assert.equal(fisheries.includes('id="fisheries-start-trial-btn"'), !premium, label);
-    assert.equal(catchDetail.includes('Unlock Premium'), !premium, label);
+    assert.ok(!catchDetail.includes('Unlock Premium'), 'Private catches do not show commenting upsells');
     assert.ok(profile.indexOf('profile-personal-bests') < profile.indexOf('profile-achievements-card'));
     assert.ok(profile.indexOf('profile-personal-bests') < profile.indexOf('profile-account-section'));
     assert.ok(profile.includes('View your biggest fish: Carp, 12 lb 5 oz'));

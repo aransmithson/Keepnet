@@ -5,7 +5,7 @@ import {
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, HardDrive, KeyRound, Mail, Pencil, Search, ShieldCheck,
   Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown, Waves,
-  EyeOff, Zap, Gift, Bookmark, MessageSquare, MoreHorizontal, CheckCircle2, Home as HomeIcon
+  EyeOff, Gift, Bookmark, MessageSquare, Home as HomeIcon
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -22,22 +22,16 @@ import { fetchWeather, getDevicePosition, compass, type Weather } from './weathe
 import { useAuth, authActions, isUserAdmin } from './auth';
 import AdminPanel from './AdminPanel';
 import { evaluateAchievements, getEquippedAchievement } from './achievements';
-import { syncUserWithCloud, fetchUserCloudData, useCloudSyncStatus, flushPendingQueue, fetchPublicSharedData } from './cloud';
+import { fetchUserCloudData, useCloudSyncStatus, flushPendingQueue } from './cloud';
 import CatchComments from './CatchComments';
 import PersonalBests from './PersonalBests';
 import SessionsPage from './SessionsPage';
 import HomeDashboard from './HomeDashboard';
-import { usePremiumMembership } from './membership';
-
-// Global PWA installation event capture
-let globalInstallPrompt: any = null;
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    globalInstallPrompt = e;
-    window.dispatchEvent(new Event('keepnet:installable'));
-  });
-}
+import { usePremiumMembership, useMembershipPending } from './membership';
+import Avatar from './Avatar';
+import AchievementBadge from './AchievementBadge';
+import { installApp, useInstallPrompt } from './pwa';
+import { fetchRecord, fetchSessionCatches, fetchCatchLikes } from './cloud';
 
 /* ---------- Weather logging ---------- */
 
@@ -84,42 +78,9 @@ const CatchRow = ({ c }: { c: Catch }) => (
   </Link>
 );
 
-function getSolunarPrediction(pressure?: number, fetchedAt?: string) {
-  if (!pressure) return null;
-  const p = Math.round(pressure);
-  const hour = fetchedAt ? new Date(fetchedAt).getHours() : new Date().getHours();
-  const isDawnOrDusk = (hour >= 5 && hour <= 9) || (hour >= 17 && hour <= 21);
-
-  let rating: string;
-  let score: number;
-  let advice: string;
-
-  if (p >= 1012 && p <= 1022 && isDawnOrDusk) {
-    rating = 'Prime Bite Window';
-    score = 94;
-    advice = 'Optimal barometric stability combined with dawn/dusk solunar feeding peak.';
-  } else if (p < 1010) {
-    rating = 'High Activity';
-    score = 86;
-    advice = 'Low pressure front active — stimulates carp, tench and pike aggressive bottom feeding.';
-  } else if (p > 1022) {
-    rating = 'Moderate Activity';
-    score = 72;
-    advice = 'High pressure ceiling — focus on zigs, floating baits, or deeper oxygenated margins.';
-  } else {
-    rating = 'Steady Feeding';
-    score = 78;
-    advice = 'Stable atmospheric conditions. Regular loose feeding should produce consistent bites.';
-  }
-
-  return { rating, score, advice, pressure: p };
-}
-
 const WeatherCard = ({ s }: { s: Session }) => {
   const w = s.weather;
   const live = !s.endedAt;
-  const isPremiumActive = usePremiumMembership();
-  const solunar = getSolunarPrediction(w?.pressure, w?.fetchedAt);
 
   return (
     <div className="card weather-card">
@@ -145,35 +106,6 @@ const WeatherCard = ({ s }: { s: Session }) => {
           <div><Droplets size={16} /><span>{w.humidity}% · {w.precipitation}mm</span></div>
           <div><Gauge size={16} /><span>{Math.round(w.pressure)} hPa</span></div>
           <div><Cloud size={16} /><span>{w.cloudCover}% cloud</span></div>
-        </div>
-      )}
-      {w && solunar && (
-        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.18)' }}>
-          {isPremiumActive ? (
-            <div>
-              <div className="row-between" style={{ alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: '#fde047' }}>
-                  <Zap size={14} /> Solunar & Barometric Predictor
-                </div>
-                <span className="count-pill" style={{ fontSize: 11, background: 'rgba(253, 224, 71, 0.2)', color: '#fde047', fontWeight: 700 }}>
-                  {solunar.rating} ({solunar.score}%)
-                </span>
-              </div>
-              <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.92, lineHeight: 1.4 }}>
-                {solunar.advice}
-              </p>
-            </div>
-          ) : (
-            <Link to="/subscription" style={{ textDecoration: 'none', color: 'inherit' }}>
-              <div className="row-between" style={{ alignItems: 'center', background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Crown size={14} style={{ color: '#fde047' }} />
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>Specimen Bite Window Predictor</span>
-                </div>
-                <span style={{ fontSize: 11, color: '#fde047', fontWeight: 700 }}>1-Month Free Trial →</span>
-              </div>
-            </Link>
-          )}
         </div>
       )}
     </div>
@@ -236,6 +168,17 @@ const Sheet = ({
     openerRef.current = document.activeElement as HTMLElement | null;
     const origOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    const dialog = dialogRef.current;
+    const inertElements: Array<[HTMLElement, boolean]> = [];
+    let ancestor = dialog?.parentElement;
+    while (ancestor && ancestor !== document.body) {
+      for (const sibling of Array.from(ancestor.parentElement?.children || [])) {
+        if (sibling !== ancestor && sibling instanceof HTMLElement) { inertElements.push([sibling, sibling.inert]); sibling.inert = true; }
+      }
+      ancestor = ancestor.parentElement;
+    }
+    const initial = dialog?.querySelector<HTMLElement>('input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [href]');
+    (initial || dialog)?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -248,14 +191,14 @@ const Sheet = ({
         const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
           'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
         );
-        if (focusable.length === 0) return;
+        if (focusable.length === 0) { e.preventDefault(); dialogRef.current.focus(); return; }
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
 
-        if (e.shiftKey && document.activeElement === first) {
+        if (e.shiftKey && (document.activeElement === first || !dialogRef.current.contains(document.activeElement))) {
           e.preventDefault();
           last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
+        } else if (!e.shiftKey && (document.activeElement === last || !dialogRef.current.contains(document.activeElement))) {
           e.preventDefault();
           first.focus();
         }
@@ -266,6 +209,7 @@ const Sheet = ({
 
     return () => {
       document.body.style.overflow = origOverflow;
+      for (const [element, wasInert] of inertElements) element.inert = wasInert;
       window.removeEventListener('keydown', onKeyDown);
       if (openerRef.current && typeof openerRef.current.focus === 'function') {
         openerRef.current.focus();
@@ -295,6 +239,7 @@ const Sheet = ({
         onPointerDown={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-label={title}
       >
         <div className="sheet-head">
@@ -513,10 +458,9 @@ const ShareModal = ({
 
 /* ---------- Auth Modal ---------- */
 
-const AuthModal = ({ onClose }: { onClose: () => void }) => {
-  const { sessions, catches } = useStore();
-  const [tab, setTab] = useState<'signin' | 'signup' | 'reset'>('signin');
-  const [email, setEmail] = useState('');
+const AuthModal = ({ onClose, initialMode = 'signin' }: { onClose: () => void; initialMode?: 'signin' | 'signup' | 'reset' }) => {
+  const [tab, setTab] = useState<'signin' | 'signup' | 'reset'>(initialMode);
+  const [email, setEmail] = useState(() => authActions.getCurrentUser()?.email || '');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [saveLocallyOnly, setSaveLocallyOnly] = useState(false);
@@ -538,8 +482,8 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
           actions.setName(user.nickname || user.name || user.email.split('@')[0]);
           if (user.storageMode !== 'local') {
             fetchUserCloudData(user).then((data) => {
-              if (data) {
-                actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription);
+              if (data && authActions.getCurrentUser()?.id === user.id) {
+                actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription, data.deletedCatchIds);
               }
             });
           }
@@ -564,8 +508,8 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
         actions.setName(cleanNick);
         const user = authActions.getCurrentUser();
         if (user && user.storageMode !== 'local') {
-          syncUserWithCloud(user, sessions, catches).then((data) => {
-            if (data) actions.mergeRemoteData(data.sessions, data.catches);
+          fetchUserCloudData(user).then((data) => {
+            if (data && authActions.getCurrentUser()?.id === user.id) actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription, data.deletedCatchIds);
           });
         }
         onClose();
@@ -1085,6 +1029,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
   const { user } = useAuth();
   const [loggingForSession, setLoggingForSession] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin');
 
   // First-time guests get the welcome page; returning anglers see their journal.
   if (!user && sessions.length === 0 && catches.length === 0) {
@@ -1106,7 +1051,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
             <div className="welcome-actions">
               <button
                 className="btn-primary"
-                onClick={() => setAuthOpen(true)}
+                onClick={() => { setAuthMode('signup'); setAuthOpen(true); }}
                 id="welcome-get-started-btn"
               >
                 <Sparkles size={16} /> Get Started Free
@@ -1190,7 +1135,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
             <button
               className="btn-primary"
               style={{ background: '#fff', color: 'var(--accent-green)', fontWeight: 700 }}
-              onClick={() => setAuthOpen(true)}
+              onClick={() => { setAuthMode('signup'); setAuthOpen(true); }}
             >
               <User size={16} /> Create Free Account
             </button>
@@ -1198,7 +1143,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
               type="button"
               className="btn-secondary"
               style={{ borderColor: 'rgba(255,255,255,0.4)', color: '#fff' }}
-              onClick={() => setAuthOpen(true)}
+              onClick={() => { setAuthMode('signin'); setAuthOpen(true); }}
             >
               Sign In
             </button>
@@ -1208,7 +1153,7 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
         {loggingForSession && (
           <AddCatchSheet sessionId={loggingForSession} onClose={() => setLoggingForSession(null)} />
         )}
-        {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+        {authOpen && <AuthModal initialMode={authMode} onClose={() => setAuthOpen(false)} />}
       </div>
     );
   }
@@ -1293,9 +1238,10 @@ const SpeciesTagPicker = ({
               key={s}
               type="button"
               className={`species-tag ${isSelected ? 'selected' : ''}`}
+              aria-pressed={isSelected}
               onClick={() => selectPreset(s)}
             >
-              {s}
+              {isSelected && <Check size={13} aria-hidden="true" />}{s}
             </button>
           );
         })}
@@ -1307,6 +1253,7 @@ const SpeciesTagPicker = ({
           type="text"
           id="catch-species-custom"
           placeholder="Or type custom species (e.g. Barbel, Zander, Crucian, Catfish)..."
+          aria-label="Custom fish species"
           value={customText}
           onChange={(e) => handleCustomChange(e.target.value)}
         />
@@ -1354,7 +1301,7 @@ const WeightInput = ({
     const validG = typeof newG === 'number' ? newG : 0;
     const imp = metricToImperial(validKg, validG);
     setLb(imp.weightLb || '');
-    setOz(Math.round(imp.weightOz) || '');
+    setOz(imp.weightOz || '');
     onChange({ lb: imp.weightLb, oz: imp.weightOz });
   };
 
@@ -1372,7 +1319,7 @@ const WeightInput = ({
       const validG = typeof g === 'number' ? g : 0;
       const imp = metricToImperial(validKg, validG);
       setLb(imp.weightLb || '');
-      setOz(Math.round(imp.weightOz) || '');
+      setOz(imp.weightOz || '');
     }
   };
 
@@ -1384,6 +1331,7 @@ const WeightInput = ({
           <button
             type="button"
             className={`unit-pill-btn ${unit === 'imperial' ? 'selected' : ''}`}
+            aria-pressed={unit === 'imperial'}
             onClick={() => handleUnitSwitch('imperial')}
           >
             lb / oz
@@ -1391,6 +1339,7 @@ const WeightInput = ({
           <button
             type="button"
             className={`unit-pill-btn ${unit === 'metric' ? 'selected' : ''}`}
+            aria-pressed={unit === 'metric'}
             onClick={() => handleUnitSwitch('metric')}
           >
             kg / g
@@ -1477,14 +1426,16 @@ const WeightInput = ({
 };
 
 const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () => void }) => {
+  const nav = useNavigate();
   const { unitSystem = 'imperial' } = useStore();
   const isPremiumActive = usePremiumMembership();
+  const membershipPending = useMembershipPending();
   const [species, setSpecies] = useState(POPULAR_SPECIES[0]);
   const [weight, setWeight] = useState({ lb: 0, oz: 0 });
   const [bait, setBait] = useState('');
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string>();
-  const [isShared, setIsShared] = useState<boolean>(true);
+  const [isShared, setIsShared] = useState<boolean>(false);
   const [isConfidential, setIsConfidential] = useState<boolean>(false);
 
   return (
@@ -1505,7 +1456,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
               bait: bait || 'Unknown',
               notes,
               image,
-              isShared,
+              isShared: isShared && !isConfidential,
               isConfidential,
               caughtAt: new Date().toISOString(),
             });
@@ -1546,7 +1497,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
           <div className="toggle-label-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <EyeOff size={16} color="var(--copper, #C9772B)" />
             <span>Syndicate / Secret Swim Privacy</span>
-            {!isPremiumActive && (
+            {!isPremiumActive && !membershipPending && (
               <Link to="/subscription" style={{ textDecoration: 'none' }}>
                 <span className="count-pill" style={{ fontSize: 10, background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)' }}>
                   Premium Trial
@@ -1556,8 +1507,8 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
           </div>
           <div className="muted" style={{ fontSize: 11 }}>
             {isPremiumActive
-              ? 'Protects secret waters: displays as "Confidential Syndicate Water" on public feeds.'
-              : 'Unlock confidential syndicate swim privacy on shared catches with Keepnet Premium.'}
+              ? 'Keeps this catch and its water location private.'
+              : 'Confidential mode keeps the catch and its water location private.'}
           </div>
         </div>
         <button
@@ -1567,12 +1518,12 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
             if (isPremiumActive) {
               setIsConfidential(!isConfidential);
             } else {
-              window.location.hash = '#/subscription';
+              nav('/subscription'); onClose();
             }
           }}
           role="switch"
           aria-checked={isConfidential}
-          aria-label="Toggle syndicate privacy"
+          aria-label="Toggle syndicate privacy" disabled={membershipPending}
         >
           <span className="toggle-thumb" />
         </button>
@@ -1584,8 +1535,10 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
 /* ---------- Edit Catch Sheet ---------- */
 
 const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
+  const nav = useNavigate();
   const { unitSystem = 'imperial' } = useStore();
   const isPremiumActive = usePremiumMembership();
+  const membershipPending = useMembershipPending();
   const [species, setSpecies] = useState(c.species);
   const [weight, setWeight] = useState({ lb: c.weightLb, oz: c.weightOz });
   const [bait, setBait] = useState(c.bait);
@@ -1602,7 +1555,7 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
       bait: bait || 'Unknown',
       notes,
       image,
-      isShared,
+      isShared: isShared && !isConfidential,
       isConfidential,
     });
     onClose();
@@ -1657,7 +1610,7 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
           <div className="toggle-label-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <EyeOff size={16} color="var(--copper, #C9772B)" />
             <span>Syndicate / Secret Swim Privacy</span>
-            {!isPremiumActive && (
+            {!isPremiumActive && !membershipPending && (
               <Link to="/subscription" style={{ textDecoration: 'none' }}>
                 <span className="count-pill" style={{ fontSize: 10, background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)' }}>
                   Premium Trial
@@ -1667,8 +1620,8 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
           </div>
           <div className="muted" style={{ fontSize: 11 }}>
             {isPremiumActive
-              ? 'Protects secret waters: displays as "Confidential Syndicate Water" on public feeds.'
-              : 'Unlock confidential syndicate swim privacy on shared catches with Keepnet Premium.'}
+              ? 'Keeps this catch and its water location private.'
+              : 'Confidential mode keeps the catch and its water location private.'}
           </div>
         </div>
         <button
@@ -1678,12 +1631,12 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
             if (isPremiumActive) {
               setIsConfidential(!isConfidential);
             } else {
-              window.location.hash = '#/subscription';
+              nav('/subscription'); onClose();
             }
           }}
           role="switch"
           aria-checked={isConfidential}
-          aria-label="Toggle syndicate privacy"
+          aria-label="Toggle syndicate privacy" disabled={membershipPending}
         >
           <span className="toggle-thumb" />
         </button>
@@ -1694,15 +1647,30 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
 
 const SessionDetail = () => {
   const { id } = useParams();
+  const { user } = useAuth();
   const { sessions, catches } = useStore();
+  const local = sessions.find(item => item.id === id);
+  const [remote, setRemote] = useState<Session | null>(null);
+  const [remoteCatches, setRemoteCatches] = useState<Catch[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    if (local || !id) return;
+    let cancelled = false;
+    Promise.all([fetchRecord<Session>('sessions', id), fetchSessionCatches(id)]).then(([session, records]) => {
+      if (!cancelled) { setRemote(session); setRemoteCatches(records); }
+    }).catch(error => { if (!cancelled) setLoadError(error.message); });
+    return () => { cancelled = true; };
+  }, [id, !!local, retry]);
   const [adding, setAdding] = useState(false);
   const [picking, setPicking] = useState(false);
   const [sharing, setSharing] = useState(false);
   const sessionCameraRef = useRef<HTMLInputElement>(null);
   const sessionGalleryRef = useRef<HTMLInputElement>(null);
-  const s = sessions.find((x) => x.id === id);
-  if (!s) return <Navigate to="/sessions" replace />;
-  const list = catches.filter((c) => c.sessionId === s.id);
+  const s = local || remote;
+  if (!s) return <div className="content"><Link to="/sessions" className="back-link"><ArrowLeft size={18} /> Sessions</Link><div className="card"><h1 className="page-title">{loadError ? 'Session unavailable' : 'Loading session'}</h1><p className="muted">{loadError || 'Retrieving the fishing journal.'}</p>{loadError && <button className="btn-secondary" onClick={() => { setLoadError(null); setRetry(value => value + 1); }}>Retry</button>}</div></div>;
+  const isOwner = !!local && (!local.userId || local.userId === user?.id);
+  const list = local ? catches.filter((c) => c.sessionId === s.id) : remoteCatches;
   const live = !s.endedAt;
   const gallery = [...new Set([...(s.photos ?? []), ...(s.photo ? [s.photo] : []), ...list.flatMap((c) => (c.image ? [c.image] : []))])];
 
@@ -1733,8 +1701,8 @@ const SessionDetail = () => {
       </div>
 
       <div className={`session-photo ${s.photo ? '' : 'empty'}`}>
-        {s.photo ? <img src={s.photo} alt={`${s.venueName} swim`} /> : <><Camera size={26} /><span>Add a photo of your swim</span></>}
-        <div className="photo-actions">
+        {s.photo ? <img src={s.photo} alt={`${s.venueName} swim`} /> : <><Camera size={26} /><span>{isOwner ? 'Add a photo of your swim' : 'No session photo recorded'}</span></>}
+        {isOwner && <div className="photo-actions">
           {gallery.length > 1 || (gallery.length === 1 && gallery[0] !== s.photo) ? (
             <button className="photo-change static" id="change-cover-btn" onClick={() => setPicking(true)}><Images size={14} /> Change cover</button>
           ) : null}
@@ -1754,7 +1722,7 @@ const SessionDetail = () => {
           >
             <Camera size={14} /> Camera
           </button>
-        </div>
+        </div>}
         <input
           ref={sessionCameraRef}
           id="session-photo-camera"
@@ -1787,7 +1755,7 @@ const SessionDetail = () => {
           <p className="muted" style={{ marginBottom: 12 }}>Pick any photo from this session.</p>
           <div className="cover-grid">
             {gallery.map((src, i) => (
-              <button key={i} id={`cover-option-${i}`} className={`cover-option ${src === s.photo ? 'selected' : ''}`} onClick={() => { actions.updateSession(s.id, { photo: src }); setPicking(false); }}>
+              <button key={i} id={`cover-option-${i}`} aria-label={`Use session photo ${i + 1} as cover`} aria-pressed={src === s.photo} className={`cover-option ${src === s.photo ? 'selected' : ''}`} onClick={() => { actions.updateSession(s.id, { photo: src }); setPicking(false); }}>
                 <img src={src} alt={`Session photo ${i + 1}`} />
                 {src === s.photo && <span className="cover-check"><Check size={14} /></span>}
               </button>
@@ -1800,19 +1768,19 @@ const SessionDetail = () => {
         <ShareModal
           title={s.venueName}
           subtitle={`Session · ${fmtDay(s.startedAt)} · ${list.length} ${list.length === 1 ? 'catch' : 'catches'}`}
-          isShared={!!s.isShared}
-          onToggleShared={() => actions.toggleSessionShare(s.id)}
+          isShared={!!s.isShared && !s.isConfidential}
+          onToggleShared={isOwner && !s.isConfidential ? () => actions.toggleSessionShare(s.id) : undefined}
           shareText={`Fishing session at ${s.venueName} logged with Keepnet! ${list.length} fish caught.`}
           onClose={() => setSharing(false)}
         />
       )}
 
-      <WeatherCard s={s} />
+      {isOwner ? <WeatherCard s={s} /> : s.weather && <WeatherSummary weather={s.weather} />}
 
       <div className="section-header"><h2 className="serif section-title">Catches ({list.length})</h2></div>
       <div className="card">{list.length ? list.map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">Nothing in the net yet.</p>}</div>
 
-      {live && (
+      {live && isOwner && (
         <div className="stack">
           <button className="btn-primary" id="add-catch-btn" onClick={() => setAdding(true)}><Fish size={20} /> Log a catch</button>
           <button className="btn-secondary" id="end-session-btn" onClick={() => actions.updateSession(s.id, { endedAt: new Date().toISOString() })}><Square size={16} /> End session</button>
@@ -1826,601 +1794,71 @@ const SessionDetail = () => {
 const CatchDetail = () => {
   const { id } = useParams();
   const nav = useNavigate();
+  const { user } = useAuth();
   const { catches, sessions } = useStore();
+  const local = catches.find(item => item.id === id);
+  const [remote, setRemote] = useState<Catch | null>(null);
+  const [remoteSession, setRemoteSession] = useState<Session | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
   const [sharing, setSharing] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [remoteCatches, setRemoteCatches] = useState<Catch[]>([]);
-  const [remoteSessions, setRemoteSessions] = useState<Session[]>([]);
-  const [loadingRemote, setLoadingRemote] = useState(false);
-  const [likeBounce, setLikeBounce] = useState(false);
-
-  // If catch is not in local journal, fetch from public shared catches
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [commentCount, setCommentCount] = useState(0);
   useEffect(() => {
-    if (!catches.some((x) => x.id === id)) {
-      setLoadingRemote(true);
-      fetchPublicSharedData()
-        .then((data) => {
-          if (data.catches.length > 0) setRemoteCatches(data.catches);
-          if (data.sessions.length > 0) setRemoteSessions(data.sessions);
-        })
-        .finally(() => setLoadingRemote(false));
-    }
-  }, [id, catches]);
-
-  // Sample data fallback for featured community catches
-  const sampleMap: Record<string, Catch> = {
-    'sample-pike-1': {
-      id: 'sample-pike-1',
-      sessionId: 'sample-sess-wyreside',
-      species: 'Pike',
-      weightLb: 11,
-      weightOz: 7,
-      caughtAt: '2026-10-04T16:51:00Z',
-      bait: 'Salmo slider lure',
-      method: 'Lure fishing',
-      notes: 'Cracking pike from this afternoon on the slider. Slow day until this one smashed it on the drop near the reeds. Unreal fight! 🎣',
-      image: '/images/catch-pike-1.jpg',
-      images: [
-        '/images/catch-pike-1.jpg',
-        '/images/catch-sophie-pike.jpg',
-        '/images/catch-carp-linear.jpg',
-        '/images/challenge-pike.jpg',
-      ],
-      isShared: true,
-      userName: 'Aran',
-      likesCount: 42,
-    },
-    'sample-pike-2': {
-      id: 'sample-pike-2',
-      sessionId: 'sample-sess-ribble',
-      species: 'Pike',
-      weightLb: 4,
-      weightOz: 0,
-      caughtAt: '2026-10-03T14:30:00Z',
-      bait: 'Smelt',
-      method: 'Deadbaiting',
-      notes: 'First decent pike on the new setup! 🙌 Such a beautiful fish, released safely.',
-      image: '/images/catch-sophie-pike.jpg',
-      images: [
-        '/images/catch-sophie-pike.jpg',
-        '/images/catch-pike-1.jpg',
-        '/images/challenge-pike.jpg',
-      ],
-      isShared: true,
-      userName: 'SophieT',
-      likesCount: 68,
-    },
-    'sample-carp-1': {
-      id: 'sample-carp-1',
-      sessionId: 'sample-sess-linear',
-      species: 'Common Carp',
-      weightLb: 28,
-      weightOz: 6,
-      caughtAt: '2026-10-02T07:15:00Z',
-      bait: '15mm Mainline Cell',
-      method: 'Boilie on Ronnie Rig',
-      notes: 'Autumn campaign off to a flyer! 28lb 6oz on the margins just as the mist cleared.',
-      image: '/images/catch-carp-linear.jpg',
-      images: [
-        '/images/catch-carp-linear.jpg',
-        '/images/chub.jpg',
-        '/images/perch.jpg',
-      ],
-      isShared: true,
-      userName: 'CarpDan',
-      likesCount: 98,
-    },
-  };
-
-  const sampleSessionMap: Record<string, Session> = {
-    'sample-sess-wyreside': {
-      id: 'sample-sess-wyreside',
-      venueId: 'wyreside-lakes',
-      venueName: 'Wyreside, Lancashire',
-      lat: 53.97,
-      lon: -2.78,
-      startedAt: '2026-10-04T10:02:00Z',
-      photo: '/images/community-hero.jpg',
-      isShared: true,
-      userName: 'Aran',
-      weather: {
-        temperature: 11,
-        feelsLike: 10,
-        description: 'Overcast & calm',
-        windSpeed: 6,
-        windDirection: 180,
-        humidity: 82,
-        precipitation: 0,
-        pressure: 1018,
-        cloudCover: 75,
-        code: 3,
-        source: 'open-meteo',
-        fetchedAt: '2026-10-04T10:02:00Z',
-      },
-    },
-    'sample-sess-ribble': {
-      id: 'sample-sess-ribble',
-      venueId: 'river-ribble',
-      venueName: 'River Ribble, Lancashire',
-      lat: 53.8,
-      lon: -2.7,
-      startedAt: '2026-10-03T11:00:00Z',
-      photo: '/images/hero-river.jpg',
-      isShared: true,
-      userName: 'SophieT',
-      weather: {
-        temperature: 9,
-        feelsLike: 8,
-        description: 'Slight drizzle',
-        windSpeed: 8,
-        windDirection: 210,
-        humidity: 88,
-        precipitation: 0.2,
-        pressure: 1012,
-        cloudCover: 90,
-        code: 51,
-        source: 'open-meteo',
-        fetchedAt: '2026-10-03T11:00:00Z',
-      },
-    },
-    'sample-sess-linear': {
-      id: 'sample-sess-linear',
-      venueId: 'linear-fisheries',
-      venueName: 'Linear Fisheries · St Johns',
-      lat: 51.76,
-      lon: -1.41,
-      startedAt: '2026-10-02T06:00:00Z',
-      photo: '/images/welcome-hero.jpg',
-      isShared: true,
-      userName: 'CarpDan',
-      weather: {
-        temperature: 12,
-        feelsLike: 11,
-        description: 'Misty dawn',
-        windSpeed: 4,
-        windDirection: 140,
-        humidity: 92,
-        precipitation: 0,
-        pressure: 1021,
-        cloudCover: 40,
-        code: 45,
-        source: 'open-meteo',
-        fetchedAt: '2026-10-02T06:00:00Z',
-      },
-    },
-  };
-
-  const c = catches.find((x) => x.id === id) || remoteCatches.find((x) => x.id === id) || (id ? sampleMap[id] : undefined);
-  const isOwner = catches.some((x) => x.id === id);
-
-  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStartX(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX === null) return;
-    const diff = touchStartX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 36) {
-      if (diff > 0) {
-        // Swiped left -> next photo
-        setActivePhotoIdx((prev) => (prev + 1) % displayImages.length);
-      } else {
-        // Swiped right -> prev photo
-        setActivePhotoIdx((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
-      }
-    }
-    setTouchStartX(null);
-  };
-
-  const displayImages = useMemo(() => {
-    if (!c) return ['/images/catch-pike-1.jpg'];
-    const list: string[] = [];
-    if (c.image) list.push(c.image);
-    if (c.images && c.images.length > 0) {
-      c.images.forEach((img: string) => {
-        if (!list.includes(img)) list.push(img);
-      });
-    }
-    if (list.length === 0) list.push('/images/catch-pike-1.jpg');
-    return list;
-  }, [c]);
-
-  if (!c) {
-    if (loadingRemote) {
-      return (
-        <div className="content">
-          <div className="row-between">
-            <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
-          </div>
-          <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-            <RefreshCw size={24} className="spin" style={{ margin: '0 auto 12px', color: 'var(--accent-green)' }} />
-            <p className="muted">Loading catch report...</p>
-          </div>
-        </div>
-      );
-    }
-    return <Navigate to="/" replace />;
-  }
-
-  const s = sessions.find((x) => x.id === c.sessionId) || remoteSessions.find((x) => x.id === c.sessionId) || (c.sessionId ? sampleSessionMap[c.sessionId] : undefined);
-  const isLiked = actions.isCatchLiked(c.id);
-  const likesCount = actions.getCatchLikesCount(c.id, c.likesCount);
-
+    let cancelled = false;
+    fetchCatchLikes().then(counts => { if (!cancelled) actions.setAllCatchLikes(counts); });
+    return () => { cancelled = true; };
+  }, [user?.id, id]);
+  useEffect(() => {
+    if (local || !id) return;
+    let cancelled = false;
+    fetchRecord<Catch>('catches', id).then(async record => {
+      if (cancelled) return;
+      setRemote(record);
+      try { const session = await fetchRecord<Session>('sessions', record.sessionId); if (!cancelled) setRemoteSession(session); } catch { /* A public catch may belong to a private session. */ }
+    }).catch(reason => { if (!cancelled) setError(reason.message); });
+    return () => { cancelled = true; };
+  }, [id, !!local, retry]);
+  const c = local || remote;
+  const s = sessions.find(item => item.id === c?.sessionId) || remoteSession;
+  const images = [...new Set([c?.image, ...(c?.images || [])].filter((image): image is string => !!image))];
+  const isOwner = !!local && (!local.userId || local.userId === user?.id);
+  const shared = !!c?.isShared && !c.isConfidential;
+  const liked = c ? actions.isCatchLiked(c.id) : false;
+  const likes = c ? actions.getCatchLikesCount(c.id, c.likesCount) : 0;
+  const saved = c ? actions.isCatchSaved(c.id) : false;
+  const comments = () => document.getElementById('comments-section')?.scrollIntoView({ block: 'start' });
   return (
-    <div className="content catch-detail-page" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
-      {/* Header bar (Mobile Screen 2) */}
-      <div className="row-between catch-detail-header">
-        <div className="catch-detail-heading">
-          <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={21} /></button>
-          <span className="serif">Catch Details</span>
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {isOwner && (
-            <button className="icon-btn" id="edit-catch-icon-btn" onClick={() => setEditing(true)} aria-label="Edit catch" title="Edit catch">
-              <Pencil size={17} />
-            </button>
-          )}
-          <button className="icon-btn" id="share-catch-btn" onClick={() => setSharing(true)} aria-label="Share catch" title="Share catch">
-            <Share2 size={17} />
-          </button>
-          <button className="icon-btn" aria-label="More options" title="Options">
-            <MoreHorizontal size={17} />
-          </button>
-        </div>
-      </div>
-
-      {/* Main Catch Photo & Carousel with Touch-Swipe (Mobile Screen 2) */}
-      <div
-        className="social-card-media-wrap"
-        style={{ borderRadius: 14 }}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <img
-          src={displayImages[activePhotoIdx] || displayImages[0]}
-          alt={c.species}
-          className="social-card-img"
-          style={{ height: 260 }}
-        />
-        <div className="carousel-counter-badge">
-          {activePhotoIdx + 1}/{displayImages.length}
-        </div>
-        {displayImages.length > 1 && (
-          <>
-            <button
-              type="button"
-              className="carousel-nav-btn prev"
-              onClick={() => setActivePhotoIdx((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1))}
-              aria-label="Previous photo"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              type="button"
-              className="carousel-nav-btn next"
-              onClick={() => setActivePhotoIdx((prev) => (prev + 1) % displayImages.length)}
-              aria-label="Next photo"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* 4 Thumbnails Row (Mobile Screen 2) */}
-      {displayImages.length > 1 && (
-        <div className="detail-thumbs-row">
-          {displayImages.map((img, idx) => (
-            <button
-              key={idx}
-              type="button"
-              className={`detail-thumb-btn ${activePhotoIdx === idx ? 'active' : ''}`}
-              onClick={() => setActivePhotoIdx(idx)}
-              aria-label={`Select photo ${idx + 1}`}
-            >
-              <img src={img} alt="" loading="lazy" />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Title, Green Weight & Shared Badge (Mobile Screen 2) */}
-      <div className="row-between" style={{ alignItems: 'flex-start', marginTop: 6 }}>
-        <div>
-          <h1 className="page-title" style={{ margin: '0 0 2px', fontSize: 24 }}>{c.species}</h1>
-          <div className="catch-weight-green">
-            {fmtWeight(c)}
-          </div>
-        </div>
-        <div style={{ marginTop: 2 }}>
-          {c.isShared ? (
-            <span
-              className="mini-badge"
-              style={{
-                background: 'rgba(46, 184, 114, 0.15)',
-                color: '#2EB872',
-                borderColor: 'rgba(46, 184, 114, 0.35)',
-                padding: '4px 10px',
-                fontSize: 11,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Globe size={11} /> Shared
-            </span>
-          ) : (
-            <span className="mini-badge private" style={{ padding: '4px 10px', fontSize: 11 }}>
-              <Lock size={11} /> Private
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Angler Attribution Row (Mobile Screen 2) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 12px' }}>
-        <img
-          src={c.id === 'sample-pike-2' ? '/images/catch-sophie-pike.jpg' : c.id === 'sample-carp-1' ? '/images/avatar-tom.jpg' : '/images/avatar-aran.jpg'}
-          alt={c.userName || 'Angler'}
-          style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }}
-        />
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span>{c.userName || s?.userName || 'Keepnet Angler'}</span>
-            <CheckCircle2 size={13} fill="#2EB872" color="#fff" />
-          </div>
-          <div className="muted" style={{ fontSize: 11 }}>
-            {fmtDay(c.caughtAt)} {c.caughtAt ? `· ${fmtTime(c.caughtAt)}` : ''} · 📍 {s?.venueName || 'UK Waters'}
-          </div>
-        </div>
-      </div>
-
-      {/* Narrative Caption */}
-      {c.notes && (
-        <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-primary)', margin: '8px 0 14px' }}>
-          {c.notes}
-        </p>
-      )}
-
-      {/* Tactical Attribute Tiles Grid (Mobile Screen 2) */}
-      <div className="tactical-grid-2x2">
-        <div className="tactical-cell">
-          <div className="tactical-cell-icon"><Fish size={22} strokeWidth={1.6} aria-hidden="true" /></div>
-          <div className="tactical-cell-info">
-            <span className="tactical-cell-val">{c.bait || 'Natural bait'}</span>
-            <span className="tactical-cell-lbl">Bait</span>
-          </div>
-        </div>
-
-        <div className="tactical-cell">
-          <div className="tactical-cell-icon"><Waves size={22} strokeWidth={1.6} aria-hidden="true" /></div>
-          <div className="tactical-cell-info">
-            <span className="tactical-cell-val">{s?.venueName || 'Wyreside'}</span>
-            <span className="tactical-cell-lbl">Water</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="tactical-grid-3x1">
-        <div className="tactical-cell">
-          <div className="tactical-cell-icon temperature-icon"><Thermometer size={22} strokeWidth={1.6} aria-hidden="true" /></div>
-          <div className="tactical-cell-info">
-            <span className="tactical-cell-val">{s?.weather ? `${Math.round(s.weather.temperature)}°C` : '11°C'}</span>
-            <span className="tactical-cell-lbl">Conditions</span>
-          </div>
-        </div>
-
-        <div className="tactical-cell">
-          <div className="tactical-cell-icon"><Waves size={22} strokeWidth={1.6} aria-hidden="true" /></div>
-          <div className="tactical-cell-info">
-            <span className="tactical-cell-val">Clear water</span>
-            <span className="tactical-cell-lbl">Water clarity</span>
-          </div>
-        </div>
-
-        <div className="tactical-cell">
-          <div className="tactical-cell-icon"><LocateFixed size={22} strokeWidth={1.6} aria-hidden="true" /></div>
-          <div className="tactical-cell-info">
-            <span className="tactical-cell-val">{c.method || 'Lure fishing'}</span>
-            <span className="tactical-cell-lbl">Method</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Social Actions Bar (Mobile Screen 2) */}
-      <div className="social-actions-bar" style={{ margin: '14px 0 6px' }}>
-        <div className="social-action-btn-group">
-          <button
-            type="button"
-            className={`social-action-btn ${isLiked ? 'liked' : ''} ${likeBounce ? 'heart-bounce' : ''}`}
-            onClick={() => {
-              actions.toggleCatchLike(c.id);
-              setLikeBounce(true);
-              setTimeout(() => setLikeBounce(false), 500);
-            }}
-          >
-            <Heart size={18} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
-            <span>{likesCount}</span>
-          </button>
-
-          <button
-            type="button"
-            className="social-action-btn"
-            onClick={() => {
-              const el = document.getElementById('comments-section');
-              el?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            <MessageSquare size={17} />
-            <span>8</span>
-          </button>
-
-          <button
-            type="button"
-            className="social-action-btn"
-            onClick={() => setSharing(true)}
-          >
-            <Share2 size={16} />
-            <span>Share</span>
-          </button>
-
-          <button
-            type="button"
-            className="social-action-btn"
-            onClick={() => alert('Catch saved to your journal!')}
-          >
-            <Bookmark size={16} />
-            <span>Save</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Liked by Avatar Stack (Mobile Screen 2) */}
-      <div className="liked-by-stack">
-        <div className="liked-by-avatars">
-          <img src="/images/avatar-tom.jpg" alt="" className="liked-by-avatar-img" />
-          <img src="/images/catch-sophie-pike.jpg" alt="" className="liked-by-avatar-img" />
-          <img src="/images/avatar-ellie.jpg" alt="" className="liked-by-avatar-img" />
-          <img src="/images/avatar-aran.jpg" alt="" className="liked-by-avatar-img" />
-        </div>
-        <span>Liked by <strong>TomL</strong>, <strong>SophieT</strong> and {likesCount > 2 ? likesCount - 2 : 40} others</span>
-      </div>
-
-      {/* Associated Session Card (Mobile Screen 2) */}
-      {s && (
-        <Link to={`/sessions/${s.id}`} className="detail-session-card">
-          <img
-            src={s.photo || '/images/community-hero.jpg'}
-            alt={s.venueName}
-            className="detail-session-thumb"
-            loading="lazy"
-          />
-          <div className="detail-session-info">
-            <span className="detail-session-label"><Calendar size={12} /> Session</span>
-            <div className="detail-session-venue">{s.venueName}</div>
-            <div className="detail-session-date">{fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}</div>
-          </div>
-          <ChevronRight size={18} color="var(--text-secondary)" />
-        </Link>
-      )}
-
-      {/* Weather Summary (if logged) */}
-      {s?.weather && <WeatherSummary weather={s.weather} />}
-
-      {/* Interactive Comments & Discussions Section (Mobile Screen 3) */}
-      <div id="comments-section" style={{ marginTop: 14 }}>
-        <CatchComments catchId={c.id} isSharedCatch={!!c.isShared} catchSpecies={c.species} />
-      </div>
-
-      {/* Similar Catches Carousel (Mobile Screen 3) */}
-      <div style={{ marginTop: 22 }}>
-        <div className="row-between" style={{ alignItems: 'baseline', marginBottom: 10 }}>
-          <h3 className="serif" style={{ margin: 0, fontSize: 16 }}>Similar Catches</h3>
-          <Link to="/discover" className="sidebar-widget-link">View all →</Link>
-        </div>
-        <div className="similar-catches-grid">
-          <Link to="/catches/sample-pike-1" className="similar-catch-card">
-            <img src="/images/catch-pike-1.jpg" alt="Pike" loading="lazy" />
-            <div className="similar-catch-card-body">
-              <div className="similar-catch-card-title">
-                <span>Pike · 2 lb 8 oz</span>
-                <span style={{ color: '#ef4444', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Heart size={10} fill="#ef4444" /> 124
-                </span>
-              </div>
-              <div className="similar-catch-card-meta">TomL · River Ribble</div>
-            </div>
-          </Link>
-
-          <Link to="/catches/sample-pike-2" className="similar-catch-card">
-            <img src="/images/challenge-pike.jpg" alt="Pike" loading="lazy" />
-            <div className="similar-catch-card-body">
-              <div className="similar-catch-card-title">
-                <span>Pike · 3 lb 4 oz</span>
-                <span style={{ color: '#ef4444', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                  <Heart size={10} fill="#ef4444" /> 88
-                </span>
-              </div>
-              <div className="similar-catch-card-meta">Dan.Carp · Linear Fisheries</div>
-            </div>
-          </Link>
-        </div>
-      </div>
-
-      {/* Community Challenge Banner (Mobile Screen 3) */}
-      <div className="card catch-challenge-card" style={{ marginTop: 20, padding: 16, border: '1px solid rgba(46, 184, 114, 0.3)' }}>
-        <div className="row-between" style={{ alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--copper)' }}>
-            <Trophy size={16} />
-            <strong style={{ fontSize: 13 }}>Pike Season Challenge</strong>
-          </div>
-          <span className="count-pill" style={{ fontSize: 10 }}>Ends in 12 days</span>
-        </div>
-        <p className="muted" style={{ fontSize: 12, margin: '0 0 12px', lineHeight: 1.45 }}>
-          Log your best pike this month for a chance to win Keepnet gear and be featured!
-        </p>
-        <button
-          type="button"
-          className="btn-primary"
-          style={{ width: '100%', height: 38, fontSize: 13 }}
-          onClick={() => nav('/sessions')}
-        >
-          Join Challenge →
-        </button>
-      </div>
-
-      {/* Sticky Bottom Action Bar (Mobile Screen 2) */}
-      <div className="sticky-catch-footer">
-        <button
-          type="button"
-          className={`btn-sticky-action like-btn ${isLiked ? 'liked' : ''}`}
-          onClick={() => actions.toggleCatchLike(c.id)}
-        >
-          <Heart size={16} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
-          <span>{isLiked ? 'Liked' : 'Like'}</span>
-        </button>
-
-        <button
-          type="button"
-          className="btn-sticky-action comment-btn"
-          onClick={() => {
-            const el = document.getElementById('comments-section');
-            el?.scrollIntoView({ behavior: 'smooth' });
-          }}
-        >
-          <MessageSquare size={16} />
-          <span>Comment</span>
-        </button>
-      </div>
-
-      {sharing && (
-        <ShareModal
-          title={`${c.species} (${fmtWeight(c)})`}
-          subtitle={`Caught on ${c.bait}${s ? ` at ${s.venueName}` : ''}`}
-          isShared={!!c.isShared}
-          onToggleShared={isOwner ? () => actions.toggleCatchShare(c.id) : undefined}
-          shareText={`🎣 Check out this ${fmtWeight(c)} ${c.species} on Keepnet!`}
-          onClose={() => setSharing(false)}
-        />
-      )}
-
-      {editing && isOwner && (
-        <EditCatchSheet c={c} onClose={() => setEditing(false)} />
-      )}
+    <div className="content catch-detail-page" style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' }}>
+      <header className="catch-detail-header row-between"><div className="catch-detail-heading"><button className="icon-btn" aria-label="Back to catches" onClick={() => nav('/sessions?tab=catches')}><ArrowLeft size={21} /></button><span className="serif">Catch Details</span></div>{c && <div style={{ display: 'flex', gap: 8 }}>{isOwner && <button className="icon-btn" aria-label="Edit catch" onClick={() => setEditing(true)}><Pencil size={19} /></button>}<button className="icon-btn" aria-label="Share catch" onClick={() => setSharing(true)}><Share2 size={19} /></button></div>}</header>
+      {!c ? <div className="card" style={{ marginTop: 20, textAlign: 'center' }}><h1 className="serif" style={{ fontSize: 24 }}>{error ? 'Catch unavailable' : 'Loading catch'}</h1><p className="muted" style={{ margin: '12px 0' }}>{error || 'Retrieving the catch report.'}</p>{error && <button className="btn-secondary" onClick={() => { setError(null); setRetry(value => value + 1); }}>Retry</button>}<Link className="back-link" to="/sessions?tab=catches">Return to catches</Link></div> : <>
+        <div className="social-card-media-wrap" style={{ position: 'relative' }}>{images.length ? <img className="social-card-img" style={{ objectFit: 'cover' }} src={images[photoIndex % images.length]} alt={c.species} /> : <div className="catch-detail-photo-empty"><Camera size={38} /><span>No catch photo recorded</span></div>}{images.length > 1 && <><span className="photo-count-badge">{photoIndex + 1} / {images.length}</span><button className="carousel-nav-btn prev" aria-label="Previous catch photo" onClick={() => setPhotoIndex(value => (value - 1 + images.length) % images.length)}><ChevronLeft size={19} /></button><button className="carousel-nav-btn next" aria-label="Next catch photo" onClick={() => setPhotoIndex(value => (value + 1) % images.length)}><ChevronRight size={19} /></button></>}</div>
+        {images.length > 1 && <div className="detail-thumbs-row">{images.map((image, index) => <button key={image} className={`detail-thumb-btn ${photoIndex === index ? 'active' : ''}`} aria-label={`View catch photo ${index + 1}`} aria-pressed={photoIndex === index} onClick={() => setPhotoIndex(index)}><img src={image} alt="" /></button>)}</div>}
+        <div className="row-between" style={{ marginTop: 15 }}><div><h1 className="page-title">{c.species}</h1><p className="social-card-weight-text">{fmtWeight(c)}</p></div><span className={`mini-badge ${shared ? 'shared' : 'private'}`}>{shared ? <Globe size={12} /> : <Lock size={12} />}{shared ? 'Shared' : 'Private'}</span></div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '12px 0' }}><Avatar name={c.userName || s?.userName || 'Angler'} size={34} /><div><strong>{c.userName || s?.userName || 'Angler'}</strong><p className="muted" style={{ fontSize: 12 }}>{fmtDay(c.caughtAt)} · {fmtTime(c.caughtAt)}{s ? ` · ${s.venueName}` : ''}</p></div></div>
+        {c.notes && <p style={{ fontSize: 14, lineHeight: 1.6, margin: '12px 0' }}>{c.notes}</p>}
+        <div className="tactical-grid-2x2">{[{ icon: Fish, label: 'Bait', value: c.bait || 'Not logged' }, { icon: Waves, label: 'Water', value: s?.venueName || 'Not logged' }, { icon: Thermometer, label: 'Conditions', value: s?.weather ? `${Math.round(s.weather.temperature)}°C · ${s.weather.description}` : 'Not logged' }, { icon: LocateFixed, label: 'Method', value: c.method || 'Not logged' }].map(({ icon: Icon, label, value }) => <div className="tactical-cell" key={label}><div className="tactical-cell-icon"><Icon size={22} /></div><div className="tactical-cell-info"><span className="tactical-cell-val">{value}</span><span className="tactical-cell-lbl">{label}</span></div></div>)}</div>
+        <div className="social-actions-bar"><div className="social-action-btn-group">{shared && <button className={`social-action-btn ${liked ? 'liked' : ''}`} disabled={!user} aria-pressed={liked} aria-label={`${liked ? 'Unlike' : 'Like'} catch, ${likes} likes`} onClick={() => actions.toggleCatchLike(c.id)}><Heart size={19} fill={liked ? 'currentColor' : 'none'} />{likes}</button>}<button className="social-action-btn" aria-label={`View ${commentCount} comments`} onClick={comments}><MessageSquare size={18} />{commentCount}</button><button className="social-action-btn" onClick={() => setSharing(true)}><Share2 size={18} />Share</button><button className="social-action-btn" aria-pressed={saved} onClick={() => actions.toggleCatchSave(c.id)}><Bookmark size={18} fill={saved ? 'currentColor' : 'none'} />{saved ? 'Saved' : 'Save'}</button></div></div>
+        {s && <Link to={`/sessions/${s.id}`} className="detail-session-card">{s.photo ? <img src={s.photo} alt={s.venueName} className="detail-session-thumb" /> : <MapPin size={32} />}<div className="detail-session-info"><span className="detail-session-label"><Calendar size={13} />Session</span><div className="detail-session-venue">{s.venueName}</div><span className="muted">{fmtDay(s.startedAt)}</span></div><ChevronRight size={19} /></Link>}
+        {s?.weather && <WeatherSummary weather={s.weather} />}
+        <div id="comments-section"><CatchComments catchId={c.id} isSharedCatch={shared} catchSpecies={c.species} onCountChange={setCommentCount} /></div>
+        <div className="sticky-catch-footer"><button className={`btn-sticky-action like-btn ${liked ? 'liked' : ''}`} disabled={!user || !shared} aria-pressed={liked} onClick={() => actions.toggleCatchLike(c.id)}><Heart size={18} fill={liked ? 'currentColor' : 'none'} />{!user ? 'Sign in to like' : liked ? 'Liked' : 'Like'}</button><button className="btn-sticky-action comment-btn" onClick={comments}><MessageSquare size={18} />Comment</button></div>
+        {sharing && <ShareModal title={`${c.species} (${fmtWeight(c)})`} subtitle={s?.venueName || 'Catch report'} isShared={shared} onToggleShared={isOwner && !c.isConfidential ? () => actions.toggleCatchShare(c.id) : undefined} shareText={`${fmtWeight(c)} ${c.species} on Keepnet`} onClose={() => setSharing(false)} />}
+        {editing && isOwner && <EditCatchSheet c={c} onClose={() => setEditing(false)} />}
+      </>}
     </div>
   );
 };
-
 const Profile = () => {
   const { catches, sessions, name, equippedAchievementId, likesGivenCount = 0, appliedCoupon } = useStore();
   const { user } = useAuth();
   const isPremiumActive = usePremiumMembership();
+  const membershipPending = useMembershipPending();
   const isAdmin = isUserAdmin(user);
   const [savingNickname, setSavingNickname] = useState(false);
   const [nicknameSaved, setNicknameSaved] = useState(false);
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
 
   const socialStats = useMemo(() => ({
     likesGiven: likesGivenCount || 0,
@@ -2455,21 +1893,13 @@ const Profile = () => {
       {/* Profile Hero with Equipped Avatar Flair & Badge */}
       <div className="profile-hero">
         <div className={`avatar-container tier-${equipped?.tier || 'none'}`}>
-          <div className="avatar-placeholder">
-            {equipped ? (
-              <span className="avatar-flair-icon" role="img" aria-label={equipped.title}>
-                {equipped.icon}
-              </span>
-            ) : (
-              <Fish size={32} />
-            )}
-          </div>
+          <Avatar name={user?.nickname || user?.name || name} size={72} />
           {equipped && (
             <div
               className={`avatar-flair-badge tier-badge-${equipped.tier}`}
               title={equipped.flairTitle}
             >
-              <span>{equipped.icon}</span>
+              <AchievementBadge item={equipped} size={30} />
             </div>
           )}
         </div>
@@ -2489,11 +1919,11 @@ const Profile = () => {
             )}
 
             {isPremiumActive ? (
-              <Link to="/subscription" className="flair-title-pill" style={{ background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)', borderColor: 'rgba(201, 119, 43, 0.4)' }} title="Manage Keepnet Premium">
+              <Link to="/subscription" className="flair-title-pill" style={{ background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)', borderColor: 'rgba(201, 119, 43, 0.4)' }} title="Premium membership details">
                 <Crown size={11} />
                 <span>{appliedCoupon ? 'Premium Trial Active' : 'Premium Angler'}</span>
               </Link>
-            ) : (
+            ) : membershipPending ? <span className="flair-title-pill" role="status">Checking membership…</span> : (
               <Link to="/subscription" className="flair-title-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }} title="Claim 1-month free trial">
                 <Gift size={11} />
                 <span>1-Month Free Trial Available</span>
@@ -2516,15 +1946,15 @@ const Profile = () => {
             className="name-input serif" 
             id="profile-name" 
             value={name} 
-            onChange={(e) => actions.setName(e.target.value)} 
+            onChange={(e) => { actions.setName(e.target.value); setNicknameSaved(false); setNicknameError(null); }}
             onBlur={async () => {
               const clean = (name || '').trim();
               if (clean) {
                 setSavingNickname(true);
                 try {
-                  await authActions.updateNickname(clean);
-                  setNicknameSaved(true);
-                  setTimeout(() => setNicknameSaved(false), 2500);
+                  const saved = await authActions.updateNickname(clean);
+                  setNicknameSaved(saved);
+                  setNicknameError(saved ? null : 'Nickname could not be saved. Reconnect and try again.');
                 } finally {
                   setSavingNickname(false);
                 }
@@ -2533,6 +1963,7 @@ const Profile = () => {
             placeholder="Choose your public nickname..."
             aria-label="Public Angler Nickname" 
           />
+          {nicknameError && <p role="alert" className="error-text">{nicknameError}</p>}
           <div className="muted" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap', fontSize: 12 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#10b981', fontWeight: 500 }}>
               <ShieldCheck size={12} /> Email & personal info hidden
@@ -2596,7 +2027,7 @@ const Profile = () => {
         <div className="profile-achievements-badges-row">
           {unlockedAchievements.slice(0, 6).map((a) => (
             <div key={a.id} className={`profile-badge-chip tier-${a.tier}`} title={a.title}>
-              <span>{a.icon}</span>
+              <AchievementBadge item={a} size={32} />
               <span>{a.title}</span>
             </div>
           ))}
@@ -2628,7 +2059,7 @@ const Profile = () => {
           className="btn-secondary"
           style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 46, borderColor: 'rgba(201, 119, 43, 0.45)', color: 'var(--copper, #C9772B)' }}
         >
-          <Crown size={16} /> {isPremiumActive ? 'Manage Premium membership' : 'Keepnet Membership & 1-Month Free Trial'}
+          <Crown size={16} /> {isPremiumActive || membershipPending ? 'Premium membership details' : 'Keepnet Membership & 1-Month Free Trial'}
         </Link>
 
         <Link
@@ -2683,6 +2114,7 @@ const Shell = () => {
   const location = useLocation();
   const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | 'reset'>('signin');
 
   // Dynamic document title per review recommendation
   useEffect(() => {
@@ -2731,13 +2163,7 @@ const Shell = () => {
     }
   };
 
-  const [installPrompt, setInstallPrompt] = useState<any>(globalInstallPrompt);
-
-  useEffect(() => {
-    const handler = () => setInstallPrompt(globalInstallPrompt);
-    window.addEventListener('keepnet:installable', handler);
-    return () => window.removeEventListener('keepnet:installable', handler);
-  }, []);
+  const installPrompt = useInstallPrompt();
 
   const isStandalone = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
@@ -2749,24 +2175,16 @@ const Shell = () => {
   const syncStatus = useCloudSyncStatus();
 
   useEffect(() => {
-    if (auth.user && auth.storageMode === 'cloud') {
+    if (auth.user) {
       fetchUserCloudData(auth.user).then((data) => {
-        if (data) {
-          actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription);
+        if (data && authActions.getCurrentUser()?.id === auth.user?.id) {
+          actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription, data.deletedCatchIds);
         }
       });
     }
   }, [auth.user?.id]);
 
-  const handleInstallApp = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    if (choice?.outcome === 'accepted') {
-      globalInstallPrompt = null;
-      setInstallPrompt(null);
-    }
-  };
+  const handleInstallApp = installApp;
 
   return (
     <div className={`app-container ${location.pathname === '/achievements' ? 'achievements-shell' : ''}`} data-page={location.pathname.split('/')[1] || 'home'}>
@@ -2818,7 +2236,7 @@ const Shell = () => {
             aria-label="Profile"
             title="Profile"
           >
-            <img src="/images/avatar-aran.jpg" alt="Profile" />
+            <Avatar name={auth.user?.nickname || auth.user?.name} size={36} label="Your profile" />
           </Link>
         </div>
       </header>}
@@ -2864,15 +2282,15 @@ const Shell = () => {
         </div>
       )}
       <main>
-        <Routes>
+        <Routes key={auth.user?.id || 'guest'}>
           <Route path="/" element={<Home onStart={(venue) => setSheet({ venue })} />} />
           <Route path="/sessions" element={<Sessions onStart={() => setSheet({})} />} />
-          <Route path="/sessions/:id" element={<SessionDetail />} />
-          <Route path="/catches/:id" element={<CatchDetail />} />
+          <Route path="/sessions/:id" element={<SessionDetail key={`${auth.user?.id || 'guest'}:${location.pathname}`} />} />
+          <Route path="/catches/:id" element={<CatchDetail key={`${auth.user?.id || 'guest'}:${location.pathname}`} />} />
           <Route path="/discover" element={<Discover onStart={(venue) => setSheet({ venue })} />} />
           <Route path="/fisheries" element={<FisheriesDirectory onStart={(venue) => setSheet({ venue })} />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<Settings onOpenAuth={() => setAuthOpen(true)} />} />
+          <Route path="/settings" element={<Settings onOpenAuth={(mode = 'signin') => { setAuthMode(mode); setAuthOpen(true); }} />} />
           <Route path="/achievements" element={<AchievementsPage />} />
           <Route path="/subscription" element={<SubscriptionPage />} />
           <Route path="/admin" element={<AdminPanel onClose={() => nav('/profile')} />} />
@@ -2881,7 +2299,7 @@ const Shell = () => {
       </main>
       <Navigation onStart={() => setSheet({})} />
       {sheet && <StartSessionSheet initial={sheet.venue} onClose={() => setSheet(null)} onStart={begin} />}
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+      {authOpen && <AuthModal initialMode={authMode} onClose={() => setAuthOpen(false)} />}
     </div>
   );
 };

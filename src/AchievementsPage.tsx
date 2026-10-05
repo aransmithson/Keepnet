@@ -1,13 +1,12 @@
 ﻿import { Fragment, useMemo, useState } from 'react';
-import { createElement, type CSSProperties } from 'react';
+import { type CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowLeft, Award, CalendarDays, Check, Clock, Crown, Fish, Heart,
-  MapPin, MessageCircle, Search, Target, Trophy, Users, X,
-  type LucideIcon,
+  ArrowLeft, Check, Search, Trophy, X,
 } from 'lucide-react';
-import { useStore, actions } from './store';
-import { evaluateAchievements, type AchievementCategory, type UnlockedAchievement } from './achievements';
+import { useStore, actions, imperialToMetric } from './store';
+import { evaluateAchievements, type AchievementCategory } from './achievements';
+import AchievementBadge from './AchievementBadge';
 import './AchievementsPage.css';
 
 type Category = 'all' | 'catches' | 'community' | 'exploration' | 'milestones';
@@ -19,29 +18,8 @@ const CATEGORIES: { id: Category; label: string; categories: AchievementCategory
   { id: 'milestones', label: 'Milestones', categories: ['pb', 'time'] },
 ];
 
-function badgeIcon(item: UnlockedAchievement): LucideIcon {
-  if (item.tier === 'specimen') return Crown;
-  if (item.category === 'social') {
-    if (item.id.includes('share')) return MessageCircle;
-    return item.id.includes('received') ? Users : Heart;
-  }
-  if (item.category === 'species') return Target;
-  if (item.category === 'sessions') return item.target === 1 ? MapPin : CalendarDays;
-  if (item.category === 'time') return Clock;
-  if (item.category === 'pb') return Award;
-  return item.category === 'catches' && item.target >= 10 ? Trophy : Fish;
-}
-
-function Badge({ item, selected = false }: { item: UnlockedAchievement; selected?: boolean }) {
-  return (
-    <span className={`angler-medallion tier-${item.tier} ${item.unlocked ? 'earned' : 'unearned'} ${selected ? 'selected' : ''}`} aria-hidden="true">
-      {createElement(badgeIcon(item), { strokeWidth: 1.65 })}
-    </span>
-  );
-}
-
 export const AchievementsPage = () => {
-  const { catches, sessions, equippedAchievementId, likesGivenCount = 0 } = useStore();
+  const { catches, sessions, equippedAchievementId, likesGivenCount = 0, catchLikes, unitSystem = 'imperial' } = useStore();
   const [category, setCategory] = useState<Category>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -49,9 +27,9 @@ export const AchievementsPage = () => {
   const [earnedOnly, setEarnedOnly] = useState(false);
   const achievements = useMemo(() => evaluateAchievements(catches, sessions, {
     likesGiven: likesGivenCount,
-    likesReceived: actions.getTotalLikesReceived(),
+    likesReceived: catches.reduce((total, record) => total + (catchLikes?.[record.id] ?? record.likesCount ?? 0), 0),
     sharedCount: catches.filter(c => c.isShared).length,
-  }), [catches, sessions, likesGivenCount]);
+  }), [catches, sessions, likesGivenCount, catchLikes]);
   const filtered = useMemo(() => {
     const group = CATEGORIES.find(c => c.id === category)!;
     return achievements.filter(item =>
@@ -72,6 +50,10 @@ export const AchievementsPage = () => {
     filtered.find(item => item.unlocked) || filtered[0];
   const rows = Array.from({ length: Math.ceil(filtered.length / 4) }, (_, i) => filtered.slice(i * 4, i * 4 + 4));
   const earnedCount = achievements.filter(item => item.unlocked).length;
+  const metricPounds = (pounds: number) => {
+    const value = imperialToMetric(pounds, 0);
+    return (value.kg + value.g / 1000).toLocaleString('en-GB', { maximumFractionDigits: 3 });
+  };
 
   return (
     <div className="content achievements-page badge-gallery-page">
@@ -108,18 +90,18 @@ export const AchievementsPage = () => {
               {row.map(item => (
                 <button type="button" className={`badge-collection-item ${item.id === selected?.id ? 'is-selected' : ''} ${item.unlocked ? 'is-earned' : ''}`} key={item.id}
                   onClick={() => setSelectedId(item.id)} aria-pressed={item.id === selected?.id} aria-controls="selected-badge-detail" aria-label={`${item.title}, ${item.unlocked ? 'achieved' : 'locked'}`}>
-                  <Badge item={item} selected={item.id === selected?.id} />
+                  <AchievementBadge item={item} selected={item.id === selected?.id} />
                   <span className="badge-name">{item.id === 'catches_1' ? 'First Catch' : item.title}</span>
                 </button>
               ))}
             </div>
             {selected && row.some(item => item.id === selected.id) && (
               <section className={`badge-detail-panel ${selected.unlocked ? 'is-achieved' : ''}`} id="selected-badge-detail" aria-labelledby="selected-badge-title" style={{ '--badge-pointer': `${12.5 + row.findIndex(item => item.id === selected.id) * 25}%` } as CSSProperties}>
-                <Badge item={selected} selected={selected.unlocked} />
+                <AchievementBadge item={selected} selected={selected.unlocked} />
                 <div className="badge-detail-copy">
                   <h2 id="selected-badge-title">{selected.id === 'catches_1' ? 'First Catch' : selected.title}</h2>
                   <p>{selected.description}</p>
-                  <strong className="badge-detail-progress">{selected.current} / {selected.unit === 'lb' ? selected.target / 16 : selected.target}{selected.unit ? ` ${selected.unit}` : ''}</strong>
+                  <strong className="badge-detail-progress">{selected.unit === 'lb' && unitSystem === 'metric' ? `${metricPounds(selected.current)} / ${metricPounds(selected.target / 16)} kg` : `${selected.current} / ${selected.unit === 'lb' ? selected.target / 16 : selected.target}${selected.unit ? ` ${selected.unit}` : ''}`}</strong>
                   {selected.unlocked ? (
                     <>
                       <span className="badge-achieved-status"><Check size={15} /> Achieved</span>

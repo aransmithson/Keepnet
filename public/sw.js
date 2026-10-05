@@ -3,8 +3,9 @@
  * Enables offline bankside journal access, asset caching, and standalone PWA installation.
  */
 
-const CACHE_NAME = 'keepnet-v1';
+const CACHE_NAME = 'keepnet-shell-v3';
 const PRECACHE_ASSETS = [
+  /* BUILD_ASSETS */
   '/',
   '/index.html',
   '/manifest.webmanifest',
@@ -21,9 +22,9 @@ const PRECACHE_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn('[Keepnet SW] Precache warning:', err);
-      });
+      return Promise.all(PRECACHE_ASSETS.map(asset => cache.add(asset).catch(err => {
+        console.warn('[Keepnet SW] Precache warning:', asset, err);
+      })));
     }).then(() => self.skipWaiting())
   );
 });
@@ -33,7 +34,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key.startsWith('keepnet-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -53,9 +54,13 @@ self.addEventListener('fetch', (event) => {
   // 2. Navigation requests: Network first, fall back to cached index.html for offline bankside usage
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html') || caches.match('/');
-      })
+      fetch(event.request).then(async response => {
+        if (response.ok) {
+          const copy = response.clone();
+          await caches.open(CACHE_NAME).then(cache => cache.put('/index.html', copy)).catch(() => {});
+        }
+        return response;
+      }).catch(async () => (await caches.match('/index.html')) || (await caches.match('/')) || new Response('Keepnet is unavailable offline. Connect once to download the app.', { status: 503, headers: { 'Content-Type': 'text/plain' } }))
     );
     return;
   }
@@ -70,19 +75,13 @@ self.addEventListener('fetch', (event) => {
      url.pathname.endsWith('.css') ||
      url.pathname.endsWith('.js'))
   ) {
-    event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const fetchPromise = fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-          }
-          return networkResponse;
-        }).catch(() => cached);
-
-        return cached || fetchPromise;
-      })
-    );
+    const cachedResponse = caches.match(event.request);
+    const update = fetch(event.request).then(async response => {
+      if (response.ok) await caches.open(CACHE_NAME).then(cache => cache.put(event.request, response.clone())).catch(() => {});
+      return response;
+    }).catch(async () => (await cachedResponse) || new Response('Asset unavailable offline.', { status: 503 }));
+    event.waitUntil(update.then(() => {}));
+    event.respondWith(cachedResponse.then(cached => cached || update));
     return;
   }
 });

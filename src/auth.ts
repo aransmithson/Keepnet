@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { setAccountScope } from './accountScope';
 
 export type StorageMode = 'cloud' | 'local';
 
@@ -13,9 +14,7 @@ export type UserAccount = {
 };
 
 export function isUserAdmin(user?: UserAccount | null): boolean {
-  if (!user?.email) return false;
-  const email = user.email.toLowerCase().trim();
-  return email === 'aransmithson@gmail.com' || email === 'aransmithson@googlemail.com' || !!user.isAdmin;
+  return !!user?.isAdmin;
 }
 
 export function getAuthToken(): string {
@@ -130,9 +129,11 @@ function loadInitialState(): AuthState {
 }
 
 let authState: AuthState = loadInitialState();
+let authOperation = 0;
 const listeners = new Set<() => void>();
 
 function notify() {
+  setAccountScope(authState.user?.id);
   try {
     localStorage.setItem(CURRENT_KEY, JSON.stringify(authState));
   } catch {
@@ -148,6 +149,7 @@ export const authActions = {
 
   /** Sign up with email & password. If saveLocallyOnly is true, user opts out of cloud syncing. */
   async signUp(email: string, password: string, nickname: string, saveLocallyOnly: boolean): Promise<{ success: boolean; error?: string }> {
+    const operation = ++authOperation;
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       return { success: false, error: 'Please enter a valid email address.' };
@@ -167,8 +169,8 @@ export const authActions = {
       storageMode: mode,
     };
 
-    // If cloud mode, register with Cloudflare D1
-    if (mode === 'cloud') {
+    // Authentication is independent of where the fishing journal is stored.
+    {
       try {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
@@ -176,6 +178,7 @@ export const authActions = {
           body: JSON.stringify({ email: cleanEmail, password, name: cleanNick, nickname: cleanNick, storageMode: mode }),
         });
         const data = await res.json();
+        if (operation !== authOperation) return { success: false, error: 'Sign-in changed while registration was in progress. Please try again.' };
         if (!res.ok || !data.success) {
           return { success: false, error: data.error || 'Cloud registration failed. Please try again.' };
         }
@@ -229,6 +232,7 @@ export const authActions = {
 
   /** Sign in with existing email and password across devices using Cloudflare D1. */
   async signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+    const operation = ++authOperation;
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
       return { success: false, error: 'Please enter your email.' };
@@ -241,6 +245,7 @@ export const authActions = {
         body: JSON.stringify({ email: cleanEmail, rawPassword: password }),
       });
       const data = await res.json();
+      if (operation !== authOperation) return { success: false, error: 'Sign-in changed while this request was in progress. Please try again.' };
       if (res.ok && data.success && data.user) {
         if (data.token) {
           setAuthToken(data.token);
@@ -282,6 +287,7 @@ export const authActions = {
 
   /** Sign out, clear authentication session, and revert to local guest mode. */
   signOut() {
+    ++authOperation;
     setAuthToken(null);
     authState = {
       user: null,
@@ -369,28 +375,26 @@ export const authActions = {
     const clean = nickname.trim();
     if (!clean) return false;
 
-    if (authState.user) {
-      authState = {
-        ...authState,
-        user: { ...authState.user, nickname: clean, name: clean },
-      };
-      notify();
-    }
-
+    const identity = authState.user?.id;
     const token = getAuthToken();
     if (token) {
       try {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         headers['Authorization'] = `Bearer ${token}`;
-        const res = await fetch('/api/auth/nickname', {
+        const res = await fetch('/api/auth/profile', {
           method: 'POST',
           headers,
           body: JSON.stringify({ nickname: clean }),
         });
-        return res.ok;
+        if (!res.ok || authState.user?.id !== identity) return false;
       } catch {
         return false;
       }
+    }
+    if (identity && !token) return false;
+    if (authState.user?.id === identity && authState.user) {
+      authState = { ...authState, user: { ...authState.user, nickname: clean, name: clean } };
+      notify();
     }
     return true;
   },

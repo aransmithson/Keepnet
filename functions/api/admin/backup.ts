@@ -20,6 +20,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const catches = await db.prepare('SELECT * FROM catches').all();
     const fisheries = await db.prepare('SELECT * FROM fisheries').all();
     const species = await db.prepare('SELECT * FROM species_tags').all();
+    const subscriptions = await db.prepare('SELECT * FROM user_subscriptions').all();
+    const couponRedemptions = await db.prepare('SELECT * FROM coupon_redemptions').all();
+    const trialClaims = await db.prepare('SELECT * FROM trial_claims').all();
+    const likes = await db.prepare('SELECT * FROM catch_likes').all();
+    const comments = await db.prepare('SELECT * FROM catch_comments').all();
+    const deletions = await db.prepare('SELECT * FROM catch_deletions').all();
 
     return jsonResponse({
       success: true,
@@ -37,6 +43,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
         catches: catches.results || [],
         fisheries: fisheries.results || [],
         species: species.results || [],
+        subscriptions: subscriptions.results || [],
+        couponRedemptions: couponRedemptions.results || [],
+        trialClaims: trialClaims.results || [],
+        likes: likes.results || [],
+        comments: comments.results || [],
+        deletions: deletions.results || [],
       },
     });
   } catch (err: any) {

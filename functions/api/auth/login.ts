@@ -9,7 +9,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const db = context.env.DB;
     const body = await context.request.json() as any;
-    const { email, rawPassword, password, passwordHash } = body;
+    const { email, rawPassword, password } = body;
 
     const cleanEmail = sanitizeInput(email, 120).toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
@@ -17,7 +17,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const candidatePassword = (rawPassword || password || '').trim();
-    if (!candidatePassword && !passwordHash) {
+    if (!candidatePassword) {
       return errorResponse('Password is required', 400);
     }
 
@@ -52,11 +52,6 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const verification = await verifyPassword(candidatePassword, user.password_hash);
       isValid = verification.valid;
       needsUpgrade = !!verification.needsRehash;
-    } else if (passwordHash && user.password_hash) {
-      // Fallback for legacy cached client hash if supplied without raw password
-      if (user.password_hash === passwordHash) {
-        isValid = true;
-      }
     }
 
     if (!isValid) {
@@ -104,7 +99,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         nickname: user.nickname || user.name,
         storageMode: user.storage_mode || 'cloud',
         createdAt: user.created_at,
-        isAdmin: user.is_admin === 1 || user.email === 'aransmithson@gmail.com' || user.email === 'aransmithson@googlemail.com',
+        isAdmin: user.is_admin === 1,
       },
     });
   } catch (err: any) {

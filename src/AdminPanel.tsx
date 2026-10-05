@@ -70,13 +70,12 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     return headers;
   };
 
-  const getAdminQuery = () => `adminEmail=${encodeURIComponent(user?.email || 'aransmithson@gmail.com')}`;
 
   const fetchDashboardStats = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/stats?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/stats`, {
         headers: getHeaders(),
       });
       const data = await res.json();
@@ -106,7 +105,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
 
   const fetchCustomFisheries = async () => {
     try {
-      const res = await fetch(`/api/admin/fisheries?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/fisheries`, {
         headers: getHeaders(),
       });
       const data = await res.json();
@@ -125,7 +124,6 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
         q: userSearch,
         tier: userTierFilter,
         status: userStatusFilter,
-        adminEmail: user?.email || 'aransmithson@gmail.com',
       });
       const res = await fetch(`/api/admin/users?${params.toString()}`, {
         headers: getHeaders(),
@@ -151,7 +149,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
         d.setDate(d.getDate() + durationDays);
         expiresAt = d.toISOString();
       }
-      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
@@ -191,7 +189,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
   const handleUnlockUser = async (userId: string) => {
     setActionLoadingUserId(userId);
     try {
-      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ action: 'unlock', userId }),
@@ -215,7 +213,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     if (!confirm(`Are you sure you want to temporarily suspend/lock this angler account for ${durationDays} days?`)) return;
     setActionLoadingUserId(userId);
     try {
-      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
@@ -244,7 +242,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     if (!confirm(`Are you sure you want to ${newAdminVal ? 'GRANT' : 'REVOKE'} admin access for this account?`)) return;
     setActionLoadingUserId(userId);
     try {
-      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ action: 'toggle_admin', userId, isAdmin: newAdminVal }),
@@ -267,7 +265,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     if (!editNickname.trim()) return;
     setActionLoadingUserId(userId);
     try {
-      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ action: 'update_nickname', userId, nickname: editNickname.trim() }),
@@ -297,7 +295,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     }
     setActionLoadingUserId(userId);
     try {
-      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/users`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ action: 'delete_user', userId }),
@@ -341,7 +339,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     if (!newSpeciesName.trim()) return;
     setSpeciesSaving(true);
     try {
-      const res = await fetch(`/api/species?${getAdminQuery()}`, {
+      const res = await fetch(`/api/species`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
@@ -366,7 +364,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
   const handleDeleteSpecies = async (name: string) => {
     if (!confirm(`Remove "${name}" from the species picker?`)) return;
     try {
-      const res = await fetch(`/api/species?${getAdminQuery()}`, {
+      const res = await fetch(`/api/species`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ action: 'delete', name }),
@@ -385,7 +383,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     if (!newFishery.name.trim()) return;
     try {
       const targetsArray = newFishery.targets.split(',').map((s) => s.trim()).filter(Boolean);
-      const res = await fetch(`/api/admin/fisheries?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/fisheries`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({
@@ -418,7 +416,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
   const handleDeleteFishery = async (id: string, name: string) => {
     if (!confirm(`Delete custom fishery "${name}"?`)) return;
     try {
-      const res = await fetch(`/api/admin/fisheries?id=${encodeURIComponent(id)}&${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/fisheries?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
         headers: getHeaders(),
       });
@@ -432,7 +430,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
 
   const handleDownloadBackup = async () => {
     try {
-      const res = await fetch(`/api/admin/backup?${getAdminQuery()}`, {
+      const res = await fetch(`/api/admin/backup`, {
         headers: getHeaders(),
       });
       const data = await res.json();
@@ -629,7 +627,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
                 </div>
 
                 <div style={{ padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 10 }}>
-                  <div className="eyebrow" style={{ color: '#10b981' }}>Pricing Structure</div>
+                  <div className="eyebrow" style={{ color: '#10b981' }}>Membership access</div>
                   <div style={{ fontSize: 13, marginTop: 4 }}>
                     <strong>Lite:</strong> £0 Free Forever · <strong>Premium:</strong> £1.49/mo or £10.49/yr
                   </div>
@@ -758,7 +756,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
           <div className="stack" style={{ gap: 16 }}>
             <div className="card" style={{ padding: 16 }}>
               <div className="row-between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 240 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 160px', minWidth: 0 }}>
                   <Search size={16} className="muted" />
                   <input
                     type="text"
@@ -1000,7 +998,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
             {/* Filter and Search Bar Card */}
             <div className="card" style={{ padding: 16 }}>
               <div className="row-between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 260 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 160px', minWidth: 0 }}>
                   <Search size={16} className="muted" />
                   <input
                     type="text"
@@ -1098,7 +1096,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
                     >
                       {/* Top Header Row */}
                       <div className="row-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
-                        <div style={{ flex: 1, minWidth: 260 }}>
+                        <div style={{ flex: '1 1 160px', minWidth: 0 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             {/* Nickname & Inline Edit */}
                             {isEditingThisUser ? (

@@ -7,6 +7,7 @@ export interface AuthenticatedUser {
   nickname?: string;
   storage_mode: string;
   is_admin?: number;
+  locked_until?: number;
 }
 
 /**
@@ -24,11 +25,11 @@ export async function getAuthenticatedUser(context: EventContext<Env, any, any>)
 
   try {
     const user = await db
-      .prepare('SELECT id, email, name, nickname, storage_mode, is_admin FROM users WHERE auth_token = ?')
+      .prepare('SELECT id, email, name, nickname, storage_mode, is_admin, locked_until FROM users WHERE auth_token = ?')
       .bind(token)
       .first<AuthenticatedUser>();
 
-    return user || null;
+    return user && !(Number(user.locked_until) > Date.now()) ? user : null;
   } catch (err) {
     console.error('[Auth Error] Token verification failed:', err);
     return null;
@@ -59,7 +60,5 @@ export function verifyOwnership(user: AuthenticatedUser, targetUserId: string): 
   if (!user || !targetUserId) return false;
   if (user.id === targetUserId) return true;
   if (user.is_admin === 1) return true;
-  const email = (user.email || '').toLowerCase().trim();
-  if (email === 'aransmithson@gmail.com' || email === 'aransmithson@googlemail.com') return true;
   return false;
 }
