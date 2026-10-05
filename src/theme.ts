@@ -8,13 +8,10 @@ function getInitialTheme(): Theme {
   try {
     const saved = localStorage.getItem(THEME_KEY);
     if (saved === 'light' || saved === 'dark') return saved;
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      return 'dark';
-    }
   } catch {
     // ignore
   }
-  return 'light';
+  return 'dark';
 }
 
 let currentTheme: Theme = getInitialTheme();
@@ -25,6 +22,7 @@ function applyTheme(theme: Theme) {
   try {
     localStorage.setItem(THEME_KEY, theme);
     document.documentElement.setAttribute('data-theme', theme);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#04180f' : '#f5f3eb');
   } catch {
     // ignore
   }
@@ -34,6 +32,7 @@ function applyTheme(theme: Theme) {
 // Initial apply
 if (typeof document !== 'undefined') {
   document.documentElement.setAttribute('data-theme', currentTheme);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', currentTheme === 'dark' ? '#04180f' : '#f5f3eb');
 }
 
 export const themeActions = {

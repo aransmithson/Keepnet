@@ -4,7 +4,7 @@ import {
   Fish, User, MapPin, Calendar, ChevronRight, ChevronLeft, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, HardDrive, KeyRound, Mail, Pencil, Search, ShieldCheck,
-  Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown,
+  Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown, Waves,
   EyeOff, Zap, Gift, Bookmark, MessageSquare, MoreHorizontal, CheckCircle2, Home as HomeIcon
 } from 'lucide-react';
 import './index.css';
@@ -2248,12 +2248,13 @@ const CatchDetail = () => {
   const likesCount = actions.getCatchLikesCount(c.id, c.likesCount);
 
   return (
-    <div className="content" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
+    <div className="content catch-detail-page" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
       {/* Header bar (Mobile Screen 2) */}
-      <div className="row-between" style={{ marginBottom: 12, alignItems: 'center' }}>
-        <button className="back-link" onClick={() => nav(-1)} style={{ fontSize: 15, fontWeight: 600 }}>
-          <ArrowLeft size={18} /> Catch Details
-        </button>
+      <div className="row-between catch-detail-header">
+        <div className="catch-detail-heading">
+          <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={21} /></button>
+          <span className="serif">Catch Details</span>
+        </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {isOwner && (
             <button className="icon-btn" id="edit-catch-icon-btn" onClick={() => setEditing(true)} aria-label="Edit catch" title="Edit catch">
@@ -2385,7 +2386,7 @@ const CatchDetail = () => {
       {/* Tactical Attribute Tiles Grid (Mobile Screen 2) */}
       <div className="tactical-grid-2x2">
         <div className="tactical-cell">
-          <div className="tactical-cell-icon">🎣</div>
+          <div className="tactical-cell-icon"><Fish size={22} strokeWidth={1.6} aria-hidden="true" /></div>
           <div className="tactical-cell-info">
             <span className="tactical-cell-val">{c.bait || 'Natural bait'}</span>
             <span className="tactical-cell-lbl">Bait</span>
@@ -2393,7 +2394,7 @@ const CatchDetail = () => {
         </div>
 
         <div className="tactical-cell">
-          <div className="tactical-cell-icon">〰️</div>
+          <div className="tactical-cell-icon"><Waves size={22} strokeWidth={1.6} aria-hidden="true" /></div>
           <div className="tactical-cell-info">
             <span className="tactical-cell-val">{s?.venueName || 'Wyreside'}</span>
             <span className="tactical-cell-lbl">Water</span>
@@ -2403,7 +2404,7 @@ const CatchDetail = () => {
 
       <div className="tactical-grid-3x1">
         <div className="tactical-cell">
-          <div className="tactical-cell-icon">🌡️</div>
+          <div className="tactical-cell-icon temperature-icon"><Thermometer size={22} strokeWidth={1.6} aria-hidden="true" /></div>
           <div className="tactical-cell-info">
             <span className="tactical-cell-val">{s?.weather ? `${Math.round(s.weather.temperature)}°C` : '11°C'}</span>
             <span className="tactical-cell-lbl">Conditions</span>
@@ -2411,7 +2412,7 @@ const CatchDetail = () => {
         </div>
 
         <div className="tactical-cell">
-          <div className="tactical-cell-icon">〰️</div>
+          <div className="tactical-cell-icon"><Waves size={22} strokeWidth={1.6} aria-hidden="true" /></div>
           <div className="tactical-cell-info">
             <span className="tactical-cell-val">Clear water</span>
             <span className="tactical-cell-lbl">Water clarity</span>
@@ -2419,7 +2420,7 @@ const CatchDetail = () => {
         </div>
 
         <div className="tactical-cell">
-          <div className="tactical-cell-icon">🎯</div>
+          <div className="tactical-cell-icon"><LocateFixed size={22} strokeWidth={1.6} aria-hidden="true" /></div>
           <div className="tactical-cell-info">
             <span className="tactical-cell-val">{c.method || 'Lure fishing'}</span>
             <span className="tactical-cell-lbl">Method</span>
@@ -2548,7 +2549,7 @@ const CatchDetail = () => {
       </div>
 
       {/* Community Challenge Banner (Mobile Screen 3) */}
-      <div className="card" style={{ marginTop: 20, padding: 16, background: 'var(--surface-sunken)', border: '1px solid rgba(46, 184, 114, 0.3)' }}>
+      <div className="card catch-challenge-card" style={{ marginTop: 20, padding: 16, border: '1px solid rgba(46, 184, 114, 0.3)' }}>
         <div className="row-between" style={{ alignItems: 'center', marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--copper)' }}>
             <Trophy size={16} />
@@ -2855,19 +2856,22 @@ const Profile = () => {
 
 /* ---------- Shell ---------- */
 
-const Navigation = () => {
+const Navigation = ({ onStart }: { onStart: () => void }) => {
   const { pathname } = useLocation();
   // On catch detail screen, we hide the main navigation bar so the dedicated sticky action footer ([Like] [Comment]) has full focus per Mobile Screen 2
   if (pathname.startsWith('/catches/')) {
     return null;
   }
-  const is = (p: string) => (p === '/' ? pathname === '/' : pathname.startsWith(p));
+  const is = (p: string) => p === '/' ? pathname === '/' : p === '/profile'
+    ? ['/profile', '/achievements', '/settings', '/subscription', '/admin'].some(route => pathname.startsWith(route))
+    : p === '/discover' ? ['/discover', '/fisheries'].some(route => pathname.startsWith(route)) : pathname.startsWith(p);
   return (
-    <nav className="bottom-nav">
-      <Link to="/" id="nav-home" className={`nav-item ${is('/') ? 'active' : ''}`}><HomeIcon className="nav-icon" />Home</Link>
-      <Link to="/sessions" id="nav-sessions" className={`nav-item ${is('/sessions') ? 'active' : ''}`}><Calendar className="nav-icon" />Sessions</Link>
-      <Link to="/discover" id="nav-discover" className={`nav-item ${is('/discover') ? 'active' : ''}`}><MapPin className="nav-icon" />Discover</Link>
-      <Link to="/profile" id="nav-profile" className={`nav-item ${is('/profile') ? 'active' : ''}`}><User className="nav-icon" />Profile</Link>
+    <nav className="bottom-nav" aria-label="Main navigation">
+      <Link to="/" id="nav-home" aria-current={is('/') ? 'page' : undefined} className={`nav-item ${is('/') ? 'active' : ''}`}><HomeIcon className="nav-icon" />Home</Link>
+      <Link to="/sessions" id="nav-sessions" aria-current={is('/sessions') ? 'page' : undefined} className={`nav-item ${is('/sessions') ? 'active' : ''}`}><Calendar className="nav-icon" />Sessions</Link>
+      {pathname === '/achievements' && <button type="button" className="badge-nav-add" onClick={onStart} aria-label="Start a fishing session"><Plus size={28} /></button>}
+      <Link to="/discover" id="nav-discover" aria-current={is('/discover') ? 'page' : undefined} className={`nav-item ${is('/discover') ? 'active' : ''}`}><MapPin className="nav-icon" />Discover</Link>
+      <Link to="/profile" id="nav-profile" aria-current={is('/profile') ? 'page' : undefined} className={`nav-item ${is('/profile') ? 'active' : ''}`}><User className="nav-icon" />Profile</Link>
     </nav>
   );
 };
@@ -2880,6 +2884,7 @@ const Shell = () => {
 
   // Dynamic document title per review recommendation
   useEffect(() => {
+    window.scrollTo(0, 0);
     const mapTitle: Record<string, string> = {
       '/': 'Keepnet — Time by the Water',
       '/sessions': 'Journal & Sessions · Keepnet',
@@ -2956,8 +2961,8 @@ const Shell = () => {
   };
 
   return (
-    <div className="app-container">
-      <header className="top-bar">
+    <div className={`app-container ${location.pathname === '/achievements' ? 'achievements-shell' : ''}`} data-page={location.pathname.split('/')[1] || 'home'}>
+      {!location.pathname.startsWith('/catches/') && <header className="top-bar">
         <Link to="/" className="logo-header" aria-label="Keepnet home">
           <Logo height={38} />
         </Link>
@@ -2980,7 +2985,7 @@ const Shell = () => {
             type="button"
             className="icon-btn"
             id="mobile-search-btn"
-            onClick={() => nav('/discover')}
+            onClick={() => nav('/discover?search=1')}
             aria-label="Search community catches"
             title="Search Catches"
           >
@@ -3008,7 +3013,7 @@ const Shell = () => {
             <img src="/images/avatar-aran.jpg" alt="Profile" />
           </Link>
         </div>
-      </header>
+      </header>}
       {store.storageError && (
         <div className="install-banner" style={{ background: 'rgba(239, 68, 68, 0.12)', borderBottomColor: 'rgba(239, 68, 68, 0.3)' }}>
           <div className="install-banner-content">
@@ -3066,7 +3071,7 @@ const Shell = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <Navigation />
+      <Navigation onStart={() => setSheet({})} />
       {sheet && <StartSessionSheet initial={sheet.venue} onClose={() => setSheet(null)} onStart={begin} />}
       {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>

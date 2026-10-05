@@ -1,434 +1,148 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+﻿import { Fragment, useMemo, useState } from 'react';
+import { createElement, type CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
 import {
-  Trophy, ArrowLeft, Check, Sparkles, Lock, Award,
-  Search, CheckCircle2, Fish, Scale
+  ArrowLeft, Award, CalendarDays, Check, Clock, Crown, Fish, Heart,
+  MapPin, MessageCircle, Search, Target, Trophy, Users, X,
+  type LucideIcon,
 } from 'lucide-react';
 import { useStore, actions } from './store';
-import {
-  evaluateAchievements,
-  getEquippedAchievement,
-  type BadgeTier,
-  type AchievementCategory
-} from './achievements';
+import { evaluateAchievements, type AchievementCategory, type UnlockedAchievement } from './achievements';
+import './AchievementsPage.css';
 
-const CATEGORIES: { id: AchievementCategory | 'all'; label: string; icon: string }[] = [
-  { id: 'all', label: 'All Badges', icon: '🏆' },
-  { id: 'social', label: 'Community & Likes', icon: '❤️' },
-  { id: 'size', label: 'Specimen Sizes', icon: '🐟' },
-  { id: 'pb', label: 'Personal Bests', icon: '⚡' },
-  { id: 'time', label: 'Bankside Hours', icon: '⏳' },
-  { id: 'catches', label: 'Catch Numbers', icon: '🎣' },
-  { id: 'species', label: 'Species Variety', icon: '🎯' },
-  { id: 'sessions', label: 'Sessions', icon: '🗓️' },
+type Category = 'all' | 'catches' | 'community' | 'exploration' | 'milestones';
+const CATEGORIES: { id: Category; label: string; categories: AchievementCategory[] }[] = [
+  { id: 'all', label: 'All', categories: [] },
+  { id: 'catches', label: 'Catches', categories: ['catches', 'size'] },
+  { id: 'community', label: 'Community', categories: ['social'] },
+  { id: 'exploration', label: 'Exploration', categories: ['species', 'sessions'] },
+  { id: 'milestones', label: 'Milestones', categories: ['pb', 'time'] },
 ];
 
-const TIER_COLORS: Record<BadgeTier, { name: string; border: string; bg: string; text: string; glow: string }> = {
-  bronze: {
-    name: 'Bronze',
-    border: 'rgba(205, 127, 50, 0.45)',
-    bg: 'rgba(205, 127, 50, 0.12)',
-    text: '#e69a58',
-    glow: '0 0 16px rgba(205, 127, 50, 0.25)',
-  },
-  silver: {
-    name: 'Silver',
-    border: 'rgba(148, 163, 184, 0.45)',
-    bg: 'rgba(148, 163, 184, 0.12)',
-    text: '#cbd5e1',
-    glow: '0 0 16px rgba(148, 163, 184, 0.25)',
-  },
-  gold: {
-    name: 'Gold',
-    border: 'rgba(245, 158, 11, 0.5)',
-    bg: 'rgba(245, 158, 11, 0.14)',
-    text: '#fbbf24',
-    glow: '0 0 18px rgba(245, 158, 11, 0.3)',
-  },
-  specimen: {
-    name: 'Specimen Trophy',
-    border: 'rgba(168, 85, 247, 0.55)',
-    bg: 'rgba(168, 85, 247, 0.16)',
-    text: '#c084fc',
-    glow: '0 0 22px rgba(168, 85, 247, 0.35)',
-  },
-};
+function badgeIcon(item: UnlockedAchievement): LucideIcon {
+  if (item.tier === 'specimen') return Crown;
+  if (item.category === 'social') {
+    if (item.id.includes('share')) return MessageCircle;
+    return item.id.includes('received') ? Users : Heart;
+  }
+  if (item.category === 'species') return Target;
+  if (item.category === 'sessions') return item.target === 1 ? MapPin : CalendarDays;
+  if (item.category === 'time') return Clock;
+  if (item.category === 'pb') return Award;
+  return item.category === 'catches' && item.target >= 10 ? Trophy : Fish;
+}
+
+function Badge({ item, selected = false }: { item: UnlockedAchievement; selected?: boolean }) {
+  return (
+    <span className={`angler-medallion tier-${item.tier} ${item.unlocked ? 'earned' : 'unearned'} ${selected ? 'selected' : ''}`} aria-hidden="true">
+      {createElement(badgeIcon(item), { strokeWidth: 1.65 })}
+    </span>
+  );
+}
 
 export const AchievementsPage = () => {
-  const nav = useNavigate();
-  const { catches, sessions, equippedAchievementId, name, likesGivenCount = 0 } = useStore();
-  const [selectedCategory, setSelectedCategory] = useState<AchievementCategory | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showUnlockedOnly, setShowUnlockedOnly] = useState(false);
-
-  const socialStats = useMemo(() => ({
-    likesGiven: likesGivenCount || 0,
+  const { catches, sessions, equippedAchievementId, likesGivenCount = 0 } = useStore();
+  const [category, setCategory] = useState<Category>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [earnedOnly, setEarnedOnly] = useState(false);
+  const achievements = useMemo(() => evaluateAchievements(catches, sessions, {
+    likesGiven: likesGivenCount,
     likesReceived: actions.getTotalLikesReceived(),
-    sharedCount: catches.filter((c) => c.isShared).length,
-  }), [likesGivenCount, catches]);
-
-  // Evaluate all achievements against the user's live journal and social activity
-  const evaluatedAchievements = useMemo(
-    () => evaluateAchievements(catches, sessions, socialStats),
-    [catches, sessions, socialStats]
-  );
-
-  const unlockedCount = useMemo(
-    () => evaluatedAchievements.filter((a) => a.unlocked).length,
-    [evaluatedAchievements]
-  );
-
-  const totalCount = evaluatedAchievements.length;
-  const percentage = Math.round((unlockedCount / totalCount) * 100);
-
-  // Currently equipped badge
-  const equipped = useMemo(
-    () => getEquippedAchievement(equippedAchievementId, evaluatedAchievements),
-    [equippedAchievementId, evaluatedAchievements]
-  );
-
-  // Tier counts
-  const specimenCount = evaluatedAchievements.filter((a) => a.tier === 'specimen' && a.unlocked).length;
-  const goldCount = evaluatedAchievements.filter((a) => a.tier === 'gold' && a.unlocked).length;
-  const silverCount = evaluatedAchievements.filter((a) => a.tier === 'silver' && a.unlocked).length;
-  const bronzeCount = evaluatedAchievements.filter((a) => a.tier === 'bronze' && a.unlocked).length;
-
-  // Filtered list
+    sharedCount: catches.filter(c => c.isShared).length,
+  }), [catches, sessions, likesGivenCount]);
   const filtered = useMemo(() => {
-    return evaluatedAchievements.filter((item) => {
-      if (selectedCategory !== 'all' && item.category !== selectedCategory) {
-        return false;
+    const group = CATEGORIES.find(c => c.id === category)!;
+    return achievements.filter(item =>
+      (category === 'all' || group.categories.includes(item.category)) &&
+      (!earnedOnly || item.unlocked) &&
+      `${item.title} ${item.description} ${item.speciesTarget || ''} ${item.flairTitle}`.toLowerCase().includes(query.trim().toLowerCase())
+    ).sort((a, b) => {
+      // Bring the first catch and earned badges to the front of the collection.
+      if (category === 'all' && !query && !earnedOnly) {
+        if (a.id === 'catches_1') return -1;
+        if (b.id === 'catches_1') return 1;
       }
-      if (showUnlockedOnly && !item.unlocked) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesTitle = item.title.toLowerCase().includes(q);
-        const matchesDesc = item.description.toLowerCase().includes(q);
-        const matchesSpecies = item.speciesTarget?.toLowerCase().includes(q);
-        const matchesFlair = item.flairTitle.toLowerCase().includes(q);
-        if (!matchesTitle && !matchesDesc && !matchesSpecies && !matchesFlair) {
-          return false;
-        }
-      }
-      return true;
+      return Number(b.unlocked) - Number(a.unlocked);
     });
-  }, [evaluatedAchievements, selectedCategory, showUnlockedOnly, searchQuery]);
+  }, [achievements, category, earnedOnly, query]);
+  const selected = filtered.find(item => item.id === selectedId) ||
+    filtered.find(item => item.id === equippedAchievementId) ||
+    filtered.find(item => item.unlocked) || filtered[0];
+  const rows = Array.from({ length: Math.ceil(filtered.length / 4) }, (_, i) => filtered.slice(i * 4, i * 4 + 4));
+  const earnedCount = achievements.filter(item => item.unlocked).length;
 
   return (
-    <div className="content achievements-page">
-      {/* Top Navigation Bar */}
-      <div className="page-header" style={{ marginBottom: 16 }}>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={() => nav('/profile')}
-          aria-label="Back to Profile"
-          id="achievements-back-btn"
-        >
-          <ArrowLeft size={20} />
-        </button>
-        <div style={{ flex: 1 }}>
-          <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)' }}>
-            <Trophy size={13} /> Angler Gamification
-          </div>
-          <h1 className="serif page-title" style={{ margin: 0, fontSize: 22 }}>
-            Achievements & Badges
-          </h1>
+    <div className="content achievements-page badge-gallery-page">
+      <div className="badge-gallery-heading">
+        <div>
+          <h1>Achievements</h1>
+          <p>Earn badges for your catches, activity and community contributions.</p>
         </div>
-      </div>
-
-      {/* Equipped Flair Avatar Card */}
-      <div className="card equipped-flair-card">
-        <div className="row-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div className={`avatar-container tier-${equipped?.tier || 'none'}`}>
-              <div className="avatar-placeholder">
-                {equipped ? (
-                  <span className="avatar-flair-icon" role="img" aria-label={equipped.title}>
-                    {equipped.icon}
-                  </span>
-                ) : (
-                  <Fish size={32} />
-                )}
-              </div>
-              {equipped && (
-                <div
-                  className={`avatar-flair-badge tier-badge-${equipped.tier}`}
-                  title={equipped.flairTitle}
-                >
-                  <span>{equipped.icon}</span>
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="eyebrow" style={{ color: 'var(--text-secondary)', marginBottom: 2 }}>
-                Equipped Profile Avatar Flair
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>{equipped ? equipped.flairTitle : 'No Badge Equipped'}</span>
-                {equipped && <Sparkles size={15} style={{ color: TIER_COLORS[equipped.tier].text }} />}
-              </div>
-              <p className="muted" style={{ fontSize: 12, margin: '2px 0 0' }}>
-                {equipped
-                  ? `Shown on ${name || 'Angler'}'s profile picture, catch shares, and community leaderboards.`
-                  : 'Equip any unlocked trophy below to show off your achievement on your profile picture.'}
-              </p>
-            </div>
-          </div>
-
-          {equipped && (
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ fontSize: 12, padding: '6px 12px', height: 32 }}
-              onClick={() => actions.setEquippedAchievement(null)}
-              id="unequip-achievement-btn"
-            >
-              Unequip Flair
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Progress & Milestone Overview */}
-      <div className="card achievements-overview-card">
-        <div className="row-between" style={{ alignItems: 'baseline', marginBottom: 8 }}>
-          <div>
-            <span className="serif" style={{ fontSize: 26, fontWeight: 700 }}>
-              {unlockedCount}
-            </span>
-            <span className="muted" style={{ fontSize: 14, marginLeft: 4 }}>
-              / {totalCount} Badges Unlocked
-            </span>
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
-            {percentage}% Completed
-          </span>
-        </div>
-
-        {/* Animated Progress Bar */}
-        <div className="achievement-progress-track">
-          <div
-            className="achievement-progress-fill"
-            style={{ width: `${Math.max(3, percentage)}%` }}
-          />
-        </div>
-
-        {/* Tier Milestones Breakdown */}
-        <div className="badge-tier-breakdown">
-          <div className="tier-count specimen" title="Specimen Trophies">
-            <span className="tier-dot" />
-            <span>{specimenCount} Specimen</span>
-          </div>
-          <div className="tier-count gold" title="Gold Badges">
-            <span className="tier-dot" />
-            <span>{goldCount} Gold</span>
-          </div>
-          <div className="tier-count silver" title="Silver Badges">
-            <span className="tier-dot" />
-            <span>{silverCount} Silver</span>
-          </div>
-          <div className="tier-count bronze" title="Bronze Badges">
-            <span className="tier-dot" />
-            <span>{bronzeCount} Bronze</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Search & Category Filter Controls */}
-      <div className="achievement-controls">
-        <div className="search-box" style={{ flex: 1 }}>
-          <Search size={16} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search specimen badges, species, or targets..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-            aria-label="Search Achievements"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="icon-btn search-clear"
-              onClick={() => setSearchQuery('')}
-              aria-label="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </div>
-
-        <button
-          type="button"
-          className={`filter-toggle-btn ${showUnlockedOnly ? 'active' : ''}`}
-          onClick={() => setShowUnlockedOnly(!showUnlockedOnly)}
-          title="Toggle unlocked badges only"
-        >
-          <CheckCircle2 size={15} />
-          <span>Unlocked Only</span>
+        <button type="button" className="badge-search-toggle" aria-label={searchOpen ? 'Close badge search' : 'Search badges'} aria-expanded={searchOpen} onClick={() => { setSearchOpen(!searchOpen); setQuery(''); }}>
+          {searchOpen ? <X size={19} /> : <Search size={19} />}
         </button>
       </div>
-
-      {/* Category Pills Bar */}
-      <div className="category-scroll-bar" role="tablist" aria-label="Achievement Categories">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            role="tab"
-            aria-selected={selectedCategory === cat.id}
-            className={`category-pill ${selectedCategory === cat.id ? 'active' : ''}`}
-            onClick={() => setSelectedCategory(cat.id)}
-          >
-            <span>{cat.icon}</span>
-            <span>{cat.label}</span>
+      {searchOpen && (
+        <div className="badge-gallery-search">
+          <Search size={16} aria-hidden="true" />
+          <input autoFocus aria-label="Search achievements" placeholder="Search badges or species" value={query} onChange={e => setQuery(e.target.value)} />
+        </div>
+      )}
+      <div className="badge-category-bar" aria-label="Achievement categories">
+        {CATEGORIES.map(cat => (
+          <button type="button" key={cat.id} aria-pressed={category === cat.id} className={category === cat.id ? 'active' : ''} onClick={() => { setCategory(cat.id); setSelectedId(null); }}>
+            {cat.label}
           </button>
         ))}
       </div>
-
-      {/* Achievements Cards Grid */}
-      <div className="achievements-grid">
-        {filtered.length === 0 ? (
-          <div className="card empty-card" style={{ padding: '32px 20px', textAlign: 'center', gridColumn: '1 / -1' }}>
-            <Trophy size={40} style={{ color: 'var(--muted)', margin: '0 auto 10px', opacity: 0.5 }} />
-            <h3 className="serif" style={{ fontSize: 18, marginBottom: 4 }}>No Badges Found</h3>
-            <p className="muted" style={{ fontSize: 13, maxWidth: 360, margin: '0 auto' }}>
-              No achievements match your search or filter. Try switching category or clearing the unlocked-only filter.
-            </p>
-          </div>
-        ) : (
-          filtered.map((item) => {
-            const isEquipped = equippedAchievementId === item.id;
-            const tierStyle = TIER_COLORS[item.tier];
-
-            return (
-              <div
-                key={item.id}
-                className={`card achievement-card ${item.unlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
-                style={{
-                  borderColor: isEquipped ? tierStyle.border : undefined,
-                  boxShadow: isEquipped ? tierStyle.glow : undefined,
-                }}
-              >
-                <div className="achievement-card-header">
-                  {/* Badge Icon with Tier Halo */}
-                  <div
-                    className="achievement-icon-wrapper"
-                    style={{
-                      background: item.unlocked ? tierStyle.bg : 'var(--surface-sunken)',
-                      borderColor: item.unlocked ? tierStyle.border : 'var(--border-color)',
-                      boxShadow: item.unlocked ? tierStyle.glow : 'none',
-                    }}
-                  >
-                    <span className="achievement-emoji" role="img" aria-label={item.title}>
-                      {item.icon}
-                    </span>
-                    {!item.unlocked && (
-                      <div className="lock-badge">
-                        <Lock size={11} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Header Title & Tier Tag */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="row-between" style={{ alignItems: 'baseline', gap: 6 }}>
-                      <span
-                        className="achievement-tier-pill"
-                        style={{
-                          background: tierStyle.bg,
-                          color: tierStyle.text,
-                          borderColor: tierStyle.border,
-                        }}
-                      >
-                        {tierStyle.name}
-                      </span>
-                      {item.unlocked && (
-                        <span className="mini-badge-unlocked">
-                          <Check size={11} /> Unlocked
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="achievement-card-title">{item.title}</h3>
-                  </div>
-                </div>
-
-                {/* Description */}
-                <p className="achievement-card-desc">{item.description}</p>
-
-                {/* Specimen Target Milestone Callout */}
-                {item.speciesTarget && (
-                  <div className="achievement-target-tag">
-                    <Scale size={12} />
-                    <span>Specimen Target: {item.speciesTarget} ≥ {item.target / 16} lb</span>
-                  </div>
-                )}
-
-                {/* Progress Tracker */}
-                <div className="achievement-meter">
-                  <div className="row-between achievement-meter-labels">
-                    <span>Progress</span>
-                    <span>
-                      <strong>{item.current}</strong> / {item.unit === 'lb' ? item.target / 16 : item.target}{' '}
-                      {item.unit || ''}
-                    </span>
-                  </div>
-                  <div className="achievement-progress-track small">
-                    <div
-                      className="achievement-progress-fill small"
-                      style={{
-                        width: `${item.unlocked ? 100 : item.progress}%`,
-                        background: item.unlocked
-                          ? (item.tier === 'specimen'
-                              ? 'linear-gradient(90deg, #9333ea, #c084fc)'
-                              : item.tier === 'gold'
-                              ? 'linear-gradient(90deg, #d97706, #fbbf24)'
-                              : 'var(--accent-gradient, #10b981)')
-                          : 'var(--muted)',
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Bottom Action: Equip to Profile Avatar */}
-                <div className="achievement-card-footer">
-                  {item.unlocked ? (
-                    isEquipped ? (
-                      <button
-                        type="button"
-                        className="btn-equipped"
-                        onClick={() => actions.setEquippedAchievement(null)}
-                        title="Click to unequip"
-                      >
-                        <Sparkles size={14} />
-                        <span>Equipped on Avatar</span>
+      <div className="badge-collection-summary">
+        <span><strong>{earnedCount}</strong> / {achievements.length} achieved</span>
+        <button type="button" aria-pressed={earnedOnly} onClick={() => setEarnedOnly(!earnedOnly)} className={earnedOnly ? 'active' : ''}><Check size={13} /> Achieved only</button>
+      </div>
+      <div className="badge-collection">
+        {rows.map((row, rowIndex) => (
+          <Fragment key={rowIndex}>
+            <div className="badge-collection-row">
+              {row.map(item => (
+                <button type="button" className={`badge-collection-item ${item.id === selected?.id ? 'is-selected' : ''} ${item.unlocked ? 'is-earned' : ''}`} key={item.id}
+                  onClick={() => setSelectedId(item.id)} aria-pressed={item.id === selected?.id} aria-controls="selected-badge-detail" aria-label={`${item.title}, ${item.unlocked ? 'achieved' : 'locked'}`}>
+                  <Badge item={item} selected={item.id === selected?.id} />
+                  <span className="badge-name">{item.id === 'catches_1' ? 'First Catch' : item.title}</span>
+                </button>
+              ))}
+            </div>
+            {selected && row.some(item => item.id === selected.id) && (
+              <section className={`badge-detail-panel ${selected.unlocked ? 'is-achieved' : ''}`} id="selected-badge-detail" aria-labelledby="selected-badge-title" style={{ '--badge-pointer': `${12.5 + row.findIndex(item => item.id === selected.id) * 25}%` } as CSSProperties}>
+                <Badge item={selected} selected={selected.unlocked} />
+                <div className="badge-detail-copy">
+                  <h2 id="selected-badge-title">{selected.id === 'catches_1' ? 'First Catch' : selected.title}</h2>
+                  <p>{selected.description}</p>
+                  <strong className="badge-detail-progress">{selected.current} / {selected.unit === 'lb' ? selected.target / 16 : selected.target}{selected.unit ? ` ${selected.unit}` : ''}</strong>
+                  {selected.unlocked ? (
+                    <>
+                      <span className="badge-achieved-status"><Check size={15} /> Achieved</span>
+                      <button type="button" className="badge-equip-action" onClick={() => actions.setEquippedAchievement(equippedAchievementId === selected.id ? null : selected.id)}>
+                        {equippedAchievementId === selected.id ? 'Unequip profile badge' : 'Equip on profile'}
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn-equip"
-                        onClick={() => actions.setEquippedAchievement(item.id)}
-                        id={`equip-btn-${item.id}`}
-                      >
-                        <Award size={14} />
-                        <span>Equip to Avatar</span>
-                      </button>
-                    )
+                    </>
                   ) : (
-                    <div className="locked-helper-text">
-                      <Lock size={12} />
-                      <span>Log catches to unlock flair</span>
-                    </div>
+                    <>
+                      <div className="badge-detail-track" role="progressbar" aria-label={`${selected.title} progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={selected.progress}>
+                        <span style={{ width: `${selected.progress}%` }} />
+                      </div>
+                      <span className="badge-locked-status">Keep going to unlock this badge</span>
+                    </>
                   )}
                 </div>
-              </div>
-            );
-          })
-        )}
+              </section>
+            )}
+          </Fragment>
+        ))}
+        {!filtered.length && <div className="badge-empty"><Trophy size={30} /><h2>No badges found</h2><p>Try another category or change your filters.</p><button type="button" onClick={() => { setCategory('all'); setQuery(''); setEarnedOnly(false); }}>Show all badges</button></div>}
       </div>
+      <Link to="/profile" className="badge-profile-link"><ArrowLeft size={15} /> Back to profile</Link>
     </div>
   );
 };

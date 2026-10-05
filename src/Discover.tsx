@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Plus, Fish, ChevronRight, ChevronLeft,
   MapPin, Heart, Share2, Bookmark, Check, MoreHorizontal,
-  Users, Sparkles, CheckCircle2,
-  MessageSquare, Search, X
+  Users, CheckCircle2,
+  MessageSquare, Search, X, Home, Waves, Thermometer, LocateFixed
 } from 'lucide-react';
 import { useStore, actions, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
 import { fetchPublicSharedData, fetchCatchLikes, fetchUserCloudData } from './cloud';
@@ -139,6 +139,8 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   const [remoteCatches, setRemoteCatches] = useState<Catch[]>([]);
   const [remoteSessions, setRemoteSessions] = useState<Session[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchOpen = searchParams.get('search') === '1';
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   // Per-card carousel indices
@@ -332,9 +334,10 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   };
 
   return (
-    <div className="content" style={{ padding: '0 16px 84px' }}>
+    <div className="content community-page" style={{ padding: '0 16px 84px' }}>
       {/* Category Pills Header Bar (Mobile Screen 1) */}
       <div
+        className="community-category-bar"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -347,24 +350,27 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
         <button
           type="button"
           className={`community-tab-pill ${activeTab === 'for-you' ? 'active' : ''}`}
+          aria-pressed={activeTab === 'for-you'}
           onClick={() => { setActiveTab('for-you'); setSelectedTag(null); }}
         >
-          <Sparkles size={14} />
+          <Home size={14} />
           <span>For You</span>
         </button>
 
         <button
           type="button"
           className={`community-tab-pill ${activeTab === 'following' ? 'active' : ''}`}
+          aria-pressed={activeTab === 'following'}
           onClick={() => { setActiveTab('following'); setSelectedTag(null); }}
         >
-          <Check size={14} />
+          <Users size={14} />
           <span>Following</span>
         </button>
 
         <button
           type="button"
           className={`community-tab-pill ${activeTab === 'nearby' ? 'active' : ''}`}
+          aria-pressed={activeTab === 'nearby'}
           onClick={() => { setActiveTab('nearby'); setSelectedTag(null); }}
         >
           <MapPin size={14} />
@@ -374,6 +380,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
         <button
           type="button"
           className={`community-tab-pill ${activeTab === 'clubs' ? 'active' : ''}`}
+          aria-pressed={activeTab === 'clubs'}
           onClick={() => { setActiveTab('clubs'); setSelectedTag(null); }}
         >
           <Users size={14} />
@@ -382,7 +389,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
       </div>
 
       {/* Mobile Search & Quick Filter Chips Bar */}
-      <div className="mobile-discover-search-bar">
+      {searchOpen && <div className="mobile-discover-search-bar">
         <div className="mobile-search-input-wrap">
           <Search size={15} color="var(--text-secondary)" />
           <input
@@ -391,6 +398,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="mobile-search-input"
+            aria-label="Search catches, anglers, or waters"
           />
           {searchQuery && (
             <button
@@ -420,7 +428,8 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             );
           })}
         </div>
-      </div>
+        <button type="button" className="community-search-close" onClick={() => setSearchParams({})}><X size={13} /> Close filters</button>
+      </div>}
 
       {/* Stories / Anglers Horizontal Reel (Mobile Screen 1) */}
       <div className="community-stories-bar">
@@ -613,7 +622,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
                   {/* Tactical Attribute Tiles Grid (Mobile Screen 1 & 2) */}
                   <div className="tactical-grid-2x2">
                     <div className="tactical-cell">
-                      <div className="tactical-cell-icon">🎣</div>
+                      <div className="tactical-cell-icon"><Fish size={22} strokeWidth={1.6} aria-hidden="true" /></div>
                       <div className="tactical-cell-info">
                         <span className="tactical-cell-val">{item.bait}</span>
                         <span className="tactical-cell-lbl">Bait</span>
@@ -621,7 +630,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
                     </div>
 
                     <div className="tactical-cell">
-                      <div className="tactical-cell-icon">〰️</div>
+                      <div className="tactical-cell-icon"><Waves size={22} strokeWidth={1.6} aria-hidden="true" /></div>
                       <div className="tactical-cell-info">
                         <span className="tactical-cell-val">{item.water}</span>
                         <span className="tactical-cell-lbl">Water</span>
@@ -631,7 +640,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
 
                   <div className="tactical-grid-3x1">
                     <div className="tactical-cell">
-                      <div className="tactical-cell-icon">🌡️</div>
+                      <div className="tactical-cell-icon temperature-icon"><Thermometer size={22} strokeWidth={1.6} aria-hidden="true" /></div>
                       <div className="tactical-cell-info">
                         <span className="tactical-cell-val">{item.temperature}</span>
                         <span className="tactical-cell-lbl">Conditions</span>
@@ -639,7 +648,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
                     </div>
 
                     <div className="tactical-cell">
-                      <div className="tactical-cell-icon">〰️</div>
+                      <div className="tactical-cell-icon"><Waves size={22} strokeWidth={1.6} aria-hidden="true" /></div>
                       <div className="tactical-cell-info">
                         <span className="tactical-cell-val">{item.waterClarity}</span>
                         <span className="tactical-cell-lbl">Water clarity</span>
@@ -647,7 +656,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
                     </div>
 
                     <div className="tactical-cell">
-                      <div className="tactical-cell-icon">🎯</div>
+                      <div className="tactical-cell-icon"><LocateFixed size={22} strokeWidth={1.6} aria-hidden="true" /></div>
                       <div className="tactical-cell-info">
                         <span className="tactical-cell-val">{item.method}</span>
                         <span className="tactical-cell-lbl">Method</span>
