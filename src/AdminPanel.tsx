@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Users, Fish, Calendar, TrendingUp, RefreshCw, Plus, Trash2,
   ExternalLink, Search, Download, Check, X, Shield, MapPin, AlertCircle, ArrowLeft
@@ -8,7 +9,15 @@ import { UK_FISHERIES, type Fishery } from './fisheries';
 
 type AdminTab = 'dashboard' | 'fisheries' | 'species' | 'users' | 'backup';
 
-export const AdminPanel = ({ onClose }: { onClose: () => void }) => {
+export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
+  const nav = useNavigate();
+  const handleExit = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      nav('/profile');
+    }
+  };
   const { user } = useAuth();
   const [tab, setTab] = useState<AdminTab>('dashboard');
   const [loading, setLoading] = useState(true);
@@ -222,15 +231,15 @@ export const AdminPanel = ({ onClose }: { onClose: () => void }) => {
 
   if (!isUserAdmin(user)) {
     return (
-      <div className="admin-overlay">
-        <div className="card" style={{ maxWidth: 440, margin: '60px auto', padding: 24, textAlign: 'center' }}>
+      <div className="admin-container" style={{ alignItems: 'center', justifyContent: 'center', padding: '40px 20px', minHeight: '80vh' }}>
+        <div className="card" style={{ maxWidth: 440, width: '100%', margin: '40px auto', padding: 24, textAlign: 'center' }}>
           <ShieldAlert size={48} color="var(--danger)" style={{ margin: '0 auto 12px' }} />
           <h2 className="serif" style={{ fontSize: 20, marginBottom: 8 }}>Access Denied</h2>
           <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
             The Keepnet Admin Console is restricted strictly to authorized platform administrators ({user?.email || 'Guest'}).
           </p>
-          <button className="btn-primary" onClick={onClose}>
-            Back to App
+          <button className="btn-primary" onClick={handleExit} style={{ width: '100%' }}>
+            Back to Profile
           </button>
         </div>
       </div>
@@ -253,7 +262,7 @@ export const AdminPanel = ({ onClose }: { onClose: () => void }) => {
       {/* Admin Top Header */}
       <header className="admin-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button className="icon-btn" onClick={onClose} aria-label="Exit Admin">
+          <button className="icon-btn" onClick={handleExit} aria-label="Exit Admin">
             <ArrowLeft size={20} />
           </button>
           <div>
@@ -270,7 +279,7 @@ export const AdminPanel = ({ onClose }: { onClose: () => void }) => {
           <button className="icon-btn" onClick={fetchDashboardStats} disabled={loading} title="Refresh data">
             <RefreshCw size={16} className={loading ? 'spin' : ''} />
           </button>
-          <button className="icon-btn" onClick={onClose} aria-label="Close Admin">
+          <button className="icon-btn" onClick={handleExit} aria-label="Close Admin">
             <X size={20} />
           </button>
         </div>

@@ -1,23 +1,25 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom';
 import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
-  Share2, Globe, Lock, Copy, Sun, Moon, HardDrive, KeyRound, LogOut, Mail, Pencil, Search, ShieldCheck,
-  Compass, Sparkles, Scale, Download, Smartphone
+  Share2, Globe, Lock, Copy, HardDrive, KeyRound, Mail, Pencil, Search, ShieldCheck,
+  Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
 import Logo from './Logo';
+import Settings from './Settings';
+import AchievementsPage from './AchievementsPage';
 import {
   VENUES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage,
   metricToImperial, imperialToMetric, type Venue, type Session, type Catch, type UnitSystem
 } from './store';
 import { fetchWeather, getDevicePosition, compass, type Weather } from './weather';
-import { useTheme, themeActions } from './theme';
 import { useAuth, authActions, isUserAdmin } from './auth';
 import AdminPanel from './AdminPanel';
-import { syncUserWithCloud, fetchUserCloudData } from './cloud';
+import { evaluateAchievements, getEquippedAchievement } from './achievements';
+import { syncUserWithCloud, fetchUserCloudData, useCloudSyncStatus, flushPendingQueue, fetchPublicSharedData } from './cloud';
 
 // Global PWA installation event capture
 let globalInstallPrompt: any = null;
@@ -358,7 +360,7 @@ const ShareModal = ({
   title: string;
   subtitle: string;
   isShared: boolean;
-  onToggleShared: () => void;
+  onToggleShared?: () => void;
   shareText: string;
   onClose: () => void;
 }) => {
@@ -396,26 +398,28 @@ const ShareModal = ({
         </div>
 
         {/* Discover Map Toggle */}
-        <div className="share-toggle-card">
-          <div className="share-toggle-info">
-            <div className="share-toggle-title">
-              <Globe size={18} color="var(--accent-green)" />
-              <span>Share to Discover map</span>
+        {onToggleShared && (
+          <div className="share-toggle-card">
+            <div className="share-toggle-info">
+              <div className="share-toggle-title">
+                <Globe size={18} color="var(--accent-green)" />
+                <span>Share to Discover map</span>
+              </div>
+              <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                When enabled, this appears publicly on the community Discover map. When disabled, it remains private to your journal.
+              </p>
             </div>
-            <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-              When enabled, this appears publicly on the community Discover map. When disabled, it remains private to your journal.
-            </p>
+            <button
+              className={`toggle-switch ${isShared ? 'active' : ''}`}
+              onClick={onToggleShared}
+              role="switch"
+              aria-checked={isShared}
+              aria-label="Toggle share to Discover"
+            >
+              <span className="toggle-thumb" />
+            </button>
           </div>
-          <button
-            className={`toggle-switch ${isShared ? 'active' : ''}`}
-            onClick={onToggleShared}
-            role="switch"
-            aria-checked={isShared}
-            aria-label="Toggle share to Discover"
-          >
-            <span className="toggle-thumb" />
-          </button>
-        </div>
+        )}
 
         {/* Share via Link / Apps */}
         <div className="stack" style={{ marginTop: 16 }}>
@@ -1835,18 +1839,58 @@ const CatchDetail = () => {
   const { catches, sessions } = useStore();
   const [sharing, setSharing] = useState(false);
   const [editing, setEditing] = useState(false);
-  const c = catches.find((x) => x.id === id);
-  if (!c) return <Navigate to="/" replace />;
-  const s = sessions.find((x) => x.id === c.sessionId);
+  const [remoteCatches, setRemoteCatches] = useState<Catch[]>([]);
+  const [remoteSessions, setRemoteSessions] = useState<Session[]>([]);
+  const [loadingRemote, setLoadingRemote] = useState(false);
+  const [likeBounce, setLikeBounce] = useState(false);
+
+  // If catch is not in local journal, fetch from public shared catches
+  useEffect(() => {
+    if (!catches.some((x) => x.id === id)) {
+      setLoadingRemote(true);
+      fetchPublicSharedData()
+        .then((data) => {
+          if (data.catches.length > 0) setRemoteCatches(data.catches);
+          if (data.sessions.length > 0) setRemoteSessions(data.sessions);
+        })
+        .finally(() => setLoadingRemote(false));
+    }
+  }, [id, catches]);
+
+  const c = catches.find((x) => x.id === id) || remoteCatches.find((x) => x.id === id);
+  const isOwner = catches.some((x) => x.id === id);
+
+  if (!c) {
+    if (loadingRemote) {
+      return (
+        <div className="content">
+          <div className="row-between">
+            <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
+          </div>
+          <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
+            <RefreshCw size={24} className="spin" style={{ margin: '0 auto 12px', color: 'var(--accent-green)' }} />
+            <p className="muted">Loading catch report...</p>
+          </div>
+        </div>
+      );
+    }
+    return <Navigate to="/" replace />;
+  }
+
+  const s = sessions.find((x) => x.id === c.sessionId) || remoteSessions.find((x) => x.id === c.sessionId);
+  const isLiked = actions.isCatchLiked(c.id);
+  const likesCount = actions.getCatchLikesCount(c.id, c.likesCount);
 
   return (
     <div className="content">
       <div className="row-between">
         <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="icon-btn" id="edit-catch-icon-btn" onClick={() => setEditing(true)} aria-label="Edit catch" title="Edit catch">
-            <Pencil size={18} />
-          </button>
+          {isOwner && (
+            <button className="icon-btn" id="edit-catch-icon-btn" onClick={() => setEditing(true)} aria-label="Edit catch" title="Edit catch">
+              <Pencil size={18} />
+            </button>
+          )}
           <button className="icon-btn" id="share-catch-btn" onClick={() => setSharing(true)} aria-label="Share catch" title="Share catch">
             <Share2 size={18} />
           </button>
@@ -1861,19 +1905,74 @@ const CatchDetail = () => {
           <h1 className="page-title">{c.species}</h1>
         </div>
         <div style={{ marginTop: 8 }}>
-          {c.isShared ? (
-            <button className="tag status-pill shared" onClick={() => setSharing(true)}>
-              <Globe size={12} /> Shared
-            </button>
+          {isOwner ? (
+            c.isShared ? (
+              <button className="tag status-pill shared" onClick={() => setSharing(true)}>
+                <Globe size={12} /> Shared
+              </button>
+            ) : (
+              <button className="tag status-pill private" onClick={() => setSharing(true)}>
+                <Lock size={12} /> Private
+              </button>
+            )
           ) : (
-            <button className="tag status-pill private" onClick={() => setSharing(true)}>
-              <Lock size={12} /> Private
-            </button>
+            <span className="tag status-pill shared">
+              <Globe size={12} /> Community Catch
+            </span>
           )}
         </div>
       </div>
 
       <p className="catch-big-weight serif">{fmtWeight(c)}</p>
+
+      {/* Social Reactions & Community Likes Bar */}
+      <div className="card catch-social-bar">
+        <div className="row-between" style={{ alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              id={`like-btn-${c.id}`}
+              className={`catch-detail-like-btn ${isLiked ? 'liked' : ''} ${likeBounce ? 'heart-bounce' : ''}`}
+              onClick={() => {
+                actions.toggleCatchLike(c.id);
+                setLikeBounce(true);
+                setTimeout(() => setLikeBounce(false), 500);
+              }}
+              title={isLiked ? 'Unlike catch' : 'Like this catch'}
+            >
+              <Heart size={20} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
+              <span>{isLiked ? 'Liked' : 'Like'}</span>
+            </button>
+            <span className="catch-like-counter">
+              <strong>{likesCount}</strong> {likesCount === 1 ? 'Angler reaction' : 'Angler reactions'}
+            </span>
+          </div>
+
+          <button
+            className="btn-secondary"
+            style={{ height: 38, padding: '0 12px', fontSize: 13, gap: 5 }}
+            onClick={() => setSharing(true)}
+          >
+            <Share2 size={15} /> Share
+          </button>
+        </div>
+      </div>
+
+      {/* Angler Attribution for Community Shared Catches */}
+      {!isOwner && (c.userName || s?.userName) && (
+        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+          <div className="avatar-placeholder" style={{ width: 38, height: 38, minWidth: 38, borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-green)' }}>
+            <User size={20} />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
+              {c.userName || s?.userName}
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              Verified Angler Catch Report
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Direct link back to session */}
       {s && (
@@ -1904,22 +2003,30 @@ const CatchDetail = () => {
       {/* Compact weather summary with collapsible breakdown */}
       {s?.weather && <WeatherSummary weather={s.weather} />}
 
-      {/* Action buttons: Edit & Delete */}
-      <div className="field-row" style={{ marginTop: 14 }}>
-        <button className="btn-primary" id="edit-catch-btn" style={{ flex: 1, height: 48 }} onClick={() => setEditing(true)}>
-          <Pencil size={17} /> Edit catch
-        </button>
-        <button
-          className="btn-secondary danger"
-          id="delete-catch-btn"
-          style={{ flex: 1, height: 48, marginTop: 0 }}
-          onClick={() => confirm('Delete this catch from your journal?') && (actions.deleteCatch(c.id), nav(-1))}
-        >
-          <Trash2 size={16} /> Delete catch
-        </button>
-      </div>
+      {/* Action buttons: Edit & Delete for owner, Explore for others */}
+      {isOwner ? (
+        <div className="field-row" style={{ marginTop: 14 }}>
+          <button className="btn-primary" id="edit-catch-btn" style={{ flex: 1, height: 48 }} onClick={() => setEditing(true)}>
+            <Pencil size={17} /> Edit catch
+          </button>
+          <button
+            className="btn-secondary danger"
+            id="delete-catch-btn"
+            style={{ flex: 1, height: 48, marginTop: 0 }}
+            onClick={() => confirm('Delete this catch from your journal?') && (actions.deleteCatch(c.id), nav(-1))}
+          >
+            <Trash2 size={16} /> Delete catch
+          </button>
+        </div>
+      ) : (
+        <div style={{ marginTop: 14 }}>
+          <button className="btn-primary" style={{ width: '100%', height: 48 }} onClick={() => nav('/discover')}>
+            <Compass size={17} /> Browse More Community Catches
+          </button>
+        </div>
+      )}
 
-      {editing && (
+      {editing && isOwner && (
         <EditCatchSheet c={c} onClose={() => setEditing(false)} />
       )}
 
@@ -1928,8 +2035,8 @@ const CatchDetail = () => {
           title={`${c.species} (${fmtWeight(c)})`}
           subtitle={`Caught on ${c.bait}${s ? ` at ${s.venueName}` : ''}`}
           isShared={!!c.isShared}
-          onToggleShared={() => actions.toggleCatchShare(c.id)}
-          shareText={`🎣 Caught a ${fmtWeight(c)} ${c.species} on ${c.bait}${s ? ` at ${s.venueName}` : ''}! Logged on Keepnet.`}
+          onToggleShared={isOwner ? () => actions.toggleCatchShare(c.id) : undefined}
+          shareText={`🎣 Check out this ${fmtWeight(c)} ${c.species} on Keepnet!`}
           onClose={() => setSharing(false)}
         />
       )}
@@ -1938,68 +2045,70 @@ const CatchDetail = () => {
 };
 
 const Profile = () => {
-  const { catches, sessions, name, unitSystem = 'imperial' } = useStore();
-  const { user, storageMode } = useAuth();
-  const theme = useTheme();
-  const [authOpen, setAuthOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
+  const { catches, sessions, name, equippedAchievementId, likesGivenCount = 0 } = useStore();
+  const { user } = useAuth();
   const isAdmin = isUserAdmin(user);
-  const [syncing, setSyncing] = useState(false);
   const [savingNickname, setSavingNickname] = useState(false);
   const [nicknameSaved, setNicknameSaved] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState<any>(globalInstallPrompt);
 
-  useEffect(() => {
-    const handler = () => setInstallPrompt(globalInstallPrompt);
-    window.addEventListener('keepnet:installable', handler);
-    return () => window.removeEventListener('keepnet:installable', handler);
-  }, []);
+  const socialStats = useMemo(() => ({
+    likesGiven: likesGivenCount || 0,
+    likesReceived: actions.getTotalLikesReceived(),
+    sharedCount: catches.filter((c) => c.isShared).length,
+  }), [likesGivenCount, catches]);
 
-  const isStandalone = typeof window !== 'undefined' && (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
-  );
-  const isIos = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-  const handleInstallApp = async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    if (choice?.outcome === 'accepted') {
-      globalInstallPrompt = null;
-      setInstallPrompt(null);
-    }
-  };
-
-  const handleSync = async () => {
-    if (!user) return;
-    setSyncing(true);
-    try {
-      const data = await fetchUserCloudData(user);
-      if (data && data.sessions.length > 0) {
-        actions.replaceWithRemoteData(data.sessions, data.catches);
-      }
-    } finally {
-      setSyncing(false);
-    }
-  };
+  // Evaluate all achievements against active journal state and social milestones
+  const evaluated = useMemo(() => evaluateAchievements(catches, sessions, socialStats), [catches, sessions, socialStats]);
+  const unlockedAchievements = useMemo(() => evaluated.filter((a) => a.unlocked), [evaluated]);
+  const equipped = useMemo(() => getEquippedAchievement(equippedAchievementId, evaluated), [equippedAchievementId, evaluated]);
 
   const species = [...new Set(catches.map((c) => c.species))];
   const best = [...catches].sort((a, b) => totalOz(b) - totalOz(a))[0];
   const pbs = species.map((sp) => catches.filter((c) => c.species === sp).sort((a, b) => totalOz(b) - totalOz(a))[0]);
   const hours = sessions.reduce((t, s) => t + ((s.endedAt ? new Date(s.endedAt).getTime() : Date.now()) - new Date(s.startedAt).getTime()) / 3600000, 0);
 
+  const unlockedCount = unlockedAchievements.length;
+  const totalCount = evaluated.length;
+  const progressPct = Math.round((unlockedCount / totalCount) * 100);
+
   return (
     <div className="content">
+      {/* Profile Hero with Equipped Avatar Flair & Badge */}
       <div className="profile-hero">
-        <div className="avatar-placeholder">
-          <Fish size={32} />
+        <div className={`avatar-container tier-${equipped?.tier || 'none'}`}>
+          <div className="avatar-placeholder">
+            {equipped ? (
+              <span className="avatar-flair-icon" role="img" aria-label={equipped.title}>
+                {equipped.icon}
+              </span>
+            ) : (
+              <Fish size={32} />
+            )}
+          </div>
+          {equipped && (
+            <div
+              className={`avatar-flair-badge tier-badge-${equipped.tier}`}
+              title={equipped.flairTitle}
+            >
+              <span>{equipped.icon}</span>
+            </div>
+          )}
         </div>
+
         <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <Globe size={11} /> Public Angler Nickname
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+            {equipped ? (
+              <Link to="/achievements" className={`flair-title-pill tier-${equipped.tier}`} title="Click to manage badges">
+                <Sparkles size={11} />
+                <span>{equipped.flairTitle}</span>
+              </Link>
+            ) : (
+              <Link to="/achievements" className="flair-title-pill" style={{ background: 'var(--surface-sunken)', color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>
+                <Trophy size={11} />
+                <span>Equip Achievement Flair</span>
+              </Link>
+            )}
+
             {nicknameSaved && (
               <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
                 <Check size={11} /> Saved
@@ -2011,6 +2120,7 @@ const Profile = () => {
               </span>
             )}
           </div>
+
           <input 
             className="name-input serif" 
             id="profile-name" 
@@ -2044,6 +2154,7 @@ const Profile = () => {
         </div>
       </div>
 
+      {/* Core Stats Grid */}
       <div className="stats-grid">
         <div className="stat"><span className="stat-num serif">{sessions.length}</span><span>Sessions</span></div>
         <div className="stat"><span className="stat-num serif">{catches.length}</span><span>Catches</span></div>
@@ -2051,200 +2162,69 @@ const Profile = () => {
         <div className="stat"><span className="stat-num serif">{Math.round(hours)}</span><span>Hours</span></div>
       </div>
 
-      {/* Account & Storage Mode Card */}
-      <div className="card account-card">
-        <div className="row-between" style={{ alignItems: 'flex-start' }}>
+      {/* Community Social Stats Pill Bar */}
+      <div className="profile-social-bar">
+        <div className="profile-social-stat">
+          <Heart size={14} color="#ef4444" fill="#ef4444" />
+          <span><strong>{socialStats.likesGiven}</strong> Likes Given</span>
+        </div>
+        <span className="profile-social-divider">·</span>
+        <div className="profile-social-stat">
+          <Sparkles size={14} color="#f59e0b" />
+          <span><strong>{socialStats.likesReceived}</strong> Likes Received</span>
+        </div>
+        <span className="profile-social-divider">·</span>
+        <div className="profile-social-stat">
+          <Globe size={14} color="#10b981" />
+          <span><strong>{socialStats.sharedCount}</strong> Shared</span>
+        </div>
+      </div>
+
+      {/* Gamified Achievements Showcase Card */}
+      <div className="card profile-achievements-card">
+        <div className="row-between" style={{ alignItems: 'baseline' }}>
           <div>
-            <div className="eyebrow" style={{ marginBottom: 4 }}>
-              {storageMode === 'cloud' && user ? <Cloud size={14} /> : <HardDrive size={14} />}
-              {storageMode === 'cloud' && user ? 'Cloud Account' : 'Local Storage Mode'}
+            <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent)' }}>
+              <Trophy size={13} /> Angler Achievements & Milestones
             </div>
-            <div style={{ fontSize: 15, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              {user ? (
-                <>
-                  <Lock size={14} style={{ color: 'var(--muted)' }} />
-                  <span>{user.email}</span>
-                  <span style={{ fontSize: 10, padding: '2px 6px', background: 'rgba(255,255,255,0.08)', borderRadius: 4, color: 'var(--muted)', fontWeight: 500 }}>
-                    Private
-                  </span>
-                </>
-              ) : (
-                'Personal Journal (Local Device Only)'
-              )}
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', marginTop: 2 }}>
+              {unlockedCount} of {totalCount} Badges Unlocked
             </div>
-            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-              {storageMode === 'cloud' && user
-                ? 'Your email and personal account details are strictly private and never shown to other anglers.'
-                : 'All catches and sessions are kept private on this phone and not uploaded to the cloud.'}
-            </p>
           </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
+            {progressPct}%
+          </span>
         </div>
 
-        <div className="stack" style={{ marginTop: 12 }}>
-          {user ? (
-            <div className="field-row">
-              <button className="btn-secondary" style={{ flex: 1 }} onClick={handleSync} disabled={syncing}>
-                <RefreshCw size={15} /> {syncing ? 'Syncing...' : 'Sync Cloud'}
-              </button>
-              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setAuthOpen(true)}>
-                <KeyRound size={15} /> Password
-              </button>
-              <button className="btn-secondary" style={{ flex: 1 }} onClick={() => authActions.signOut()}>
-                <LogOut size={15} /> Sign Out
-              </button>
+        <div className="achievement-progress-track">
+          <div className="achievement-progress-fill" style={{ width: `${Math.max(3, progressPct)}%` }} />
+        </div>
+
+        <div className="profile-achievements-badges-row">
+          {unlockedAchievements.slice(0, 6).map((a) => (
+            <div key={a.id} className={`profile-badge-chip tier-${a.tier}`} title={a.title}>
+              <span>{a.icon}</span>
+              <span>{a.title}</span>
             </div>
-          ) : (
-            <div className="field-row">
-              <button className="btn-primary" style={{ flex: 1 }} onClick={() => setAuthOpen(true)}>
-                <Mail size={16} /> Sign In / Sign Up
-              </button>
-            </div>
+          ))}
+          {unlockedCount === 0 && (
+            <span className="muted" style={{ fontSize: 12, padding: '4px 0' }}>
+              Log catches, species, bankside hours & beat personal bests to unlock trophies!
+            </span>
           )}
         </div>
+
+        <Link
+          to="/achievements"
+          id="profile-view-achievements-btn"
+          className="btn-primary"
+          style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, textDecoration: 'none' }}
+        >
+          <Trophy size={15} /> View All Achievements & Equip Flair <ChevronRight size={15} />
+        </Link>
       </div>
 
-      {/* Exclusive Admin Console Access */}
-      {isAdmin && (
-        <div className="card admin-promo-card">
-          <div className="row-between" style={{ alignItems: 'flex-start' }}>
-            <div>
-              <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#10b981', marginBottom: 4 }}>
-                <ShieldCheck size={14} /> Master Administrator
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
-                Keepnet Admin Console
-              </div>
-              <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                Total catch reports, user growth trends, UK fisheries directory, species tags & database backups.
-              </p>
-            </div>
-            <span className="admin-badge">Admin</span>
-          </div>
-          <div style={{ marginTop: 14 }}>
-            <button
-              type="button"
-              id="open-admin-console-btn"
-              className="btn-primary"
-              style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}
-              onClick={() => setAdminOpen(true)}
-            >
-              <ShieldCheck size={16} /> Open Admin Panel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* App Preferences & Settings Card (Units + Theme) */}
-      <div className="card preferences-card">
-        <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <Gauge size={14} /> App Preferences
-        </div>
-
-        {/* Units of Measurement */}
-        <div className="pref-row">
-          <div className="pref-info">
-            <div className="pref-title">Units of Measurement</div>
-            <p className="muted" style={{ fontSize: 13 }}>
-              Display and record catches in {unitSystem === 'metric' ? 'Metric (kg, g)' : 'Imperial (lb, oz)'}
-            </p>
-          </div>
-          <div className="pref-segmented-control" role="group" aria-label="Select measurement units">
-            <button
-              type="button"
-              id="pref-unit-imperial"
-              className={`pref-segment-btn ${unitSystem !== 'metric' ? 'active' : ''}`}
-              onClick={() => actions.setUnitSystem('imperial')}
-            >
-              <Scale size={14} />
-              <span>Imperial (lb/oz)</span>
-            </button>
-            <button
-              type="button"
-              id="pref-unit-metric"
-              className={`pref-segment-btn ${unitSystem === 'metric' ? 'active' : ''}`}
-              onClick={() => actions.setUnitSystem('metric')}
-            >
-              <Scale size={14} />
-              <span>Metric (kg/g)</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="pref-divider" />
-
-        {/* Theme & Appearance */}
-        <div className="pref-row">
-          <div className="pref-info">
-            <div className="pref-title">Theme & Appearance</div>
-            <p className="muted" style={{ fontSize: 13 }}>
-              Currently using {theme === 'dark' ? 'Night bankside dark' : 'Daylight river light'} theme
-            </p>
-          </div>
-          <div className="pref-segmented-control" role="group" aria-label="Select theme appearance">
-            <button
-              type="button"
-              id="pref-theme-light"
-              className={`pref-segment-btn ${theme === 'light' ? 'active' : ''}`}
-              onClick={() => themeActions.setTheme('light')}
-            >
-              <Sun size={14} />
-              <span>Light Mode</span>
-            </button>
-            <button
-              type="button"
-              id="pref-theme-dark"
-              className={`pref-segment-btn ${theme === 'dark' ? 'active' : ''}`}
-              onClick={() => themeActions.setTheme('dark')}
-            >
-              <Moon size={14} />
-              <span>Dark Mode</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="pref-divider" />
-
-        {/* PWA App Installation */}
-        <div className="pref-row">
-          <div className="pref-info">
-            <div className="pref-title">Install Keepnet App</div>
-            <p className="muted" style={{ fontSize: 13 }}>
-              {isStandalone
-                ? 'Keepnet is installed and running in standalone app mode.'
-                : 'Install Keepnet on your home screen or desktop for fast bankside offline logging.'}
-            </p>
-          </div>
-          {isStandalone ? (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#10b981', fontSize: 13, fontWeight: 600 }}>
-              <Check size={16} /> Installed
-            </div>
-          ) : installPrompt ? (
-            <button
-              type="button"
-              id="pref-install-app-btn"
-              className="btn-primary"
-              style={{ fontSize: 13, padding: '7px 14px' }}
-              onClick={handleInstallApp}
-            >
-              <Download size={14} /> Install App
-            </button>
-          ) : isIos ? (
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', background: 'var(--surface-sunken)', padding: '6px 10px', borderRadius: 8, maxWidth: 220 }}>
-              Tap <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Share</span> in Safari → <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Add to Home Screen</span>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="btn-secondary"
-              style={{ fontSize: 13, padding: '7px 14px' }}
-              onClick={() => alert('To install Keepnet, tap your browser menu (⋮ or Share) and choose "Install App" or "Add to Home Screen".')}
-            >
-              <Smartphone size={14} /> Install Guide
-            </button>
-          )}
-        </div>
-      </div>
-
+      {/* Biggest Fish Showcase */}
       {best && (
         <Link to={`/catches/${best.id}`} className="card card-link best-card">
           {best.image && <img src={best.image} alt={best.species} />}
@@ -2255,20 +2235,32 @@ const Profile = () => {
         </Link>
       )}
 
+      {/* Personal Bests Section */}
       <div className="section-header"><h2 className="serif section-title">Personal bests</h2></div>
       <div className="card">{pbs.length ? pbs.map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">No catches yet.</p>}</div>
 
-      <button
-        className="btn-secondary"
-        id="clear-journal-btn"
-        style={{ borderColor: 'rgba(217, 83, 79, 0.4)', color: 'var(--text-secondary)' }}
-        onClick={() => confirm('Clear all journal data and start fresh?') && actions.clearAll()}
-      >
-        <Trash2 size={15} style={{ verticalAlign: -2, marginRight: 6 }} /> Clear all journal data
-      </button>
+      {/* App & Account Navigation Links */}
+      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Link
+          to="/settings"
+          id="profile-to-settings-btn"
+          className="btn-secondary"
+          style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 46 }}
+        >
+          <SettingsIcon size={16} /> App & Account Settings
+        </Link>
 
-      {adminOpen && isAdmin && <AdminPanel onClose={() => setAdminOpen(false)} />}
-      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
+        {isAdmin && (
+          <Link
+            to="/admin"
+            id="profile-to-admin-btn"
+            className="btn-secondary"
+            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 46, borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' }}
+          >
+            <ShieldCheck size={16} /> Open Keepnet Admin Console
+          </Link>
+        )}
+      </div>
     </div>
   );
 };
@@ -2292,6 +2284,7 @@ const Shell = () => {
   const nav = useNavigate();
   const location = useLocation();
   const [sheet, setSheet] = useState<{ venue?: Venue } | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   // Dynamic document title per review recommendation
   useEffect(() => {
@@ -2299,7 +2292,10 @@ const Shell = () => {
       '/': 'Keepnet — Time by the Water',
       '/sessions': 'Journal & Sessions · Keepnet',
       '/discover': 'Discover Venues · Keepnet',
-      '/profile': 'Profile & Settings · Keepnet',
+      '/profile': 'Angler Profile · Keepnet',
+      '/settings': 'Settings & Preferences · Keepnet',
+      '/achievements': 'Angler Achievements & Badges · Keepnet',
+      '/admin': 'Keepnet Admin Console',
     };
     if (mapTitle[location.pathname]) {
       document.title = mapTitle[location.pathname];
@@ -2343,6 +2339,9 @@ const Shell = () => {
   );
 
   const auth = useAuth();
+  const store = useStore();
+  const syncStatus = useCloudSyncStatus();
+
   useEffect(() => {
     if (auth.user && auth.storageMode === 'cloud') {
       fetchUserCloudData(auth.user).then((data) => {
@@ -2368,7 +2367,12 @@ const Shell = () => {
       <header className="top-bar">
         <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={44} /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile"><User size={20} /></Link>
+          <Link to="/settings" className="icon-btn" id="header-settings-btn" aria-label="Settings" title="Settings & Preferences">
+            <SettingsIcon size={19} />
+          </Link>
+          <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile">
+            <User size={20} />
+          </Link>
         </div>
       </header>
       {installPrompt && !dismissedInstall && !isStandalone && (
@@ -2389,6 +2393,47 @@ const Shell = () => {
           </div>
         </div>
       )}
+      {store.storageError && (
+        <div className="install-banner" style={{ background: 'rgba(239, 68, 68, 0.12)', borderBottomColor: 'rgba(239, 68, 68, 0.3)' }}>
+          <div className="install-banner-content">
+            <div className="install-banner-text">
+              <strong style={{ color: '#ef4444', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertCircle size={15} /> Device Storage Limit
+              </strong>
+              <span>{store.storageError}</span>
+            </div>
+            <button
+              type="button"
+              className="icon-btn"
+              style={{ width: 28, height: 28 }}
+              onClick={() => actions.clearStorageError()}
+              aria-label="Dismiss storage warning"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+      {syncStatus.status === 'error' && syncStatus.lastError && (
+        <div className="install-banner" style={{ background: 'rgba(245, 158, 11, 0.12)', borderBottomColor: 'rgba(245, 158, 11, 0.3)' }}>
+          <div className="install-banner-content">
+            <div className="install-banner-text">
+              <strong style={{ color: '#d97706', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Cloud size={15} /> Cloud Sync Notice
+              </strong>
+              <span>{syncStatus.lastError} {syncStatus.pendingCount > 0 ? `(${syncStatus.pendingCount} offline items queued)` : ''}</span>
+            </div>
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ fontSize: 12, padding: '4px 10px', height: 28 }}
+              onClick={() => flushPendingQueue()}
+            >
+              <RefreshCw size={12} /> Retry
+            </button>
+          </div>
+        </div>
+      )}
       <main>
         <Routes>
           <Route path="/" element={<Home onStart={(venue) => setSheet({ venue })} />} />
@@ -2397,11 +2442,15 @@ const Shell = () => {
           <Route path="/catches/:id" element={<CatchDetail />} />
           <Route path="/discover" element={<Discover onStart={(venue) => setSheet({ venue })} />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings onOpenAuth={() => setAuthOpen(true)} />} />
+          <Route path="/achievements" element={<AchievementsPage />} />
+          <Route path="/admin" element={<AdminPanel onClose={() => nav('/profile')} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <Navigation />
       {sheet && <StartSessionSheet initial={sheet.venue} onClose={() => setSheet(null)} onStart={begin} />}
+      {authOpen && <AuthModal onClose={() => setAuthOpen(false)} />}
     </div>
   );
 };

@@ -9,7 +9,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
     const db = context.env.DB;
     const body = await context.request.json() as any;
-    const { email, password, passwordHash, name, nickname, storageMode } = body;
+    const { email, password, name, nickname, storageMode } = body;
 
     const cleanEmail = sanitizeInput(email, 120).toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -18,11 +18,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const rawPwd = (password || '').trim();
-    if (!rawPwd && !passwordHash) {
+    if (!rawPwd) {
       return errorResponse('Password is required', 400);
     }
 
-    if (rawPwd && (rawPwd.length < 6 || rawPwd.length > 128)) {
+    if (rawPwd.length < 6 || rawPwd.length > 128) {
       return errorResponse('Password must be between 6 and 128 characters', 400);
     }
 
@@ -41,8 +41,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     const cleanNick = rawNick.replace(/[<>]/g, '') || cleanEmail.split('@')[0];
     const mode = storageMode === 'local' ? 'local' : 'cloud';
 
-    // Store modern salted cryptographic hash
-    const secureHash = rawPwd ? await hashPassword(rawPwd) : passwordHash;
+    // Store modern salted cryptographic PBKDF2 hash
+    const secureHash = await hashPassword(rawPwd);
     const token = generateToken();
 
     if (existing) {

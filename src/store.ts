@@ -61,6 +61,8 @@ export type Catch = {
   isShared?: boolean;
   userId?: string;
   userName?: string;
+  /** Number of likes/reactions received */
+  likesCount?: number;
 };
 
 export type UnitSystem = 'imperial' | 'metric';
@@ -70,6 +72,14 @@ type State = {
   catches: Catch[];
   name: string;
   unitSystem?: UnitSystem;
+  storageError?: string | null;
+  equippedAchievementId?: string | null;
+  /** List of catch IDs the current user has liked */
+  likedCatchIds?: string[];
+  /** Map of catch ID to live like count */
+  catchLikes?: Record<string, number>;
+  /** Total number of likes given by this angler */
+  likesGivenCount?: number;
 };
 
 import { MAP_FISHERIES } from './fisheries';
@@ -87,6 +97,10 @@ const seed = (): State => ({
   sessions: [],
   catches: [],
   unitSystem: 'imperial',
+  equippedAchievementId: null,
+  likedCatchIds: [],
+  catchLikes: {},
+  likesGivenCount: 0,
 });
 
 const load = (): State => {
@@ -102,14 +116,28 @@ const listeners = new Set<() => void>();
 
 const commit = (next: State) => {
   state = next;
-  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* quota */ }
+  try {
+    localStorage.setItem(KEY, JSON.stringify(state));
+    if (state.storageError) {
+      state = { ...state, storageError: null };
+    }
+  } catch (err: any) {
+    const isQuota = err?.name === 'QuotaExceededError' || err?.code === 22 || err?.code === 1014;
+    state = {
+      ...state,
+      storageError: isQuota
+        ? 'Device storage limit reached. New catches remain in memory. Please sync to Keepnet cloud or clear old images.'
+        : 'Failed to write journal data to device storage.',
+    };
+    console.warn('[Keepnet Storage] LocalStorage write error:', err);
+  }
   listeners.forEach((l) => l());
 };
 
 export const useStore = () =>
   useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb); }, () => state);
 
-import { pushSessionToCloud, pushCatchToCloud } from './cloud';
+import { pushSessionToCloud, pushCatchToCloud, syncCatchLikeToCloud } from './cloud';
 import { authActions } from './auth';
 
 export const actions = {
@@ -245,25 +273,72 @@ export const actions = {
     }
     return nextShared;
   },
-  mergeRemoteData(remoteSessions: Session[], remoteCatches: Catch[]) {
-    const sMap = new Map(state.sessions.map((s) => [s.id, s]));
-    remoteSessions.forEach((s) => sMap.set(s.id, s));
-
-    const cMap = new Map(state.catches.map((c) => [c.id, c]));
-    remoteCatches.forEach((c) => cMap.set(c.id, c));
-
-    commit({
-      ...state,
-      sessions: Array.from(sMap.values()).sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
-      catches: Array.from(cMap.values()).sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime()),
-    });
-  },
+  /**
+   * Non-destructive smart merge of remote cloud records with local entries.
+   * Ensures unsynced bankside catches and offline session photos are never overwritten.
+   */
   replaceWithRemoteData(remoteSessions: Session[], remoteCatches: Catch[]) {
+    // 1. Preserve local sessions that do not exist remotely yet
+    const remoteSessionIds = new Set(remoteSessions.map((s) => s.id));
+    const localOnlySessions = state.sessions.filter((s) => !remoteSessionIds.has(s.id));
+
+    // 2. For matching sessions, preserve local photos or notes that remote lacks
+    const localSessionMap = new Map(state.sessions.map((s) => [s.id, s]));
+    const mergedRemoteSessions = remoteSessions.map((remote) => {
+      const local = localSessionMap.get(remote.id);
+      if (!local) return remote;
+      // Preserve any local photos added offline
+      const combinedPhotos = Array.from(new Set([...(local.photos || []), ...(remote.photos || [])]));
+      return {
+        ...remote,
+        photo: remote.photo || local.photo,
+        photos: combinedPhotos.length > 0 ? combinedPhotos : undefined,
+        notes: remote.notes || local.notes,
+      };
+    });
+
+    const finalSessions = [...mergedRemoteSessions, ...localOnlySessions]
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+
+    // 3. Preserve local catches that do not exist remotely yet
+    const remoteCatchIds = new Set(remoteCatches.map((c) => c.id));
+    const localOnlyCatches = state.catches.filter((c) => !remoteCatchIds.has(c.id));
+
+    // 4. For matching catches, preserve local image or notes if remote is blank
+    const localCatchMap = new Map(state.catches.map((c) => [c.id, c]));
+    const mergedRemoteCatches = remoteCatches.map((remote) => {
+      const local = localCatchMap.get(remote.id);
+      if (!local) return remote;
+      return {
+        ...remote,
+        image: remote.image || local.image,
+        notes: remote.notes || local.notes,
+      };
+    });
+
+    const finalCatches = [...mergedRemoteCatches, ...localOnlyCatches]
+      .sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime());
+
     commit({
       ...state,
-      sessions: [...remoteSessions].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()),
-      catches: [...remoteCatches].sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime()),
+      sessions: finalSessions,
+      catches: finalCatches,
     });
+
+    // Automatically push any unsynced local catches and sessions to D1
+    const user = authActions.getCurrentUser();
+    if (user && user.storageMode === 'cloud') {
+      localOnlySessions.forEach((s) => pushSessionToCloud(s, user));
+      localOnlyCatches.forEach((c) => pushCatchToCloud(c, user));
+    }
+  },
+  mergeRemoteData(remoteSessions: Session[], remoteCatches: Catch[]) {
+    this.replaceWithRemoteData(remoteSessions, remoteCatches);
+  },
+  clearStorageError() {
+    if (state.storageError) {
+      commit({ ...state, storageError: null });
+    }
   },
   setName(name: string) {
     commit({ ...state, name });
@@ -271,6 +346,67 @@ export const actions = {
   },
   setUnitSystem(unitSystem: UnitSystem) {
     commit({ ...state, unitSystem });
+  },
+  setEquippedAchievement(id: string | null) {
+    commit({ ...state, equippedAchievementId: id });
+  },
+  toggleCatchLike(catchId: string): boolean {
+    const currentLiked = state.likedCatchIds || [];
+    const isLiked = currentLiked.includes(catchId);
+    const nextLiked = isLiked
+      ? currentLiked.filter((id) => id !== catchId)
+      : [...currentLiked, catchId];
+
+    const currentLikes = { ...(state.catchLikes || {}) };
+    const currentCount = currentLikes[catchId] ?? 0;
+    const nextCount = isLiked ? Math.max(0, currentCount - 1) : currentCount + 1;
+    currentLikes[catchId] = nextCount;
+
+    const nextCatches = state.catches.map((c) =>
+      c.id === catchId ? { ...c, likesCount: nextCount } : c
+    );
+
+    const nextLikesGiven = isLiked
+      ? Math.max(0, (state.likesGivenCount || 0) - 1)
+      : (state.likesGivenCount || 0) + 1;
+
+    commit({
+      ...state,
+      likedCatchIds: nextLiked,
+      catchLikes: currentLikes,
+      catches: nextCatches,
+      likesGivenCount: nextLikesGiven,
+    });
+
+    syncCatchLikeToCloud(catchId, !isLiked).catch(() => {});
+    return !isLiked;
+  },
+  isCatchLiked(catchId: string): boolean {
+    return (state.likedCatchIds || []).includes(catchId);
+  },
+  getCatchLikesCount(catchId: string, fallbackCount?: number): number {
+    if (state.catchLikes && typeof state.catchLikes[catchId] === 'number') {
+      return state.catchLikes[catchId];
+    }
+    const c = state.catches.find((x) => x.id === catchId);
+    if (c && typeof c.likesCount === 'number') {
+      return c.likesCount;
+    }
+    return fallbackCount || 0;
+  },
+  setCatchLikes(catchId: string, count: number) {
+    const currentLikes = { ...(state.catchLikes || {}) };
+    currentLikes[catchId] = count;
+    commit({ ...state, catchLikes: currentLikes });
+  },
+  setAllCatchLikes(likes: Record<string, number>) {
+    commit({
+      ...state,
+      catchLikes: { ...(state.catchLikes || {}), ...likes },
+    });
+  },
+  getTotalLikesReceived(): number {
+    return state.catches.reduce((acc, c) => acc + (this.getCatchLikesCount(c.id, c.likesCount) || 0), 0);
   },
   clearAll() {
     try {

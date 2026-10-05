@@ -1,4 +1,4 @@
-import { Env, errorResponse } from '../_types';
+import { Env } from '../_types';
 
 /**
  * Verify that the requesting user is the authenticated owner / administrator.

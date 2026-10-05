@@ -1,0 +1,58 @@
+KEEPNET MONETISATION PLAN
+4 October 2026 | Review only | No implementation authorised
+
+1. OWNER DIRECTION
+Keepnet should have free Lite and low-cost Premium. Discover belongs in Premium. The owner rejected £1.99/month and responded positively to 99p/month or £9.99/year. These lower prices are the preferred review direction; final allowances, economics and launch still need approval. Everything below is a proposal except the owner's Premium Discover direction. Inspect current repository rather than assuming earlier architecture remains.
+
+2. RECOMMENDED TIERS
+Lite: catch/session journal, notes, species, weights, manual venue/swim names, basic totals and personal bests, modest photo allowance, private personal records, basic export, access to existing history and dependable core saving once verified.
+Premium: Discover directory, fishery search/filtering, Discover map and fishery detail pages; potentially larger photo allowance, deeper comparisons by swim/bait/season and polished reports later.
+Free users can see a static benefits preview, not the live Discover directory/map. Manual journal venue text remains available. Preserve previously recorded venue names after downgrade. Do not gate reading existing journal records behind payment.
+For costing only assess 50MB optimised photos Lite and 500MB Premium. These are unapproved trial assumptions, not promised allowances. Show byte usage. Avoid unlimited cloud storage/lifetime storage deals. Basic data export stays free; polished reports may be paid.
+Don't sell planned features before they work.
+
+3. PRICE AND BENCHMARKS
+Preferred review prices: £0.99 monthly or £9.99 annually. Annual equivalent £0.8325/month; 15.9% saving against twelve monthly payments. Recommend annual while clearly showing “£9.99 billed annually” and renewal/cancellation terms.
+UK iOS listing benchmarks checked 4 October 2026:
+Anglers' Log £1.49/month or £10.49/year: https://apps.apple.com/gb/app/anglers-log-fishing-journal/id959989008
+FishAngler VIP £6.99/month or £49.99/year: https://apps.apple.com/gb/app/fishangler-fish-finder-app/id1073941118
+Fishbrain multiple monthly options £12.99–£14.99; annual £79.99: https://apps.apple.com/gb/app/fishbrain-fishing-app/id477967747
+Public listings are not checked-out offers. Platform/promotions/individual offers vary. Competitor prices do not establish Keepnet willingness to pay.
+
+4. COST CHECK
+100 monthly subscribers at 99p generate £99 gross/month. 100 annual subscribers generate £999 gross/year (£83.25/month spread over service year). Not profit/forecast.
+Stripe UK standard-card processing published 1.5% + 20p, plus Billing pay-as-you-go 0.7% of Billing volume. Illustrative combined fees ~£0.22 per 99p charge and ~£0.42 per £9.99 charge (rounding/product/card caveats). Fixed fees consume ~22% monthly vs ~4% annual. Source https://stripe.com/gb/pricing
+Before confirming viability include applicable tax, free users, retained cancelled-user photos, hosting/auth/database, photo storage and delivery, map/API requests, backups, email, support, refunds/disputes and any native-store fees. No surprise overage charges. Annual upfront cash still funds a year of service. Set usage alerts, finite allowances; avoid premature paid map layers/AI-heavy features at 99p.
+
+5. STAGED DELIVERY
+A. Review actual framework/hosting/auth/database/photo storage/export/map supplier. Identify existing vs incomplete features. Check fishery data licences, accuracy and freshness. Current seed dataset has 64 venues, 35 preview coordinates and 29 unknowns; approximate pins flagged. It is not a launch-ready exhaustive directory or entrance/navigation guide.
+B. Prove core saving/ownership/recovery, interrupted-upload handling, export/restore and any local-to-cloud migration. Prior code review found silent localStorage quota failures; verify whether current build fixes them. Never assume success from old findings.
+C. Design billing only after scope/cost decisions: hosted checkout and self-service billing portal for web/PWA. Review applicable store billing rules if native distribution planned. Have tax/consumer requirements checked appropriately.
+D. After separate implementation approval, sandbox tests then limited paid pilot. Feature flag can stop new checkout without harming existing paid access or journal data.
+Gates: no unresolved critical data-loss or cross-account defects; accurate useful Discover coverage in target area; owner approves prices, limits, provider, terms, retention and entitlements before build/launch.
+
+6. SECURE BILLING/ENTITLEMENTS
+Use server-owned entitlement per authenticated user: plan, provider customer/subscription IDs, status, paid-through date, cancel-at-period-end and last reconciliation. Client may read but cannot grant Premium.
+Enforce Discover access on backend/API/data retrieval, not just hide tab. Check bundled public datasets, autocomplete, deep links and cached results for bypasses. Photo quotas server-enforced; journal ownership independent of billing.
+Server creates checkout from approved price allowlist and authenticated account; don't trust client price/account IDs. Protect portal sessions against cross-account access; secrets never frontend.
+Payment success redirect is not proof. Verify provider webhook signature on original body, persist event identifiers, handle duplicate/out-of-order events idempotently, reconcile authoritative subscription state and alert failures. Relevant Stripe events invoice.paid, invoice.payment_failed, customer.subscription.updated/deleted. Match invoice/customer/subscription and check state before entitlement extension. Define refund/dispute handling separately from subscription cancellation.
+References: https://docs.stripe.com/billing/subscriptions/webhooks and https://docs.stripe.com/webhooks
+Active paid: Premium through verified period. Scheduled cancellation: continue to period end. Incomplete initial payment: no Premium. Renewal failure: bounded grace only if approved. Expired/unpaid: Lite, no live Discover. Test refresh, direct links, multiple devices and stale cached entitlements. Already downloaded data cannot be assumed revocable.
+
+7. PHOTOS/PRIVACY/DOWNGRADE
+Private object storage with ownership checks and short-lived URLs. Validate file type/size; orient/compress photos and make thumbnails. Enforce byte quota atomically; concurrent uploads must not bypass. Handle abandoned uploads carefully.
+Exact catches/swims private by default; remove unnecessary GPS metadata from shared variants. No precise locations/photos/journal text in payment metadata or ordinary analytics. Don't sell precise locations.
+Downgrade removes live Discover but preserves journal/history/venue names. Existing photos remain accessible initially; block new photo uploads over Lite limit, allow reading/deleting/basic export. Practical export includes records and photos.
+Approve sustainable cancelled/inactive retention before launch. Don't promise unlimited permanent storage or silently delete data; clear notice and export opportunity for future removal policy.
+
+8. PILOT AND ACCEPTANCE TESTS
+Measure first successful entry, repeat sessions, save/upload failures, Discover interest and use, checkout completion, paid conversion, renewal/churn/refunds/support and cost per account, without exact location analytics.
+Directional pilot: 30 target UK coarse anglers recording two sessions and several independent paying customers after billing approval; record reasons to buy/decline. These are proposed validation goals, not guaranteed demand.
+Required tests: Lite cannot call Premium endpoints; own journal always accessible; no cross-account reads; duplicate/out-of-order billing safe; upgrade/renew/cancel/failed pay/refund correct; downgrade preserves data; quota errors visible; interrupted uploads recover; restore/export demonstrated.
+If users like diary but won't pay for Discover, improve directory value/coverage before adding complexity.
+
+9. ANTIGRAVITY REVIEW REQUEST
+REVIEW ONLY. Do not implement anything. Read this plan against current project.
+Return: concise verdict; confirmed architecture/files; existing vs needed features; feasibility of secure Premium Discover; risks in saving/security/licensing/cost/billing; assessment of 99p/month and £9.99/year; staged plan and acceptance tests; decisions owner must approve.
+Do not modify source, config, dependencies, database schema or external services. Do not install, migrate, create payment products/credentials, take payments, commit, push or deploy. Provide review in response and await explicit implementation approval.
+END DOCUMENT

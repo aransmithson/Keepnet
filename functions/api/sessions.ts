@@ -1,5 +1,6 @@
 import { Env, jsonResponse, errorResponse, corsHeaders } from './_types';
 import { sanitizeInput } from './_crypto';
+import { requireAuth, getAuthenticatedUser, verifyOwnership } from './_auth';
 
 export const onRequestOptions: PagesFunction<Env> = async () => {
   return new Response(null, { headers: corsHeaders });
@@ -15,6 +16,15 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const params: unknown[] = [];
 
     if (userId) {
+      // Security: Accessing personal private sessions requires authenticated ownership
+      const user = await getAuthenticatedUser(context);
+      if (!user) {
+        return errorResponse('Authentication required to access personal session records', 401);
+      }
+      if (!verifyOwnership(user, userId)) {
+        return errorResponse('Forbidden: You can only access your own session records', 403);
+      }
+
       query += ' WHERE user_id = ? ORDER BY started_at DESC';
       params.push(userId);
     } else {
@@ -50,6 +60,12 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
+    const auth = await requireAuth(context);
+    if (!auth.success) {
+      return auth.response;
+    }
+    const currentUser = auth.user;
+
     const db = context.env.DB;
     const body = await context.request.json() as any;
     const rawSessions = Array.isArray(body) ? body : [body];
@@ -77,6 +93,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         photos_json = excluded.photos_json,
         is_shared = excluded.is_shared,
         updated_at = CURRENT_TIMESTAMP
+      WHERE sessions.user_id = ? OR sessions.user_id IS NULL
     `);
 
     const batch = sessions.map((s: any) => {
@@ -84,8 +101,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       const lon = Number(s.lon);
       return stmt.bind(
         sanitizeInput(s.id, 64) || Math.random().toString(36).slice(2, 10),
-        sanitizeInput(s.userId, 64) || null,
-        sanitizeInput(s.userName, 60) || 'Angler',
+        currentUser.id,
+        currentUser.nickname || currentUser.name || sanitizeInput(s.userName, 60) || 'Angler',
         sanitizeInput(s.venueId, 64) || 'current',
         sanitizeInput(s.venueName, 100) || 'Fishing Swim',
         Number.isFinite(lat) ? lat : 0,
@@ -97,7 +114,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         s.notes ? sanitizeInput(s.notes, 5000) : null,
         s.photo && typeof s.photo === 'string' && s.photo.startsWith('data:image/') ? s.photo : null,
         Array.isArray(s.photos) ? JSON.stringify(s.photos.slice(0, 10)).slice(0, 200000) : null,
-        s.isShared ? 1 : 0
+        s.isShared ? 1 : 0,
+        currentUser.id
       );
     });
 

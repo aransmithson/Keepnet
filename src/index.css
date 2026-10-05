@@ -1712,6 +1712,14 @@ a.catch-item:hover { background: var(--bg-color); }
   margin-top: 24px;
   margin-bottom: 14px;
   gap: 8px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.directory-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .dir-tab-btn {
@@ -1800,14 +1808,11 @@ a.catch-item:hover { background: var(--bg-color); }
 }
 
 .admin-container {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
+  min-height: 100vh;
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  padding-bottom: 80px;
 }
 
 .admin-overlay {
@@ -2110,7 +2115,813 @@ a.catch-item:hover { background: var(--bg-color); }
   border-color: var(--accent-green);
   box-shadow: 0 0 0 3px rgba(1, 71, 49, 0.12);
 }
+/* ==========================================================================
+   Gamified Achievements & Avatar Flair System
+   ========================================================================== */
 
+/* Avatar Container with Tier Halo */
+.avatar-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 
+.avatar-placeholder {
+  width: 74px;
+  height: 74px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-sunken);
+  border: 2.5px solid var(--border-color);
+  color: var(--accent-green);
+  font-size: 32px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.25s ease;
+}
+
+.avatar-container.tier-bronze .avatar-placeholder {
+  border-color: #cd7f32;
+  box-shadow: 0 0 16px rgba(205, 127, 50, 0.35);
+  background: radial-gradient(circle, rgba(205, 127, 50, 0.15) 0%, var(--surface-sunken) 80%);
+}
+
+.avatar-container.tier-silver .avatar-placeholder {
+  border-color: #94a3b8;
+  box-shadow: 0 0 16px rgba(148, 163, 184, 0.35);
+  background: radial-gradient(circle, rgba(148, 163, 184, 0.15) 0%, var(--surface-sunken) 80%);
+}
+
+.avatar-container.tier-gold .avatar-placeholder {
+  border-color: #f59e0b;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+  background: radial-gradient(circle, rgba(245, 158, 11, 0.2) 0%, var(--surface-sunken) 80%);
+}
+
+.avatar-container.tier-specimen .avatar-placeholder {
+  border-color: #a855f7;
+  box-shadow: 0 0 24px rgba(168, 85, 247, 0.45);
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.22) 0%, var(--surface-sunken) 80%);
+  animation: specimenHaloPulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes specimenHaloPulse {
+  0% { box-shadow: 0 0 16px rgba(168, 85, 247, 0.35); }
+  100% { box-shadow: 0 0 28px rgba(168, 85, 247, 0.65), 0 0 40px rgba(192, 132, 252, 0.3); }
+}
+
+.avatar-flair-icon {
+  font-size: 36px;
+  line-height: 1;
+  display: inline-block;
+  transform: translateY(-1px);
+}
+
+.avatar-flair-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  background: var(--card-bg);
+  border: 2px solid;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  z-index: 2;
+  transition: transform 0.2s ease;
+}
+
+.avatar-container:hover .avatar-flair-badge {
+  transform: scale(1.12);
+}
+
+.tier-badge-bronze { border-color: #cd7f32; background: #261b11; }
+.tier-badge-silver { border-color: #94a3b8; background: #1a222c; }
+.tier-badge-gold { border-color: #f59e0b; background: #261d09; }
+.tier-badge-specimen { border-color: #a855f7; background: #251238; }
+
+/* Flair Title Pill on Profile */
+.flair-title-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid;
+  margin-bottom: 4px;
+  text-decoration: none;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.flair-title-pill:hover {
+  transform: translateY(-1px);
+  opacity: 0.95;
+}
+
+.flair-title-pill.tier-bronze {
+  background: rgba(205, 127, 50, 0.14);
+  color: #e69a58;
+  border-color: rgba(205, 127, 50, 0.4);
+}
+
+.flair-title-pill.tier-silver {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.flair-title-pill.tier-gold {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.flair-title-pill.tier-specimen {
+  background: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+}
+
+/* Profile Achievements Showcase Card */
+.profile-achievements-card {
+  padding: 16px 18px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-achievements-badges-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
+.profile-badge-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-sunken);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.profile-badge-chip.tier-specimen {
+  border-color: rgba(168, 85, 247, 0.4);
+  background: rgba(168, 85, 247, 0.1);
+  color: #c084fc;
+}
+
+.profile-badge-chip.tier-gold {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+}
+
+.profile-badge-chip.tier-silver {
+  border-color: rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.1);
+  color: #cbd5e1;
+}
+
+.profile-badge-chip.tier-bronze {
+  border-color: rgba(205, 127, 50, 0.4);
+  background: rgba(205, 127, 50, 0.1);
+  color: #e69a58;
+}
+
+/* Achievements Page Layout */
+.achievements-page {
+  padding-bottom: 90px;
+}
+
+.equipped-flair-card {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  margin-bottom: 14px;
+}
+
+.achievements-overview-card {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  margin-bottom: 14px;
+}
+
+.achievement-progress-track {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-sunken);
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.achievement-progress-track.small {
+  height: 5px;
+  margin: 6px 0 0;
+}
+
+.achievement-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--accent-green) 0%, #10b981 70%, #34d399 100%);
+  transition: width 0.4s ease;
+}
+
+.achievement-progress-fill.small {
+  border-radius: 3px;
+}
+
+.badge-tier-breakdown {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.tier-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.tier-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.tier-count.specimen .tier-dot { background: #c084fc; box-shadow: 0 0 6px #a855f7; }
+.tier-count.gold .tier-dot { background: #fbbf24; box-shadow: 0 0 6px #f59e0b; }
+.tier-count.silver .tier-dot { background: #cbd5e1; box-shadow: 0 0 6px #94a3b8; }
+.tier-count.bronze .tier-dot { background: #e69a58; box-shadow: 0 0 6px #cd7f32; }
+
+/* Filter Controls */
+.achievement-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 32px 10px 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.search-input:focus {
+  border-color: var(--accent-green);
+}
+
+.search-clear {
+  position: absolute;
+  right: 6px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.filter-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  height: 38px;
+  transition: all 0.15s ease;
+}
+
+.filter-toggle-btn.active {
+  border-color: var(--accent-green);
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+}
+
+/* Category Horizontal Scroll Pills */
+.category-scroll-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.category-pill:hover {
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+}
+
+.category-pill.active {
+  background: var(--accent-green);
+  color: #fff;
+  border-color: var(--accent-green);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(1, 71, 49, 0.25);
+}
+
+/* Achievements Grid */
+.achievements-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 640px) {
+  .achievements-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.achievement-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.achievement-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.achievement-card.locked {
+  opacity: 0.72;
+}
+
+.achievement-card.locked:hover {
+  opacity: 0.9;
+}
+
+.achievement-card.unlocked {
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.achievement-card.equipped {
+  border-width: 2px;
+}
+
+.achievement-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.achievement-icon-wrapper {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.achievement-emoji {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.lock-badge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.achievement-tier-pill {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid;
+  display: inline-block;
+}
+
+.mini-badge-unlocked {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.achievement-card-title {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.achievement-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0 0 10px;
+  flex: 1;
+}
+
+.achievement-target-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-green);
+  background: rgba(1, 71, 49, 0.08);
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  align-self: flex-start;
+}
+
+.achievement-meter {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.achievement-meter-labels {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.achievement-card-footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.btn-equip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-equip:hover {
+  background: var(--accent-green);
+  color: #fff;
+  border-color: var(--accent-green);
+}
+
+.btn-equipped {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.locked-helper-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Settings Page Layout */
+.settings-page {
+  padding-bottom: 90px;
+}
+
+/* ==========================================================================
+   Social Tools, Catch Likes & Feed
+   ========================================================================== */
+
+/* Catch Detail Social Bar */
+.catch-social-bar {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+
+.catch-detail-like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.catch-detail-like-btn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+.catch-detail-like-btn.liked {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
+}
+
+.catch-like-counter {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.catch-like-counter strong {
+  color: var(--text-primary);
+}
+
+/* Micro-animations */
+@keyframes heartPop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.35) rotate(-6deg); }
+  65% { transform: scale(0.9) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.heart-bounce svg {
+  animation: heartPop 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* Profile Social Stats Bar */
+.profile-social-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-top: 10px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+}
+
+.profile-social-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.profile-social-stat strong {
+  color: var(--text-primary);
+}
+
+.profile-social-divider {
+  color: var(--border-color);
+  user-select: none;
+}
+
+/* Shared Session Catch List Row with Like */
+.shared-catch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding-right: 10px;
+  transition: border-color 0.15s ease;
+  margin-bottom: 8px;
+}
+
+.shared-catch-row:hover {
+  border-color: var(--accent-green);
+}
+
+.shared-catch-row .shared-catch-card {
+  background: transparent;
+  border: none;
+  padding: 10px;
+  flex: 1;
+}
+
+/* Catch Feed Like Buttons */
+.catch-feed-like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 5px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.catch-feed-like-btn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+
+.catch-feed-like-btn.liked {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444;
+}
+
+.catch-feed-like-btn.large {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 20px;
+}
+
+/* Catch Reports Feed */
+.catch-reports-feed {
+  margin-top: 4px;
+}
+
+.catch-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.catch-report-card {
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.catch-report-card:hover {
+  border-color: rgba(1, 71, 49, 0.35);
+}
+
+.catch-report-photo-wrap {
+  width: 100%;
+  height: 220px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-sunken);
+}
+
+.catch-report-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.catch-report-card:hover .catch-report-photo {
+  transform: scale(1.02);
+}
+
+.catch-report-photo-placeholder {
+  width: 100%;
+  height: 140px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.catch-weight-badge {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-green);
+  background: var(--accent-light);
+  padding: 3px 10px;
+  border-radius: 8px;
+}
 
 

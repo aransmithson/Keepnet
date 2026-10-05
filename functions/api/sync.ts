@@ -1,5 +1,6 @@
 import { Env, jsonResponse, errorResponse, corsHeaders } from './_types';
 import { sanitizeInput } from './_crypto';
+import { requireAuth, verifyOwnership } from './_auth';
 
 export const onRequestOptions: PagesFunction<Env> = async () => {
   return new Response(null, { headers: corsHeaders });
@@ -7,13 +8,23 @@ export const onRequestOptions: PagesFunction<Env> = async () => {
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
   try {
+    const auth = await requireAuth(context);
+    if (!auth.success) {
+      return auth.response;
+    }
+    const currentUser = auth.user;
+
     const db = context.env.DB;
     const body = await context.request.json() as any;
     const { user, sessions = [], catches = [] } = body;
 
-    const rawUserId = user?.id || null;
-    const userId = sanitizeInput(rawUserId, 64);
-    const userName = sanitizeInput(user?.name || user?.nickname || 'Angler', 50);
+    const requestedUserId = sanitizeInput(user?.id, 64);
+    if (requestedUserId && !verifyOwnership(currentUser, requestedUserId)) {
+      return errorResponse('Forbidden: Cannot synchronize cloud data for another angler account', 403);
+    }
+
+    const userId = currentUser.id;
+    const userName = currentUser.nickname || currentUser.name || 'Angler';
 
     const safeSessions = Array.isArray(sessions) ? sessions.slice(0, 50) : [];
     const safeCatches = Array.isArray(catches) ? catches.slice(0, 100) : [];
@@ -42,6 +53,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           photos_json = excluded.photos_json,
           is_shared = excluded.is_shared,
           updated_at = CURRENT_TIMESTAMP
+        WHERE sessions.user_id = ? OR sessions.user_id IS NULL
       `);
 
       const batch = safeSessions.map((s: any) => {
@@ -49,8 +61,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         const lon = Number(s.lon);
         return sessionStmt.bind(
           sanitizeInput(s.id, 64) || Math.random().toString(36).slice(2, 10),
-          userId || sanitizeInput(s.userId, 64) || null,
-          sanitizeInput(s.userName, 50) || userName,
+          userId,
+          userName,
           sanitizeInput(s.venueId, 64) || 'current',
           sanitizeInput(s.venueName, 100) || 'Fishing Swim',
           Number.isFinite(lat) ? lat : 0,
@@ -62,7 +74,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           s.notes ? sanitizeInput(s.notes, 5000) : null,
           s.photo && typeof s.photo === 'string' && s.photo.startsWith('data:image/') ? s.photo : null,
           Array.isArray(s.photos) ? JSON.stringify(s.photos.slice(0, 10)).slice(0, 200000) : null,
-          s.isShared ? 1 : 0
+          s.isShared ? 1 : 0,
+          userId
         );
       });
       await db.batch(batch);
@@ -85,6 +98,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           image = excluded.image,
           notes = excluded.notes,
           is_shared = excluded.is_shared
+        WHERE catches.user_id = ? OR catches.user_id IS NULL
       `);
 
       const batch = safeCatches.map((c: any) => {
@@ -93,8 +107,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return catchStmt.bind(
           sanitizeInput(c.id, 64) || Math.random().toString(36).slice(2, 10),
           sanitizeInput(c.sessionId, 64) || 'session_default',
-          userId || sanitizeInput(c.userId, 64) || null,
-          sanitizeInput(c.userName, 50) || userName,
+          userId,
+          userName,
           sanitizeInput(c.species, 80) || 'Fish',
           Number.isFinite(lb) && lb >= 0 ? Math.min(lb, 1000) : 0,
           Number.isFinite(oz) && oz >= 0 ? Math.min(oz, 15) : 0,
@@ -102,52 +116,48 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
           sanitizeInput(c.caughtAt, 40) || new Date().toISOString(),
           c.image && typeof c.image === 'string' && c.image.startsWith('data:image/') ? c.image : null,
           c.notes ? sanitizeInput(c.notes, 2000) : null,
-          c.isShared ? 1 : 0
+          c.isShared ? 1 : 0,
+          userId
         );
       });
       await db.batch(batch);
     }
 
-    // If userId provided, fetch all their cloud sessions and catches to return to client
-    let remoteSessions: any[] = [];
-    let remoteCatches: any[] = [];
+    // Fetch all cloud sessions and catches strictly for the authenticated user
+    const sRes = await db.prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY started_at DESC').bind(userId).all();
+    const remoteSessions = (sRes.results || []).map((row: any) => ({
+      id: row.id,
+      userId: row.user_id,
+      userName: row.user_name,
+      venueId: row.venue_id,
+      venueName: row.venue_name,
+      lat: Number(row.lat) || 0,
+      lon: Number(row.lon) || 0,
+      startedAt: row.started_at,
+      endedAt: row.ended_at || undefined,
+      weather: row.weather_json ? JSON.parse(row.weather_json) : undefined,
+      weatherError: row.weather_error || undefined,
+      notes: row.notes || undefined,
+      photo: row.photo || undefined,
+      photos: row.photos_json ? JSON.parse(row.photos_json) : [],
+      isShared: row.is_shared === 1,
+    }));
 
-    if (userId) {
-      const sRes = await db.prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY started_at DESC').bind(userId).all();
-      remoteSessions = (sRes.results || []).map((row: any) => ({
-        id: row.id,
-        userId: row.user_id,
-        userName: row.user_name,
-        venueId: row.venue_id,
-        venueName: row.venue_name,
-        lat: Number(row.lat) || 0,
-        lon: Number(row.lon) || 0,
-        startedAt: row.started_at,
-        endedAt: row.ended_at || undefined,
-        weather: row.weather_json ? JSON.parse(row.weather_json) : undefined,
-        weatherError: row.weather_error || undefined,
-        notes: row.notes || undefined,
-        photo: row.photo || undefined,
-        photos: row.photos_json ? JSON.parse(row.photos_json) : [],
-        isShared: row.is_shared === 1,
-      }));
-
-      const cRes = await db.prepare('SELECT * FROM catches WHERE user_id = ? ORDER BY caught_at DESC').bind(userId).all();
-      remoteCatches = (cRes.results || []).map((row: any) => ({
-        id: row.id,
-        sessionId: row.session_id,
-        userId: row.user_id,
-        userName: row.user_name,
-        species: row.species,
-        weightLb: Number(row.weight_lb || 0),
-        weightOz: Number(row.weight_oz || 0),
-        bait: row.bait,
-        caughtAt: row.caught_at,
-        image: row.image || undefined,
-        notes: row.notes || undefined,
-        isShared: row.is_shared === 1,
-      }));
-    }
+    const cRes = await db.prepare('SELECT * FROM catches WHERE user_id = ? ORDER BY caught_at DESC').bind(userId).all();
+    const remoteCatches = (cRes.results || []).map((row: any) => ({
+      id: row.id,
+      sessionId: row.session_id,
+      userId: row.user_id,
+      userName: row.user_name,
+      species: row.species,
+      weightLb: Number(row.weight_lb || 0),
+      weightOz: Number(row.weight_oz || 0),
+      bait: row.bait,
+      caughtAt: row.caught_at,
+      image: row.image || undefined,
+      notes: row.notes || undefined,
+      isShared: row.is_shared === 1,
+    }));
 
     return jsonResponse({
       success: true,

@@ -18,36 +18,37 @@ export function isUserAdmin(user?: UserAccount | null): boolean {
   return email === 'aransmithson@gmail.com' || email === 'aransmithson@googlemail.com' || !!user.isAdmin;
 }
 
+export function getAuthToken(): string {
+  try {
+    return sessionStorage.getItem('keepnet:auth_token') || localStorage.getItem('keepnet:auth_token') || '';
+  } catch {
+    return '';
+  }
+}
+
+export function setAuthToken(token: string | null) {
+  try {
+    if (token) {
+      sessionStorage.setItem('keepnet:auth_token', token);
+      localStorage.setItem('keepnet:auth_token', token);
+    } else {
+      sessionStorage.removeItem('keepnet:auth_token');
+      localStorage.removeItem('keepnet:auth_token');
+    }
+  } catch {
+    // ignore private browsing quota
+  }
+}
+
 type StoredUser = {
   id: string;
   email: string;
-  passwordHash: string;
   name: string;
   nickname?: string;
   createdAt: string;
   /** Storage mode chosen at sign up; restored on sign in. Legacy accounts default to 'cloud'. */
   storageMode?: StorageMode;
-  resetCode?: string;
-  resetExpires?: number;
 };
-
-/** Unicode-safe encoding. Plain btoa() throws on characters outside Latin-1 (e.g. emoji, €). */
-function encodePassword(password: string): string {
-  return btoa(unescape(encodeURIComponent(password)));
-}
-
-/** Legacy encoding used by earlier builds; kept so existing accounts can still sign in. */
-function legacyEncodePassword(password: string): string | null {
-  try {
-    return btoa(password);
-  } catch {
-    return null;
-  }
-}
-
-function passwordMatches(stored: string, password: string): boolean {
-  return stored === encodePassword(password) || stored === legacyEncodePassword(password);
-}
 
 type AuthState = {
   user: UserAccount | null;
@@ -56,6 +57,40 @@ type AuthState = {
 
 const USERS_KEY = 'keepnet:registered_users';
 const CURRENT_KEY = 'keepnet:current_user';
+
+// Scrub any legacy reversible passwords stored in localStorage by earlier builds
+(function scrubLegacyPasswords() {
+  try {
+    const raw = localStorage.getItem(USERS_KEY);
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        let modified = false;
+        list.forEach((u: any) => {
+          if (u && typeof u === 'object') {
+            if ('passwordHash' in u) {
+              delete u.passwordHash;
+              modified = true;
+            }
+            if ('resetCode' in u) {
+              delete u.resetCode;
+              modified = true;
+            }
+            if ('resetExpires' in u) {
+              delete u.resetExpires;
+              modified = true;
+            }
+          }
+        });
+        if (modified) {
+          localStorage.setItem(USERS_KEY, JSON.stringify(list));
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+})();
 
 function loadRegisteredUsers(): StoredUser[] {
   try {
@@ -69,7 +104,6 @@ function loadRegisteredUsers(): StoredUser[] {
 function saveRegisteredUsers(users: StoredUser[]): boolean {
   try {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    // Read back to confirm the write actually persisted (some private modes silently drop writes).
     return localStorage.getItem(USERS_KEY) !== null;
   } catch {
     return false;
@@ -91,7 +125,7 @@ function loadInitialState(): AuthState {
   }
   return {
     user: null,
-    storageMode: 'local', // Default to privacy-preserving local storage
+    storageMode: 'local',
   };
 }
 
@@ -106,7 +140,6 @@ function notify() {
   }
   listeners.forEach((cb) => cb());
 }
-
 
 export const authActions = {
   getCurrentUser(): UserAccount | null {
@@ -124,7 +157,6 @@ export const authActions = {
     }
 
     const mode: StorageMode = saveLocallyOnly ? 'local' : 'cloud';
-    const pwdHash = encodePassword(password);
     const cleanNick = (nickname || '').trim() || cleanEmail.split('@')[0];
     let createdUser: UserAccount = {
       id: Math.random().toString(36).slice(2, 10),
@@ -141,14 +173,14 @@ export const authActions = {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, password, passwordHash: pwdHash, name: cleanNick, nickname: cleanNick, storageMode: mode }),
+          body: JSON.stringify({ email: cleanEmail, password, name: cleanNick, nickname: cleanNick, storageMode: mode }),
         });
         const data = await res.json();
         if (!res.ok || !data.success) {
           return { success: false, error: data.error || 'Cloud registration failed. Please try again.' };
         }
         if (data.token) {
-          sessionStorage.setItem('keepnet:auth_token', data.token);
+          setAuthToken(data.token);
         }
         if (data.user) {
           createdUser = {
@@ -158,16 +190,16 @@ export const authActions = {
         }
       } catch (err) {
         console.warn('[Keepnet Auth] D1 registration network fallback', err);
+        return { success: false, error: 'Could not connect to Keepnet authentication service. Please check your network connection.' };
       }
     }
 
-    // Always cache locally so offline works
+    // Cache user profile locally without storing passwords
     const users = loadRegisteredUsers();
     const existingIdx = users.findIndex((u) => u.email === cleanEmail);
     const storedUser: StoredUser = {
       id: createdUser.id,
       email: cleanEmail,
-      passwordHash: pwdHash,
       name: createdUser.name,
       nickname: createdUser.nickname,
       createdAt: createdUser.createdAt,
@@ -195,17 +227,13 @@ export const authActions = {
     return loadRegisteredUsers().length > 0;
   },
 
-  /** Sign in with existing email and password across devices using D1 and local cache. */
+  /** Sign in with existing email and password across devices using Cloudflare D1. */
   async signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
       return { success: false, error: 'Please enter your email.' };
     }
 
-    let remoteUser: UserAccount | null = null;
-    let remoteFailed = false;
-
-    // 1. Try signing in with Cloudflare D1 first so users can sign in on any device
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -214,74 +242,47 @@ export const authActions = {
       });
       const data = await res.json();
       if (res.ok && data.success && data.user) {
-        remoteUser = data.user;
         if (data.token) {
-          sessionStorage.setItem('keepnet:auth_token', data.token);
+          setAuthToken(data.token);
         }
-      } else if (!res.ok && data && data.error) {
+
+        // Cache user profile without password
+        const users = loadRegisteredUsers();
+        const stored: StoredUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          nickname: data.user.nickname,
+          createdAt: data.user.createdAt,
+          storageMode: data.user.storageMode,
+        };
+        const idx = users.findIndex((u) => u.email === cleanEmail);
+        if (idx >= 0) users[idx] = stored; else users.push(stored);
+        saveRegisteredUsers(users);
+
+        const mode = data.user.storageMode || 'cloud';
+        authState = { user: data.user, storageMode: mode };
+        notify();
+        console.log(`[Keepnet Auth] Signed in ${cleanEmail} via Cloud D1 (Storage: ${mode})`);
+        return { success: true };
+      }
+
+      if (!res.ok && data && data.error) {
         return { success: false, error: data.error };
       }
+
+      return { success: false, error: 'Login failed. Please verify your credentials.' };
     } catch {
-      remoteFailed = true;
-    }
-
-    // 2. Fall back to local browser storage
-    const users = loadRegisteredUsers();
-    const found = users.find((u) => u.email === cleanEmail);
-
-    if (remoteUser) {
-      // Cache/update in local storage
-      const stored: StoredUser = {
-        id: remoteUser.id,
-        email: remoteUser.email,
-        passwordHash: encodePassword(password),
-        name: remoteUser.name,
-        createdAt: remoteUser.createdAt,
-        storageMode: remoteUser.storageMode,
-      };
-      const idx = users.findIndex((u) => u.email === cleanEmail);
-      if (idx >= 0) users[idx] = stored; else users.push(stored);
-      saveRegisteredUsers(users);
-
-      const mode = remoteUser.storageMode || 'cloud';
-      authState = { user: remoteUser, storageMode: mode };
-      notify();
-      console.log(`[Keepnet Auth] Signed in ${cleanEmail} via Cloud D1 (Storage: ${mode})`);
-      return { success: true };
-    }
-
-    if (!found) {
       return {
         success: false,
-        error: remoteFailed
-          ? 'Network error reaching server and no local account found with this email.'
-          : 'No account found with this email. Please check your spelling or create an account.',
+        error: 'Network error connecting to Keepnet authentication service. Please check your internet connection.',
       };
     }
-
-    if (!passwordMatches(found.passwordHash, password)) {
-      return { success: false, error: 'Incorrect password. Use "Forgot password?" to reset it.' };
-    }
-
-    const mode: StorageMode = found.storageMode ?? 'cloud';
-    authState = {
-      user: {
-        id: found.id,
-        email: found.email,
-        name: found.name,
-        createdAt: found.createdAt,
-        storageMode: mode,
-      },
-      storageMode: mode,
-    };
-    notify();
-
-    console.log(`[Keepnet Auth] Signed in ${cleanEmail} via local cache (Storage: ${mode})`);
-    return { success: true };
   },
 
-  /** Sign out and retain local data as a guest. */
+  /** Sign out, clear authentication session, and revert to local guest mode. */
   signOut() {
+    setAuthToken(null);
     authState = {
       user: null,
       storageMode: 'local',
@@ -309,31 +310,16 @@ export const authActions = {
       if (!res.ok && data.error) {
         return { success: false, error: data.error };
       }
+      return { success: false, error: 'Failed to request password reset.' };
     } catch {
-      // offline fallback
+      return {
+        success: false,
+        error: 'Network error reaching password reset service. Please check your connection.',
+      };
     }
-
-    const users = loadRegisteredUsers();
-    const found = users.find((u) => u.email === cleanEmail);
-
-    if (!found) {
-      return { success: false, error: 'No account found with this email address.' };
-    }
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expires = Date.now() + 15 * 60 * 1000;
-
-    found.resetCode = code;
-    found.resetExpires = expires;
-    saveRegisteredUsers(users);
-
-    return {
-      success: true,
-      message: 'A 6-digit verification code has been sent to your email.',
-    };
   },
 
-  /** Confirm password reset with the emailed code and set a new password. */
+  /** Confirm password reset with the emailed code and set a new password on Cloudflare D1. */
   async confirmPasswordReset(email: string, code: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
     const cleanEmail = email.trim().toLowerCase();
     const cleanCode = String(code || '').replace(/\D/g, '').trim();
@@ -346,51 +332,26 @@ export const authActions = {
       return { success: false, error: 'New password must be at least 6 characters.' };
     }
 
-    const newHash = encodePassword(newPassword);
-
     try {
       const res = await fetch('/api/auth/reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, action: 'confirm', code: cleanCode, newPassword, newPasswordHash: newHash }),
+        body: JSON.stringify({ email: cleanEmail, action: 'confirm', code: cleanCode, newPassword }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        const users = loadRegisteredUsers();
-        const found = users.find((u) => u.email === cleanEmail);
-        if (found) {
-          found.passwordHash = newHash;
-          delete found.resetCode;
-          delete found.resetExpires;
-          saveRegisteredUsers(users);
-        }
         return { success: true };
       }
       if (!res.ok && data.error) {
         return { success: false, error: data.error };
       }
+      return { success: false, error: 'Password reset failed. Please request a new code.' };
     } catch {
-      // fallback
+      return {
+        success: false,
+        error: 'Network error communicating with Keepnet password service. Please check your connection.',
+      };
     }
-
-    const users = loadRegisteredUsers();
-    const found = users.find((u) => u.email === cleanEmail);
-    const localStoredCode = found?.resetCode ? String(found.resetCode).replace(/\D/g, '').trim() : '';
-
-    if (!found || localStoredCode !== cleanCode) {
-      return { success: false, error: 'Invalid verification code. Please check your email and try again.' };
-    }
-
-    if (found.resetExpires && Date.now() > Number(found.resetExpires)) {
-      return { success: false, error: 'Reset code has expired. Please request a new one.' };
-    }
-
-    found.passwordHash = newHash;
-    delete found.resetCode;
-    delete found.resetExpires;
-    saveRegisteredUsers(users);
-
-    return { success: true };
   },
 
   /** Toggle or set storage mode (cloud vs local device only). */
@@ -409,35 +370,26 @@ export const authActions = {
     if (!clean) return false;
 
     if (authState.user) {
-      const updatedUser: UserAccount = {
-        ...authState.user,
-        name: clean,
-        nickname: clean,
-      };
       authState = {
         ...authState,
-        user: updatedUser,
+        user: { ...authState.user, nickname: clean, name: clean },
       };
-
-      const users = loadRegisteredUsers();
-      const found = users.find((u) => u.email === updatedUser.email);
-      if (found) {
-        found.name = clean;
-        found.nickname = clean;
-        saveRegisteredUsers(users);
-      }
       notify();
+    }
 
-      if (updatedUser.storageMode === 'cloud') {
-        try {
-          await fetch('/api/auth/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: updatedUser.id, nickname: clean }),
-          });
-        } catch (err) {
-          console.warn('[Keepnet Auth] Failed to push updated nickname to D1', err);
-        }
+    const token = getAuthToken();
+    if (token) {
+      try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch('/api/auth/nickname', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ nickname: clean }),
+        });
+        return res.ok;
+      } catch {
+        return false;
       }
     }
     return true;

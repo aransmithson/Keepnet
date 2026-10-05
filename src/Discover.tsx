@@ -2,17 +2,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Fish, LocateFixed, Globe, ChevronRight, CloudSun, Calendar, User, X,
-  Search, MapPin, ExternalLink, Info, Compass
+  Search, MapPin, ExternalLink, Info, Compass, Heart
 } from 'lucide-react';
-import { useStore, fmtWeight, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
+import { useStore, actions, fmtWeight, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
 import { getDevicePosition } from './weather';
 import { createMap, type MapEngine, type MapMarker } from './map';
 import { useTheme } from './theme';
-import { fetchPublicSharedData } from './cloud';
+import { fetchPublicSharedData, fetchCatchLikes } from './cloud';
 import { UK_FISHERIES, MAP_FISHERIES, type Fishery } from './fisheries';
 
 type FilterType = 'all' | 'fisheries' | 'sessions';
-type DirectoryTab = 'fisheries' | 'sessions';
+type DirectoryTab = 'fisheries' | 'sessions' | 'catches';
 
 export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   const { sessions: localSessions, catches: localCatches } = useStore();
@@ -35,13 +35,18 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   const [directoryTab, setDirectoryTab] = useState<DirectoryTab>('fisheries');
   const [countryFilter, setCountryFilter] = useState<string>('All');
 
-  // Fetch shared sessions and catches from Cloudflare D1 on mount
+  // Fetch shared sessions, catches, and likes from Cloudflare D1 on mount
   useEffect(() => {
     let active = true;
     fetchPublicSharedData().then((data) => {
       if (!active) return;
       if (data.sessions.length > 0) setRemoteSessions(data.sessions);
       if (data.catches.length > 0) setRemoteCatches(data.catches);
+    });
+    fetchCatchLikes().then((likes) => {
+      if (active && likes && Object.keys(likes).length > 0) {
+        actions.setAllCatchLikes(likes);
+      }
     });
     return () => { active = false; };
   }, []);
@@ -123,6 +128,18 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
       (s.notes && s.notes.toLowerCase().includes(q))
     );
   }, [searchQuery, allSharedSessions]);
+
+  // Filtered public shared catches based on search
+  const filteredCatches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return allSharedCatches;
+    return allSharedCatches.filter((c) =>
+      c.species.toLowerCase().includes(q) ||
+      (c.bait && c.bait.toLowerCase().includes(q)) ||
+      (c.userName && c.userName.toLowerCase().includes(q)) ||
+      (c.notes && c.notes.toLowerCase().includes(q))
+    );
+  }, [searchQuery, allSharedCatches]);
 
   // If Google rejects the key at runtime, rebuild with OpenStreetMap/CARTO
   useEffect(() => {
@@ -455,21 +472,41 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             </div>
             {selectedSessionCatches.length > 0 ? (
               <div className="shared-catch-list">
-                {selectedSessionCatches.map((c) => (
-                  <Link key={c.id} to={`/catches/${c.id}`} className="shared-catch-card">
-                    {c.image ? (
-                      <img src={c.image} alt={c.species} className="shared-catch-thumb" loading="lazy" />
-                    ) : (
-                      <div className="shared-catch-thumb placeholder"><Fish size={18} /></div>
-                    )}
-                    <div className="shared-catch-meta">
-                      <span className="shared-catch-name">{c.species}</span>
-                      <span className="shared-catch-weight">{fmtWeight(c)}</span>
-                      <span className="shared-catch-date">{c.bait}</span>
+                {selectedSessionCatches.map((c) => {
+                  const isLiked = actions.isCatchLiked(c.id);
+                  const likesCount = actions.getCatchLikesCount(c.id, c.likesCount);
+                  return (
+                    <div key={c.id} className="shared-catch-row">
+                      <Link to={`/catches/${c.id}`} className="shared-catch-card" style={{ flex: 1 }}>
+                        {c.image ? (
+                          <img src={c.image} alt={c.species} className="shared-catch-thumb" loading="lazy" />
+                        ) : (
+                          <div className="shared-catch-thumb placeholder"><Fish size={18} /></div>
+                        )}
+                        <div className="shared-catch-meta">
+                          <span className="shared-catch-name">{c.species}</span>
+                          <span className="shared-catch-weight">{fmtWeight(c)}</span>
+                          <span className="shared-catch-date">{c.bait}</span>
+                        </div>
+                        <ChevronRight size={16} color="var(--text-secondary)" />
+                      </Link>
+                      <button
+                        type="button"
+                        id={`session-catch-like-${c.id}`}
+                        className={`catch-feed-like-btn ${isLiked ? 'liked' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          actions.toggleCatchLike(c.id);
+                        }}
+                        title={isLiked ? 'Unlike catch' : 'Like catch'}
+                      >
+                        <Heart size={14} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
+                        <span>{likesCount}</span>
+                      </button>
                     </div>
-                    <ChevronRight size={16} color="var(--text-secondary)" />
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="muted" style={{ fontSize: 13, padding: '4px 0 10px' }}>
@@ -500,13 +537,23 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
       <div className="directory-tabs">
         <button
           type="button"
+          id="tab-fisheries"
           className={`dir-tab-btn ${directoryTab === 'fisheries' ? 'active' : ''}`}
           onClick={() => setDirectoryTab('fisheries')}
         >
-          <Fish size={16} /> UK Fisheries Directory ({filteredFisheries.length})
+          <Fish size={16} /> UK Fisheries ({filteredFisheries.length})
         </button>
         <button
           type="button"
+          id="tab-catches"
+          className={`dir-tab-btn ${directoryTab === 'catches' ? 'active' : ''}`}
+          onClick={() => setDirectoryTab('catches')}
+        >
+          <Heart size={16} /> Catch Reports ({filteredCatches.length})
+        </button>
+        <button
+          type="button"
+          id="tab-sessions"
           className={`dir-tab-btn ${directoryTab === 'sessions' ? 'active' : ''}`}
           onClick={() => setDirectoryTab('sessions')}
         >
@@ -627,6 +674,113 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
               <p style={{ fontWeight: 600, marginBottom: 4 }}>No public sessions found</p>
               <p className="muted" style={{ fontSize: 13 }}>
                 When logging or viewing any session in your journal, toggle "Share to Discover map" to showcase your waters and catches to fellow anglers here.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. Community Catch Reports View */}
+      {directoryTab === 'catches' && (
+        <div className="catch-reports-feed">
+          {filteredCatches.length > 0 ? (
+            <div className="catch-cards-grid">
+              {filteredCatches.map((c) => {
+                const isLiked = actions.isCatchLiked(c.id);
+                const likesCount = actions.getCatchLikesCount(c.id, c.likesCount);
+                const s = allSharedSessions.find((sess) => sess.id === c.sessionId);
+                return (
+                  <div key={c.id} className="card catch-report-card">
+                    {/* Header: Angler & Timestamp */}
+                    <div className="row-between" style={{ marginBottom: 10, alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="avatar-placeholder" style={{ width: 32, height: 32, minWidth: 32, borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-green)' }}>
+                          <User size={16} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {c.userName || s?.userName || 'Community Angler'}
+                          </div>
+                          <div className="muted" style={{ fontSize: 11 }}>
+                            {fmtDay(c.caughtAt)} {c.caughtAt ? `· ${fmtTime(c.caughtAt)}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      {s && (
+                        <span className="count-pill" style={{ fontSize: 11, background: 'var(--surface-sunken)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.venueName}>
+                          {s.venueName}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Catch Photo or Visual Placeholder */}
+                    <Link to={`/catches/${c.id}`} className="catch-report-media-link" style={{ textDecoration: 'none', display: 'block' }}>
+                      {c.image ? (
+                        <div className="catch-report-photo-wrap">
+                          <img src={c.image} alt={c.species} className="catch-report-photo" loading="lazy" />
+                        </div>
+                      ) : (
+                        <div className="catch-report-photo-placeholder">
+                          <Fish size={40} strokeWidth={1.5} />
+                        </div>
+                      )}
+                    </Link>
+
+                    {/* Catch Details: Species, Weight, Bait */}
+                    <div style={{ marginTop: 10 }}>
+                      <div className="row-between" style={{ alignItems: 'baseline' }}>
+                        <Link to={`/catches/${c.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                          <h3 className="serif" style={{ margin: 0, fontSize: 20 }}>{c.species}</h3>
+                        </Link>
+                        <span className="catch-weight-badge serif">{fmtWeight(c)}</span>
+                      </div>
+
+                      <div className="tag-row" style={{ marginTop: 8 }}>
+                        {c.bait && <span className="tag" style={{ fontSize: 11 }}>Bait: {c.bait}</span>}
+                        {s?.weather && (
+                          <span className="tag" style={{ fontSize: 11 }}>
+                            <CloudSun size={11} /> {Math.round(s.weather.temperature)}°C
+                          </span>
+                        )}
+                      </div>
+
+                      {c.notes && (
+                        <p className="muted" style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.4, fontStyle: 'italic' }}>
+                          "{c.notes.length > 90 ? `${c.notes.slice(0, 90)}...` : c.notes}"
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Social Interaction Footer: Like Button & View Details */}
+                    <div className="catch-report-footer" style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        id={`catch-feed-like-${c.id}`}
+                        className={`catch-feed-like-btn large ${isLiked ? 'liked' : ''}`}
+                        onClick={() => actions.toggleCatchLike(c.id)}
+                        title={isLiked ? 'Unlike catch' : 'Like this catch'}
+                      >
+                        <Heart size={16} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
+                        <span><strong>{likesCount}</strong> {likesCount === 1 ? 'Like' : 'Likes'}</span>
+                      </button>
+
+                      <Link to={`/catches/${c.id}`} className="btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 12, textDecoration: 'none', gap: 4 }}>
+                        <span>Catch Report</span>
+                        <ChevronRight size={14} />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="card" style={{ padding: '36px 16px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: 10 }}>
+                <Heart size={32} style={{ opacity: 0.4 }} />
+              </div>
+              <p style={{ fontWeight: 600, marginBottom: 4 }}>No catch reports found</p>
+              <p className="muted" style={{ fontSize: 13, maxWidth: 380, margin: '0 auto' }}>
+                When logging or viewing catches in your journal, toggle "Shared" to showcase your prize fish to fellow anglers and earn Community trophies!
               </p>
             </div>
           )}

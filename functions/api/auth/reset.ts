@@ -23,7 +23,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       : cleanEmail;
 
     if (body.action === 'confirm') {
-      const { code, newPassword, newPasswordHash } = body;
+      const { code, newPassword } = body;
       const cleanCode = String(code || '').replace(/\D/g, '').trim().slice(0, 6);
       const rawNewPwd = (newPassword || '').trim();
 
@@ -31,7 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         return errorResponse('Please enter a valid 6-digit verification code', 400);
       }
 
-      if (rawNewPwd && (rawNewPwd.length < 6 || rawNewPwd.length > 128)) {
+      if (!rawNewPwd || rawNewPwd.length < 6 || rawNewPwd.length > 128) {
         return errorResponse('New password must be between 6 and 128 characters', 400);
       }
 
@@ -78,7 +78,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       }
 
       // Hash new password with salted PBKDF2-SHA256
-      const finalHash = rawNewPwd ? await hashPassword(rawNewPwd) : (newPasswordHash || user.password_hash);
+      const finalHash = await hashPassword(rawNewPwd);
 
       // Invalidate reset code, clear failed logins, and revoke active sessions
       await db.prepare(`
