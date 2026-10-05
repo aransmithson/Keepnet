@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  Plus, Fish, ChevronRight, ChevronLeft, Calendar,
+  Plus, Fish, ChevronRight, ChevronLeft,
   MapPin, Heart, Share2, Bookmark, Check, MoreHorizontal,
-  Trophy, Flame, Users, Sparkles, Compass, CheckCircle2,
-  Maximize2, MessageSquare
+  Users, Sparkles, CheckCircle2,
+  MessageSquare, Search, X
 } from 'lucide-react';
 import { useStore, actions, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
 import { fetchPublicSharedData, fetchCatchLikes, fetchUserCloudData } from './cloud';
@@ -156,11 +156,6 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   // Followed anglers state
   const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({
     Aran: true,
-  });
-
-  // Joined clubs state
-  const [joinedClubs, setJoinedClubs] = useState<Record<string, boolean>>({
-    'Pike Club': true,
   });
 
   // Sync cloud user subscription & shared data
@@ -316,6 +311,26 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
     });
   };
 
+  // Mobile touch swipe tracking for feed card carousels
+  const [cardTouchStartX, setCardTouchStartX] = useState<{ id: string; x: number } | null>(null);
+
+  const handleCardTouchStart = (id: string, e: React.TouchEvent) => {
+    setCardTouchStartX({ id, x: e.touches[0].clientX });
+  };
+
+  const handleCardTouchEnd = (id: string, count: number, e: React.TouchEvent) => {
+    if (!cardTouchStartX || cardTouchStartX.id !== id) return;
+    const diff = cardTouchStartX.x - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 36) {
+      if (diff > 0) {
+        nextImage(id, count);
+      } else {
+        prevImage(id, count);
+      }
+    }
+    setCardTouchStartX(null);
+  };
+
   return (
     <div className="content" style={{ padding: '0 16px 84px' }}>
       {/* Category Pills Header Bar (Mobile Screen 1) */}
@@ -324,7 +339,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '8px 0 12px',
+          padding: '8px 0 10px',
           overflowX: 'auto',
           scrollbarWidth: 'none',
         }}
@@ -364,6 +379,47 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
           <Users size={14} />
           <span>Clubs</span>
         </button>
+      </div>
+
+      {/* Mobile Search & Quick Filter Chips Bar */}
+      <div className="mobile-discover-search-bar">
+        <div className="mobile-search-input-wrap">
+          <Search size={15} color="var(--text-secondary)" />
+          <input
+            type="text"
+            placeholder="Search catches, anglers, waters..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="mobile-search-input"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="icon-btn"
+              style={{ width: 22, height: 22 }}
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        <div className="mobile-quick-tags-scroll">
+          {['All', 'Pike', 'Carp', 'Perch', 'Trout', 'Lure Fishing', 'Fly Fishing'].map((tag) => {
+            const isAll = tag === 'All';
+            const isActive = isAll ? !selectedTag : selectedTag === tag;
+            return (
+              <button
+                key={tag}
+                type="button"
+                className={`quick-tag-chip ${isActive ? 'active' : ''}`}
+                onClick={() => setSelectedTag(isAll ? null : tag)}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Stories / Anglers Horizontal Reel (Mobile Screen 1) */}
@@ -496,8 +552,12 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
                     </div>
                   </div>
 
-                  {/* Media Carousel (Mobile Screen 1) */}
-                  <div className="social-card-media-wrap">
+                  {/* Media Carousel with Touch-Swipe (Mobile Screen 1) */}
+                  <div
+                    className="social-card-media-wrap"
+                    onTouchStart={(e) => handleCardTouchStart(item.id, e)}
+                    onTouchEnd={(e) => handleCardTouchEnd(item.id, item.images.length, e)}
+                  >
                     <img
                       src={item.images[curImgIdx] || item.images[0]}
                       alt={item.species}
@@ -653,232 +713,6 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             })
           )}
         </div>
-
-        {/* Right Column: Widgets (Search, Mini Map, Trending, Leaderboard, Challenge) */}
-        <aside className="community-sidebar-col">
-          {/* 1. Search Catches & Quick Filter Chips Widget */}
-          <div className="sidebar-widget">
-            <div className="sidebar-search-box">
-              <Compass size={15} color="var(--text-secondary)" />
-              <input
-                type="text"
-                placeholder="Search catches, anglers, waters..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="sidebar-search-input"
-              />
-            </div>
-            <div className="sidebar-quick-tags">
-              {['Pike', 'Carp', 'Perch', 'Trout', 'Lure Fishing', 'Fly Fishing'].map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  className={`quick-tag-chip ${selectedTag === tag ? 'active' : ''}`}
-                  onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 2. Explore Near You Mini Map Widget */}
-          <div className="sidebar-widget">
-            <div className="sidebar-widget-header">
-              <div>
-                <h3 className="sidebar-widget-title">
-                  <MapPin size={16} color="#2EB872" />
-                  <span>Explore Near You</span>
-                </h3>
-                <span className="sidebar-widget-subtitle">Find catches and anglers in your area</span>
-              </div>
-            </div>
-
-            <div className="mini-map-container">
-              <div className="mini-map-pins-layer">
-                {/* Visual pins positioned like the mock */}
-                <div className="map-pin-pill" style={{ top: '22%', right: '28%' }}>
-                  <MapPin size={10} color="#2EB872" />
-                  <span>Wyreside · 142 catches</span>
-                </div>
-                <div className="map-pin-pill" style={{ bottom: '26%', left: '16%' }}>
-                  <MapPin size={10} color="#2EB872" />
-                  <span>Ribble · 87 catches</span>
-                </div>
-                <div className="map-pin-pill" style={{ top: '60%', right: '14%' }}>
-                  <MapPin size={10} color="#2EB872" />
-                  <span>Stocks Reservoir · 64</span>
-                </div>
-              </div>
-              <Link to="/fisheries" className="map-expand-btn" title="Explore full directory">
-                <Maximize2 size={13} />
-              </Link>
-            </div>
-
-            <Link to="/fisheries" className="btn-explore-map">
-              <span>Explore Map View</span>
-              <ChevronRight size={14} />
-            </Link>
-          </div>
-
-          {/* 3. Trending Catches Widget */}
-          <div className="sidebar-widget">
-            <div className="sidebar-widget-header">
-              <h3 className="sidebar-widget-title">
-                <Flame size={16} color="#ef4444" />
-                <span>Trending Catches</span>
-              </h3>
-              <span className="sidebar-widget-subtitle" style={{ color: 'var(--text-secondary)' }}>This week ▾</span>
-            </div>
-
-            <div>
-              <Link to="/catches/sample-pike-1" className="trending-catch-row">
-                <img src="/images/catch-pike-1.jpg" alt="Pike" className="trending-catch-thumb" loading="lazy" />
-                <div className="trending-catch-info">
-                  <div className="trending-catch-name">Pike · 9 lb 4 oz</div>
-                  <div className="trending-catch-meta">TomL · River Ribble</div>
-                </div>
-                <div className="trending-catch-likes">
-                  <Heart size={13} fill="#ef4444" color="#ef4444" />
-                  <span>124</span>
-                </div>
-              </Link>
-
-              <Link to="/catches/sample-carp-1" className="trending-catch-row">
-                <img src="/images/catch-carp-linear.jpg" alt="Common Carp" className="trending-catch-thumb" loading="lazy" />
-                <div className="trending-catch-info">
-                  <div className="trending-catch-name">Common Carp · 28 lb 6 oz</div>
-                  <div className="trending-catch-meta">CarpDan · Linear Fisheries</div>
-                </div>
-                <div className="trending-catch-likes">
-                  <Heart size={13} fill="#ef4444" color="#ef4444" />
-                  <span>98</span>
-                </div>
-              </Link>
-
-              <Link to="/catches/sample-pike-2" className="trending-catch-row">
-                <img src="/images/perch.jpg" alt="Perch" className="trending-catch-thumb" loading="lazy" />
-                <div className="trending-catch-info">
-                  <div className="trending-catch-name">Perch · 2 lb 1 oz</div>
-                  <div className="trending-catch-meta">Ellie.F · Windermere</div>
-                </div>
-                <div className="trending-catch-likes">
-                  <Heart size={13} fill="#ef4444" color="#ef4444" />
-                  <span>76</span>
-                </div>
-              </Link>
-            </div>
-          </div>
-
-          {/* 4. Top Anglers This Week Widget */}
-          <div className="sidebar-widget">
-            <div className="sidebar-widget-header">
-              <h3 className="sidebar-widget-title">
-                <Trophy size={16} color="var(--copper)" />
-                <span>Top Anglers This Week</span>
-              </h3>
-              <Link to="/profile" className="sidebar-widget-link">
-                View All →
-              </Link>
-            </div>
-
-            <div>
-              {[
-                { rank: 1, name: 'TomL', catches: 27, pts: 348, avatar: '/images/avatar-tom.jpg' },
-                { rank: 2, name: 'SophieT', catches: 22, pts: 312, avatar: '/images/catch-sophie-pike.jpg' },
-                { rank: 3, name: 'CarpDan', catches: 19, pts: 288, avatar: '/images/catch-carp-linear.jpg' },
-                { rank: 4, name: 'Aran', catches: 18, pts: 276, avatar: '/images/avatar-aran.jpg' },
-                { rank: 5, name: 'Ellie.F', catches: 15, pts: 244, avatar: '/images/avatar-ellie.jpg' },
-              ].map((a) => (
-                <div key={a.rank} className="top-angler-row">
-                  <span className={`rank-badge rank-${a.rank}`}>{a.rank}</span>
-                  <img src={a.avatar} alt={a.name} className="top-angler-avatar" loading="lazy" />
-                  <div className="top-angler-info">
-                    <div className="top-angler-name">{a.name}</div>
-                    <div className="top-angler-catches">{a.catches} catches</div>
-                  </div>
-                  <div className="top-angler-points">
-                    <span>👑 {a.pts}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 5. Community Challenge Widget */}
-          <div className="sidebar-widget">
-            <div className="sidebar-widget-header">
-              <h3 className="sidebar-widget-title">
-                <Calendar size={15} color="#2EB872" />
-                <span>Community Challenge</span>
-              </h3>
-              <span className="sidebar-widget-subtitle">Ends in 12 days</span>
-            </div>
-
-            <div className="challenge-widget-banner">
-              <img src="/images/challenge-pike.jpg" alt="Pike Season Challenge" loading="lazy" />
-            </div>
-
-            <h4 className="challenge-widget-title">Pike Season Challenge</h4>
-            <p className="challenge-widget-desc">
-              Log your best pike this month for a chance to win Keepnet gear and be featured!
-            </p>
-
-            <button
-              type="button"
-              className="btn-join-challenge"
-              onClick={() => onStart({
-                id: 'challenge-water',
-                name: 'Pike Challenge Water',
-                type: 'River',
-                lat: 53.8,
-                lon: -2.7,
-                targets: ['Pike'],
-                description: 'Pike Season Challenge session',
-              })}
-            >
-              <span>Join Challenge</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-
-          {/* 6. Suggested Anglers & Clubs Widget */}
-          <div className="sidebar-widget">
-            <div className="sidebar-widget-header">
-              <h3 className="sidebar-widget-title">
-                <Users size={16} color="var(--text-secondary)" />
-                <span>Suggested Anglers &amp; Clubs</span>
-              </h3>
-              <span className="sidebar-widget-subtitle">See More →</span>
-            </div>
-
-            <div>
-              {[
-                { name: 'Pike Club', members: '1.2K members', icon: '🎣' },
-                { name: 'Northern Specimen', members: '3.4K members', icon: '🏆' },
-                { name: 'Lake View Anglers', members: '892 members', icon: '🌊' },
-              ].map((club) => {
-                const isJoined = !!joinedClubs[club.name];
-                return (
-                  <div key={club.name} className="suggested-club-row">
-                    <div className="suggested-club-avatar">{club.icon}</div>
-                    <div className="suggested-club-info">
-                      <div className="suggested-club-name">{club.name}</div>
-                      <div className="suggested-club-members">{club.members}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className={`btn-club-join ${isJoined ? 'joined' : ''}`}
-                      onClick={() => setJoinedClubs((prev) => ({ ...prev, [club.name]: !prev[club.name] }))}
-                    >
-                      {isJoined ? 'Joined' : 'Join'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
       </div>
     </div>
   );

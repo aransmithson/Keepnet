@@ -5,7 +5,7 @@ import {
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, HardDrive, KeyRound, Mail, Pencil, Search, ShieldCheck,
   Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown,
-  EyeOff, Zap, Gift, Bookmark, MessageSquare, MoreHorizontal, CheckCircle2
+  EyeOff, Zap, Gift, Bookmark, MessageSquare, MoreHorizontal, CheckCircle2, Home as HomeIcon
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -2192,6 +2192,26 @@ const CatchDetail = () => {
   const isOwner = catches.some((x) => x.id === id);
 
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const diff = touchStartX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 36) {
+      if (diff > 0) {
+        // Swiped left -> next photo
+        setActivePhotoIdx((prev) => (prev + 1) % displayImages.length);
+      } else {
+        // Swiped right -> prev photo
+        setActivePhotoIdx((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1));
+      }
+    }
+    setTouchStartX(null);
+  };
 
   const displayImages = useMemo(() => {
     if (!c) return ['/images/catch-pike-1.jpg'];
@@ -2228,7 +2248,7 @@ const CatchDetail = () => {
   const likesCount = actions.getCatchLikesCount(c.id, c.likesCount);
 
   return (
-    <div className="content" style={{ paddingBottom: 110 }}>
+    <div className="content" style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
       {/* Header bar (Mobile Screen 2) */}
       <div className="row-between" style={{ marginBottom: 12, alignItems: 'center' }}>
         <button className="back-link" onClick={() => nav(-1)} style={{ fontSize: 15, fontWeight: 600 }}>
@@ -2249,8 +2269,13 @@ const CatchDetail = () => {
         </div>
       </div>
 
-      {/* Main Catch Photo & Carousel (Mobile Screen 2) */}
-      <div className="social-card-media-wrap" style={{ borderRadius: 14 }}>
+      {/* Main Catch Photo & Carousel with Touch-Swipe (Mobile Screen 2) */}
+      <div
+        className="social-card-media-wrap"
+        style={{ borderRadius: 14 }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         <img
           src={displayImages[activePhotoIdx] || displayImages[0]}
           alt={c.species}
@@ -2832,10 +2857,14 @@ const Profile = () => {
 
 const Navigation = () => {
   const { pathname } = useLocation();
+  // On catch detail screen, we hide the main navigation bar so the dedicated sticky action footer ([Like] [Comment]) has full focus per Mobile Screen 2
+  if (pathname.startsWith('/catches/')) {
+    return null;
+  }
   const is = (p: string) => (p === '/' ? pathname === '/' : pathname.startsWith(p));
   return (
     <nav className="bottom-nav">
-      <Link to="/" id="nav-home" className={`nav-item ${is('/') || pathname.startsWith('/catches') ? 'active' : ''}`}><Fish className="nav-icon" />Home</Link>
+      <Link to="/" id="nav-home" className={`nav-item ${is('/') ? 'active' : ''}`}><HomeIcon className="nav-icon" />Home</Link>
       <Link to="/sessions" id="nav-sessions" className={`nav-item ${is('/sessions') ? 'active' : ''}`}><Calendar className="nav-icon" />Sessions</Link>
       <Link to="/discover" id="nav-discover" className={`nav-item ${is('/discover') ? 'active' : ''}`}><MapPin className="nav-icon" />Discover</Link>
       <Link to="/profile" id="nav-profile" className={`nav-item ${is('/profile') ? 'active' : ''}`}><User className="nav-icon" />Profile</Link>
