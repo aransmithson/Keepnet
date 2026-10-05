@@ -2362,6 +2362,148 @@ a.catch-item:hover { background: var(--bg-color); }
   border-color: var(--accent-green);
   box-shadow: 0 0 0 3px rgba(1, 71, 49, 0.12);
 }
+
+/* Angler Administration System */
+.angler-admin-card {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: all 0.15s ease;
+}
+
+.angler-admin-card.is-locked {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.04), var(--card-bg));
+}
+
+.angler-admin-card.is-premium {
+  border-color: rgba(201, 119, 43, 0.35);
+}
+
+.angler-filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.angler-filter-pill {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.angler-filter-pill:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+.angler-filter-pill.active {
+  background: var(--accent-green);
+  color: #fff;
+  border-color: var(--accent-green);
+}
+
+.angler-stat-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.angler-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.angler-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  align-items: center;
+}
+
+.angler-btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.angler-btn-action:hover {
+  background: var(--surface-sunken);
+  border-color: var(--text-secondary);
+}
+
+.angler-btn-action.success {
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.08);
+}
+.angler-btn-action.success:hover {
+  background: rgba(16, 185, 129, 0.16);
+}
+
+.angler-btn-action.warning {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+}
+.angler-btn-action.warning:hover {
+  background: rgba(245, 158, 11, 0.16);
+}
+
+.angler-btn-action.danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+.angler-btn-action.danger:hover {
+  background: rgba(239, 68, 68, 0.16);
+}
+
+.angler-sub-drawer {
+  padding: 12px 14px;
+  background: var(--surface-sunken);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.angler-sub-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 /* ==========================================================================
    Gamified Achievements & Avatar Flair System
    ========================================================================== */

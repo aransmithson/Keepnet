@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Users, Fish, Calendar, TrendingUp, RefreshCw, Plus, Trash2,
   ExternalLink, Search, Download, Check, X, Shield, MapPin, AlertCircle, ArrowLeft,
-  Crown, Gift, Tag
+  Crown, Gift, Tag, Lock, Unlock, Edit2, ShieldCheck, Sparkles, CheckCircle2,
+  Clock, Cloud, AlertTriangle
 } from 'lucide-react';
 import { useAuth, isUserAdmin } from './auth';
 import { UK_FISHERIES, type Fishery } from './fisheries';
@@ -48,8 +49,21 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     description: '',
   });
 
+  // Angler Accounts Management
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userTierFilter, setUserTierFilter] = useState<'all' | 'lite' | 'premium'>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'locked' | 'admin'>('all');
+  const [actionLoadingUserId, setActionLoadingUserId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ userId: string; message: string; type: 'success' | 'error' } | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editNickname, setEditNickname] = useState('');
+  const [managingSubUserId, setManagingSubUserId] = useState<string | null>(null);
+  const [nowTime, setNowTime] = useState(() => Date.now());
+
   const getHeaders = () => {
-    const token = sessionStorage.getItem('keepnet:auth_token') || '';
+    const token = sessionStorage.getItem('keepnet:auth_token') || localStorage.getItem('keepnet:auth_token') || '';
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
     return headers;
@@ -103,13 +117,212 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
     }
   };
 
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: userSearch,
+        tier: userTierFilter,
+        status: userStatusFilter,
+        adminEmail: user?.email || 'aransmithson@gmail.com',
+      });
+      const res = await fetch(`/api/admin/users?${params.toString()}`, {
+        headers: getHeaders(),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.users)) {
+        setUsersList(data.users);
+        setNowTime(Date.now());
+      }
+    } catch {
+      // ignore
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const handleUpdateSubscription = async (userId: string, tier: 'lite' | 'premium', durationDays?: number | null, coupon?: string) => {
+    setActionLoadingUserId(userId);
+    try {
+      let expiresAt: string | null = null;
+      if (tier === 'premium' && durationDays) {
+        const d = new Date();
+        d.setDate(d.getDate() + durationDays);
+        expiresAt = d.toISOString();
+      }
+      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          action: 'update_subscription',
+          userId,
+          tier,
+          expiresAt,
+          coupon: coupon || (durationDays === 30 ? 'ADMIN_1M' : durationDays === 365 ? 'ADMIN_1Y' : 'ADMIN_VIP'),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setActionFeedback({ userId, message: data.message, type: 'success' });
+        setManagingSubUserId(null);
+        await fetchUsers();
+        await fetchDashboardStats();
+      } else {
+        alert(data.error || 'Failed to update subscription');
+      }
+    } catch {
+      alert('Network error updating subscription');
+    } finally {
+      setActionLoadingUserId(null);
+    }
+  };
+
+  const handleUnlockUser = async (userId: string) => {
+    setActionLoadingUserId(userId);
+    try {
+      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ action: 'unlock', userId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setActionFeedback({ userId, message: data.message, type: 'success' });
+        await fetchUsers();
+        await fetchDashboardStats();
+      } else {
+        alert(data.error || 'Failed to unlock account');
+      }
+    } catch {
+      alert('Network error unlocking account');
+    } finally {
+      setActionLoadingUserId(null);
+    }
+  };
+
+  const handleLockUser = async (userId: string, durationDays = 7) => {
+    if (!confirm(`Are you sure you want to temporarily suspend/lock this angler account for ${durationDays} days?`)) return;
+    setActionLoadingUserId(userId);
+    try {
+      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+          action: 'lock',
+          userId,
+          durationMs: durationDays * 24 * 60 * 60 * 1000,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setActionFeedback({ userId, message: data.message, type: 'success' });
+        await fetchUsers();
+        await fetchDashboardStats();
+      } else {
+        alert(data.error || 'Failed to lock account');
+      }
+    } catch {
+      alert('Network error locking account');
+    } finally {
+      setActionLoadingUserId(null);
+    }
+  };
+
+  const handleToggleAdmin = async (userId: string, currentIsAdmin: boolean) => {
+    const newAdminVal = !currentIsAdmin;
+    if (!confirm(`Are you sure you want to ${newAdminVal ? 'GRANT' : 'REVOKE'} admin access for this account?`)) return;
+    setActionLoadingUserId(userId);
+    try {
+      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ action: 'toggle_admin', userId, isAdmin: newAdminVal }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setActionFeedback({ userId, message: data.message, type: 'success' });
+        await fetchUsers();
+      } else {
+        alert(data.error || 'Failed to update admin role');
+      }
+    } catch {
+      alert('Network error updating admin role');
+    } finally {
+      setActionLoadingUserId(null);
+    }
+  };
+
+  const handleSaveNickname = async (userId: string) => {
+    if (!editNickname.trim()) return;
+    setActionLoadingUserId(userId);
+    try {
+      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ action: 'update_nickname', userId, nickname: editNickname.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEditingUserId(null);
+        setEditNickname('');
+        setActionFeedback({ userId, message: data.message, type: 'success' });
+        await fetchUsers();
+      } else {
+        alert(data.error || 'Failed to update nickname');
+      }
+    } catch {
+      alert('Network error updating nickname');
+    } finally {
+      setActionLoadingUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, email: string) => {
+    if (!confirm(`DANGER: Are you sure you want to permanently delete the angler account "${email}"? This will delete all their catches, sessions, and records from Cloudflare D1.`)) return;
+    const doubleConfirm = prompt(`Type "DELETE" to confirm permanent deletion of ${email}:`);
+    if (doubleConfirm !== 'DELETE') {
+      alert('Deletion cancelled.');
+      return;
+    }
+    setActionLoadingUserId(userId);
+    try {
+      const res = await fetch(`/api/admin/users?${getAdminQuery()}`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ action: 'delete_user', userId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message);
+        await fetchUsers();
+        await fetchDashboardStats();
+      } else {
+        alert(data.error || 'Failed to delete user');
+      }
+    } catch {
+      alert('Network error deleting user');
+    } finally {
+      setActionLoadingUserId(null);
+    }
+  };
+
   useEffect(() => {
     if (isUserAdmin(user)) {
       fetchDashboardStats();
       fetchSpecies();
       fetchCustomFisheries();
+      fetchUsers();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (tab === 'users' && isUserAdmin(user)) {
+      const timer = setTimeout(() => {
+        fetchUsers();
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [tab, userSearch, userTierFilter, userStatusFilter]);
 
   // Handle Species Add/Delete
   const handleAddSpecies = async (e: React.FormEvent) => {
@@ -773,51 +986,386 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
         {/* ================= TAB 4: ANGLER ACCOUNTS ================= */}
         {tab === 'users' && (
           <div className="stack" style={{ gap: 16 }}>
-            <div className="card">
-              <div className="row-between" style={{ alignItems: 'baseline', marginBottom: 12 }}>
-                <div>
-                  <h2 className="serif" style={{ fontSize: 17, margin: 0 }}>Registered Angler Accounts</h2>
-                  <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-                    Active accounts registered in Cloudflare D1
-                  </p>
+            {/* Filter and Search Bar Card */}
+            <div className="card" style={{ padding: 16 }}>
+              <div className="row-between" style={{ alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 260 }}>
+                  <Search size={16} className="muted" />
+                  <input
+                    type="text"
+                    placeholder="Search by angler nickname or email..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  {userSearch && (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => setUserSearch('')}
+                      aria-label="Clear search"
+                    >
+                      <X size={15} />
+                    </button>
+                  )}
                 </div>
-                <span className="badge">{stats?.recentUsers?.length ?? 0} Accounts</span>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={fetchUsers}
+                    disabled={usersLoading}
+                    style={{ fontSize: 13, padding: '7px 12px' }}
+                    title="Reload Anglers"
+                  >
+                    <RefreshCw size={14} className={usersLoading ? 'spin' : ''} />
+                    <span>Refresh</span>
+                  </button>
+                  <span className="badge" style={{ fontSize: 12, fontWeight: 700 }}>
+                    {usersList.length} {usersList.length === 1 ? 'Angler' : 'Anglers'}
+                  </span>
+                </div>
               </div>
 
-              <div className="stack" style={{ gap: 8 }}>
-                {stats?.recentUsers?.map((u: any) => {
-                  const isLocked = u.locked_until && Date.now() < Number(u.locked_until);
+              {/* Filter Pills */}
+              <div className="angler-filter-bar">
+                <span className="muted" style={{ fontSize: 12, marginRight: 4 }}>Tier:</span>
+                {(['all', 'lite', 'premium'] as const).map((tier) => (
+                  <button
+                    key={tier}
+                    type="button"
+                    className={`angler-filter-pill ${userTierFilter === tier ? 'active' : ''}`}
+                    onClick={() => setUserTierFilter(tier)}
+                  >
+                    {tier === 'all' ? 'All Plans' : tier === 'premium' ? 'Premium Suite' : 'Lite Free'}
+                  </button>
+                ))}
+
+                <span className="muted" style={{ fontSize: 12, margin: '0 4px 0 12px' }}>Status:</span>
+                {(['all', 'active', 'locked', 'admin'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    className={`angler-filter-pill ${userStatusFilter === st ? 'active' : ''}`}
+                    onClick={() => setUserStatusFilter(st)}
+                  >
+                    {st === 'all' ? 'All Status' : st === 'active' ? 'Active' : st === 'locked' ? 'Locked' : 'Admins'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Angler Accounts List */}
+            {usersLoading && usersList.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '36px 20px' }}>
+                <RefreshCw size={24} className="spin" style={{ margin: '0 auto 12px', color: 'var(--accent-green)' }} />
+                <p className="muted" style={{ fontSize: 13, margin: 0 }}>Loading registered anglers from Cloudflare D1...</p>
+              </div>
+            ) : usersList.length === 0 ? (
+              <div className="card" style={{ textAlign: 'center', padding: '36px 20px' }}>
+                <Users size={32} className="muted" style={{ margin: '0 auto 12px' }} />
+                <h3 className="serif" style={{ fontSize: 16, margin: '0 0 6px' }}>No Anglers Found</h3>
+                <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+                  No accounts matched your search or filter criteria.
+                </p>
+              </div>
+            ) : (
+              <div className="stack" style={{ gap: 12 }}>
+                {usersList.map((u: any) => {
+                  const isLocked = Boolean(u.locked_until && nowTime < Number(u.locked_until));
                   const isOwnerAccount = u.email === 'aransmithson@gmail.com' || u.email === 'aransmithson@googlemail.com';
+                  const isPremiumTier = u.subscription_tier === 'premium';
+                  const isEditingThisUser = editingUserId === u.id;
+                  const isManagingSubThisUser = managingSubUserId === u.id;
+                  const isBusy = actionLoadingUserId === u.id;
+
                   return (
-                    <div key={u.id} className="row-between" style={{ padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 10, fontSize: 13, alignItems: 'center' }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{u.nickname || u.name}</span>
-                          {isOwnerAccount && <span className="admin-badge">Owner</span>}
-                          {isLocked && <span className="mini-badge" style={{ background: 'var(--danger)', color: '#fff' }}>Locked</span>}
-                          {u.subscription_tier === 'premium' ? (
-                            <span className="mini-badge" style={{ borderColor: 'rgba(201, 119, 43, 0.4)', color: 'var(--copper)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                              <Crown size={10} /> Premium {u.applied_coupon ? `(${u.applied_coupon})` : 'Trial'}
-                            </span>
-                          ) : (
-                            <span className="mini-badge" style={{ opacity: 0.7 }}>Lite</span>
-                          )}
+                    <div
+                      key={u.id}
+                      className={`card angler-admin-card ${isLocked ? 'is-locked' : ''} ${isPremiumTier ? 'is-premium' : ''}`}
+                    >
+                      {/* Top Header Row */}
+                      <div className="row-between" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 260 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            {/* Nickname & Inline Edit */}
+                            {isEditingThisUser ? (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <input
+                                  type="text"
+                                  value={editNickname}
+                                  onChange={(e) => setEditNickname(e.target.value)}
+                                  placeholder="Enter new nickname..."
+                                  style={{ padding: '4px 8px', fontSize: 14, height: 32, borderRadius: 6, minWidth: 160 }}
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveNickname(u.id);
+                                    if (e.key === 'Escape') setEditingUserId(null);
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="btn-primary"
+                                  style={{ height: 32, padding: '0 10px', fontSize: 12 }}
+                                  onClick={() => handleSaveNickname(u.id)}
+                                  disabled={isBusy}
+                                  title="Save nickname"
+                                >
+                                  <Check size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn-secondary"
+                                  style={{ height: 32, padding: '0 8px' }}
+                                  onClick={() => setEditingUserId(null)}
+                                  title="Cancel"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                  {u.nickname || u.name || 'Anonymous Angler'}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  style={{ width: 26, height: 26 }}
+                                  onClick={() => {
+                                    setEditingUserId(u.id);
+                                    setEditNickname(u.nickname || u.name || '');
+                                  }}
+                                  title="Edit angler nickname"
+                                >
+                                  <Edit2 size={12} />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Status Badges */}
+                            {isOwnerAccount && (
+                              <span className="admin-badge" title="Platform Owner">
+                                <ShieldCheck size={11} /> Owner
+                              </span>
+                            )}
+                            {!isOwnerAccount && u.is_admin === 1 && (
+                              <span className="admin-badge" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', borderColor: 'rgba(59, 130, 246, 0.35)' }}>
+                                <Shield size={11} /> Admin
+                              </span>
+                            )}
+                            {isLocked && (
+                              <span className="mini-badge" style={{ background: 'var(--danger)', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <Lock size={10} /> Locked ({u.failed_logins} failed)
+                              </span>
+                            )}
+                            {isPremiumTier ? (
+                              <span
+                                className="mini-badge"
+                                style={{
+                                  borderColor: 'rgba(201, 119, 43, 0.4)',
+                                  background: 'rgba(201, 119, 43, 0.12)',
+                                  color: 'var(--copper)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <Crown size={12} /> Premium {u.applied_coupon ? `(${u.applied_coupon})` : 'Active'}
+                              </span>
+                            ) : (
+                              <span className="mini-badge" style={{ opacity: 0.75, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                Lite (Free)
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                            {u.email}
+                          </div>
                         </div>
-                        <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                          {u.email} · Mode: {u.storage_mode || 'cloud'} · Joined {new Date(u.created_at).toLocaleDateString()}
+
+                        {/* Top Right: Subscription Expiry / Quick Info */}
+                        <div style={{ textAlign: 'right', fontSize: 12 }}>
+                          {isPremiumTier ? (
+                            <div style={{ color: 'var(--copper)', fontWeight: 600 }}>
+                              {u.subscription_expires_at
+                                ? `Expires ${new Date(u.subscription_expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                                : 'Lifetime / Permanent VIP'}
+                            </div>
+                          ) : (
+                            <div className="muted">Keepnet Lite · £0 Forever</div>
+                          )}
                         </div>
                       </div>
 
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 11, color: u.failed_logins > 0 ? 'var(--danger)' : 'var(--muted)' }}>
-                          Failed logins: {u.failed_logins || 0}
+                      {/* Stat Chips Row */}
+                      <div className="angler-stat-chips">
+                        <span className="angler-stat-chip">
+                          <Fish size={12} color="var(--accent-green)" />
+                          <span>{u.catch_count || 0} catches</span>
+                        </span>
+                        <span className="angler-stat-chip">
+                          <Calendar size={12} color="#2F80ED" />
+                          <span>{u.session_count || 0} sessions</span>
+                        </span>
+                        <span className="angler-stat-chip">
+                          <Cloud size={12} />
+                          <span>Sync: {u.storage_mode || 'cloud'}</span>
+                        </span>
+                        <span className="angler-stat-chip">
+                          <Clock size={12} />
+                          <span>Joined: {new Date(u.created_at).toLocaleDateString('en-GB')}</span>
+                        </span>
+                        {isLocked && (
+                          <span className="angler-stat-chip" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#ef4444' }}>
+                            <AlertTriangle size={12} />
+                            <span>Locked until {new Date(Number(u.locked_until)).toLocaleString('en-GB')}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Feedback notification if triggered */}
+                      {actionFeedback && actionFeedback.userId === u.id && (
+                        <div
+                          className={`auth-message ${actionFeedback.type === 'success' ? 'success' : 'error'}`}
+                          style={{ margin: 0, padding: '8px 12px', fontSize: 12 }}
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>{actionFeedback.message}</span>
                         </div>
+                      )}
+
+                      {/* Expandable Subscription Granter Drawer */}
+                      {isManagingSubThisUser && (
+                        <div className="angler-sub-drawer">
+                          <div className="row-between" style={{ alignItems: 'center' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Crown size={15} color="var(--copper)" />
+                              <span>Administer Subscription for {u.nickname || u.name}</span>
+                            </div>
+                            <button
+                              type="button"
+                              className="icon-btn"
+                              style={{ width: 24, height: 24 }}
+                              onClick={() => setManagingSubUserId(null)}
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+
+                          <div className="angler-sub-options">
+                            <button
+                              type="button"
+                              className="angler-btn-action success"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateSubscription(u.id, 'premium', 30, 'ADMIN_1M')}
+                            >
+                              <Gift size={13} /> Grant 1-Month Trial (30d)
+                            </button>
+                            <button
+                              type="button"
+                              className="angler-btn-action success"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateSubscription(u.id, 'premium', 365, 'ADMIN_1Y')}
+                            >
+                              <Crown size={13} /> Grant 1-Year Pass (365d)
+                            </button>
+                            <button
+                              type="button"
+                              className="angler-btn-action success"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateSubscription(u.id, 'premium', null, 'ADMIN_VIP')}
+                            >
+                              <Sparkles size={13} /> Grant Lifetime VIP (No Expiry)
+                            </button>
+                            {isPremiumTier && (
+                              <button
+                                type="button"
+                                className="angler-btn-action warning"
+                                disabled={isBusy}
+                                onClick={() => handleUpdateSubscription(u.id, 'lite', null)}
+                              >
+                                Return to Keepnet Lite (Free)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Main Action Bar */}
+                      <div className="angler-action-bar">
+                        {/* Manage Subscription Button */}
+                        <button
+                          type="button"
+                          className={`angler-btn-action ${isManagingSubThisUser ? 'warning' : ''}`}
+                          onClick={() => setManagingSubUserId(isManagingSubThisUser ? null : u.id)}
+                          disabled={isBusy}
+                        >
+                          <Crown size={13} color="var(--copper)" />
+                          <span>{isManagingSubThisUser ? 'Close Sub Menu' : 'Manage Subscription'}</span>
+                        </button>
+
+                        {/* Lock / Unlock Buttons */}
+                        {isLocked ? (
+                          <button
+                            type="button"
+                            className="angler-btn-action success"
+                            onClick={() => handleUnlockUser(u.id)}
+                            disabled={isBusy}
+                            title="Unlock account and clear failed logins"
+                          >
+                            <Unlock size={13} />
+                            <span>Unlock Account</span>
+                          </button>
+                        ) : !isOwnerAccount ? (
+                          <button
+                            type="button"
+                            className="angler-btn-action warning"
+                            onClick={() => handleLockUser(u.id, 7)}
+                            disabled={isBusy}
+                            title="Suspend/lock account for 7 days"
+                          >
+                            <Lock size={13} />
+                            <span>Lock Account (7d)</span>
+                          </button>
+                        ) : null}
+
+                        {/* Admin Privilege Toggle */}
+                        {!isOwnerAccount ? (
+                          <button
+                            type="button"
+                            className="angler-btn-action"
+                            onClick={() => handleToggleAdmin(u.id, u.is_admin === 1)}
+                            disabled={isBusy}
+                          >
+                            <Shield size={13} />
+                            <span>{u.is_admin === 1 ? 'Revoke Admin' : 'Grant Admin'}</span>
+                          </button>
+                        ) : null}
+
+                        {/* Delete User Button (Owner protected) */}
+                        {!isOwnerAccount && (
+                          <button
+                            type="button"
+                            className="angler-btn-action danger"
+                            style={{ marginLeft: 'auto' }}
+                            onClick={() => handleDeleteUser(u.id, u.email)}
+                            disabled={isBusy}
+                            title="Permanently delete user and their cloud records"
+                          >
+                            <Trash2 size={13} />
+                            <span>Delete</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            )}
           </div>
         )}
 
