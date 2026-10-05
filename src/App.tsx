@@ -24,6 +24,8 @@ import AdminPanel from './AdminPanel';
 import { evaluateAchievements, getEquippedAchievement } from './achievements';
 import { syncUserWithCloud, fetchUserCloudData, useCloudSyncStatus, flushPendingQueue, fetchPublicSharedData } from './cloud';
 import CatchComments from './CatchComments';
+import PersonalBests from './PersonalBests';
+import { usePremiumMembership } from './membership';
 
 // Global PWA installation event capture
 let globalInstallPrompt: any = null;
@@ -114,7 +116,7 @@ function getSolunarPrediction(pressure?: number, fetchedAt?: string) {
 const WeatherCard = ({ s }: { s: Session }) => {
   const w = s.weather;
   const live = !s.endedAt;
-  const isPremiumActive = actions.isPremium();
+  const isPremiumActive = usePremiumMembership();
   const solunar = getSolunarPrediction(w?.pressure, w?.fetchedAt);
 
   return (
@@ -1676,7 +1678,7 @@ const WeightInput = ({
 
 const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () => void }) => {
   const { unitSystem = 'imperial' } = useStore();
-  const isPremiumActive = actions.isPremium();
+  const isPremiumActive = usePremiumMembership();
   const [species, setSpecies] = useState(POPULAR_SPECIES[0]);
   const [weight, setWeight] = useState({ lb: 0, oz: 0 });
   const [bait, setBait] = useState('');
@@ -1783,7 +1785,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
 
 const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
   const { unitSystem = 'imperial' } = useStore();
-  const isPremiumActive = actions.isPremium();
+  const isPremiumActive = usePremiumMembership();
   const [species, setSpecies] = useState(c.species);
   const [weight, setWeight] = useState({ lb: c.weightLb, oz: c.weightOz });
   const [bait, setBait] = useState(c.bait);
@@ -2615,6 +2617,7 @@ const CatchDetail = () => {
 const Profile = () => {
   const { catches, sessions, name, equippedAchievementId, likesGivenCount = 0, appliedCoupon } = useStore();
   const { user } = useAuth();
+  const isPremiumActive = usePremiumMembership();
   const isAdmin = isUserAdmin(user);
   const [savingNickname, setSavingNickname] = useState(false);
   const [nicknameSaved, setNicknameSaved] = useState(false);
@@ -2631,8 +2634,16 @@ const Profile = () => {
   const equipped = useMemo(() => getEquippedAchievement(equippedAchievementId, evaluated), [equippedAchievementId, evaluated]);
 
   const species = [...new Set(catches.map((c) => c.species))];
-  const best = [...catches].sort((a, b) => totalOz(b) - totalOz(a))[0];
-  const pbs = species.map((sp) => catches.filter((c) => c.species === sp).sort((a, b) => totalOz(b) - totalOz(a))[0]);
+  const pbs = useMemo(() => {
+    const records = new Map<string, Catch>();
+    catches.forEach(c => {
+      const speciesKey = c.species.trim().toLowerCase();
+      if (!speciesKey || totalOz(c) <= 0) return;
+      const previous = records.get(speciesKey);
+      if (!previous || totalOz(c) > totalOz(previous)) records.set(speciesKey, c);
+    });
+    return [...records.values()].sort((a, b) => totalOz(b) - totalOz(a));
+  }, [catches]);
   const hours = sessions.reduce((t, s) => t + ((s.endedAt ? new Date(s.endedAt).getTime() : Date.now()) - new Date(s.startedAt).getTime()) / 3600000, 0);
 
   const unlockedCount = unlockedAchievements.length;
@@ -2677,10 +2688,10 @@ const Profile = () => {
               </Link>
             )}
 
-            {actions.isPremium() ? (
+            {isPremiumActive ? (
               <Link to="/subscription" className="flair-title-pill" style={{ background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)', borderColor: 'rgba(201, 119, 43, 0.4)' }} title="Manage Keepnet Premium">
                 <Crown size={11} />
-                <span>{appliedCoupon ? `Premium Trial (${appliedCoupon})` : 'Premium Angler'}</span>
+                <span>{appliedCoupon ? 'Premium Trial Active' : 'Premium Angler'}</span>
               </Link>
             ) : (
               <Link to="/subscription" className="flair-title-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }} title="Claim 1-month free trial">
@@ -2760,6 +2771,8 @@ const Profile = () => {
         </div>
       </div>
 
+      <PersonalBests records={pbs} sessions={sessions} />
+
       {/* Gamified Achievements Showcase Card */}
       <div className="card profile-achievements-card">
         <div className="row-between" style={{ alignItems: 'baseline' }}>
@@ -2804,30 +2817,18 @@ const Profile = () => {
         </Link>
       </div>
 
-      {/* Biggest Fish Showcase */}
-      {best && (
-        <Link to={`/catches/${best.id}`} className="card card-link best-card">
-          {best.image && <img src={best.image} alt={best.species} />}
-          <div className="best-overlay">
-            <div className="eyebrow light"><Trophy size={14} /> Biggest fish</div>
-            <div className="serif" style={{ fontSize: 22 }}>{best.species} · {fmtWeight(best)}</div>
-          </div>
-        </Link>
-      )}
-
-      {/* Personal Bests Section */}
-      <div className="section-header"><h2 className="serif section-title">Personal bests</h2></div>
-      <div className="card">{pbs.length ? pbs.map((c) => <CatchRow key={c.id} c={c} />) : <p className="muted">No catches yet.</p>}</div>
-
       {/* App & Account Navigation Links */}
-      <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <section className="profile-account-section" aria-labelledby="profile-account-title">
+        <h2 id="profile-account-title">App & account</h2>
+        <p>Manage your membership and preferences.</p>
+        <div className="profile-account-links">
         <Link
           to="/subscription"
           id="profile-to-subscription-btn"
           className="btn-secondary"
           style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 46, borderColor: 'rgba(201, 119, 43, 0.45)', color: 'var(--copper, #C9772B)' }}
         >
-          <Crown size={16} /> Keepnet Membership & 1-Month Free Trial
+          <Crown size={16} /> {isPremiumActive ? 'Manage Premium membership' : 'Keepnet Membership & 1-Month Free Trial'}
         </Link>
 
         <Link
@@ -2849,7 +2850,8 @@ const Profile = () => {
             <ShieldCheck size={16} /> Open Keepnet Admin Console
           </Link>
         )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 };

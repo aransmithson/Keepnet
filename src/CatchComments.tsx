@@ -4,7 +4,7 @@ import {
   Send, Crown, Trash2, Sparkles, AlertCircle, RefreshCw, User,
   Heart, CheckCircle2, MoreHorizontal
 } from 'lucide-react';
-import { actions, useStore } from './store';
+import { usePremiumMembership } from './membership';
 import { useAuth } from './auth';
 import { fetchCatchComments, postCatchComment, deleteCatchComment, type CatchComment } from './cloud';
 
@@ -76,9 +76,8 @@ export const CatchComments = ({
   isSharedCatch?: boolean;
   catchSpecies?: string;
 }) => {
-  const store = useStore();
   const { user } = useAuth();
-  const isPremiumActive = actions.isPremium() || store.subscriptionTier === 'premium';
+  const isPremiumActive = usePremiumMembership();
 
   const [comments, setComments] = useState<CatchComment[]>([]);
   const [loading, setLoading] = useState(true);

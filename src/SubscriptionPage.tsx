@@ -5,12 +5,13 @@ import {
   Calendar, Zap, EyeOff, Camera, FileText, Gift, X
 } from 'lucide-react';
 import { useStore, actions } from './store';
+import { usePremiumMembership } from './membership';
 
 export const SubscriptionPage = () => {
   const nav = useNavigate();
-  const { subscriptionTier, appliedCoupon, subscriptionExpiresAt } = useStore();
+  const { appliedCoupon, subscriptionExpiresAt } = useStore();
 
-  const isPremiumActive = actions.isPremium() || subscriptionTier === 'premium';
+  const isPremiumActive = usePremiumMembership();
   const [couponInput, setCouponInput] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
@@ -111,129 +112,131 @@ export const SubscriptionPage = () => {
       )}
 
       {/* 1-Month Free Trial Coupon Entry Card */}
-      <div className="card coupon-card" id="coupon-redemption-card">
-        <div className="row-between" style={{ alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div className="coupon-icon-wrap">
-              <Gift size={18} />
+      {!isPremiumActive && <>
+        <div className="card coupon-card" id="coupon-redemption-card">
+          <div className="row-between" style={{ alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div className="coupon-icon-wrap">
+                <Gift size={18} />
+              </div>
+              <div>
+                <h2 className="serif" style={{ margin: 0, fontSize: 16 }}>
+                  Redeem Free Trial Coupon
+                </h2>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Enjoy 1 month of Keepnet Premium with zero credit card required
+                </span>
+              </div>
             </div>
-            <div>
-              <h2 className="serif" style={{ margin: 0, fontSize: 16 }}>
-                Redeem Free Trial Coupon
-              </h2>
-              <span className="muted" style={{ fontSize: 12 }}>
-                Enjoy 1 month of Keepnet Premium with zero credit card required
-              </span>
+            <span className="count-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 700, fontSize: 11 }}>
+              1 Month Free
+            </span>
+          </div>
+
+          {/* Quick Suggestion Chips */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <span className="muted" style={{ fontSize: 12 }}>Recommended:</span>
+            <button
+              type="button"
+              className="coupon-quick-chip"
+              onClick={() => {
+                setCouponInput('KEEPNET1M');
+                handleApplyCoupon('KEEPNET1M');
+              }}
+              title="Click to apply KEEPNET1M"
+            >
+              <Tag size={12} />
+              <span>KEEPNET1M</span>
+            </button>
+            <button
+              type="button"
+              className="coupon-quick-chip"
+              onClick={() => {
+                setCouponInput('ANGLER30');
+                handleApplyCoupon('ANGLER30');
+              }}
+              title="Click to apply ANGLER30"
+            >
+              <Tag size={12} />
+              <span>ANGLER30</span>
+            </button>
+          </div>
+
+          {/* Input & Submit Form */}
+          <div className="coupon-form-row">
+            <input
+              type="text"
+              id="coupon-code-input"
+              className="coupon-input"
+              placeholder="Enter promo or coupon code..."
+              value={couponInput}
+              onChange={(e) => setCouponInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleApplyCoupon();
+                }
+              }}
+              aria-label="Coupon code for free trial"
+            />
+            <button
+              type="button"
+              id="apply-coupon-btn"
+              className="btn-primary"
+              style={{ height: 42, padding: '0 16px', fontSize: 13, minWidth: 110 }}
+              onClick={() => handleApplyCoupon()}
+            >
+              Apply Code
+            </button>
+          </div>
+
+          {feedback && (
+            <div className={`coupon-feedback-banner ${feedback.type}`}>
+              {feedback.type === 'success' ? <Check size={16} /> : <X size={16} />}
+              <span>{feedback.message}</span>
             </div>
+          )}
+        </div>
+
+        {/* Billing Cycle Toggle */}
+        <div className="billing-cycle-switch-wrap">
+          <div className="billing-cycle-toggle" role="group" aria-label="Subscription billing frequency">
+            <button
+              type="button"
+              className={`billing-btn ${billingCycle === 'annual' ? 'active' : ''}`}
+              onClick={() => setBillingCycle('annual')}
+            >
+              <span>Annual (Save 41%)</span>
+              <span className="best-value-pill">Best Value</span>
+            </button>
+            <button
+              type="button"
+              className={`billing-btn ${billingCycle === 'monthly' ? 'active' : ''}`}
+              onClick={() => setBillingCycle('monthly')}
+            >
+              <span>Monthly</span>
+            </button>
           </div>
-          <span className="count-pill" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontWeight: 700, fontSize: 11 }}>
-            1 Month Free
-          </span>
         </div>
 
-        {/* Quick Suggestion Chips */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          <span className="muted" style={{ fontSize: 12 }}>Recommended:</span>
-          <button
-            type="button"
-            className="coupon-quick-chip"
-            onClick={() => {
-              setCouponInput('KEEPNET1M');
-              handleApplyCoupon('KEEPNET1M');
-            }}
-            title="Click to apply KEEPNET1M"
-          >
-            <Tag size={12} />
-            <span>KEEPNET1M</span>
-          </button>
-          <button
-            type="button"
-            className="coupon-quick-chip"
-            onClick={() => {
-              setCouponInput('ANGLER30');
-              handleApplyCoupon('ANGLER30');
-            }}
-            title="Click to apply ANGLER30"
-          >
-            <Tag size={12} />
-            <span>ANGLER30</span>
-          </button>
-        </div>
-
-        {/* Input & Submit Form */}
-        <div className="coupon-form-row">
-          <input
-            type="text"
-            id="coupon-code-input"
-            className="coupon-input"
-            placeholder="Enter promo or coupon code..."
-            value={couponInput}
-            onChange={(e) => setCouponInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleApplyCoupon();
-              }
-            }}
-            aria-label="Coupon code for free trial"
-          />
-          <button
-            type="button"
-            id="apply-coupon-btn"
-            className="btn-primary"
-            style={{ height: 42, padding: '0 16px', fontSize: 13, minWidth: 110 }}
-            onClick={() => handleApplyCoupon()}
-          >
-            Apply Code
-          </button>
-        </div>
-
-        {feedback && (
-          <div className={`coupon-feedback-banner ${feedback.type}`}>
-            {feedback.type === 'success' ? <Check size={16} /> : <X size={16} />}
-            <span>{feedback.message}</span>
+        {/* Lite Free Forever Reassurance */}
+        <div className="lite-free-reassurance-banner" style={{ margin: '8px 0 20px' }}>
+          <div className="lite-free-reassurance-icon">
+            <ShieldCheck size={20} />
           </div>
-        )}
-      </div>
-
-      {/* Billing Cycle Toggle */}
-      <div className="billing-cycle-switch-wrap">
-        <div className="billing-cycle-toggle" role="group" aria-label="Subscription billing frequency">
-          <button
-            type="button"
-            className={`billing-btn ${billingCycle === 'annual' ? 'active' : ''}`}
-            onClick={() => setBillingCycle('annual')}
-          >
-            <span>Annual (Save 41%)</span>
-            <span className="best-value-pill">Best Value</span>
-          </button>
-          <button
-            type="button"
-            className={`billing-btn ${billingCycle === 'monthly' ? 'active' : ''}`}
-            onClick={() => setBillingCycle('monthly')}
-          >
-            <span>Monthly</span>
-          </button>
+          <div className="lite-free-reassurance-content">
+            <strong>Keepnet Lite is 100% Free Forever</strong>
+            <span>
+              You will never be charged to log catches, record fishing sessions, or track personal bests. Premium is strictly an optional add-on for live community waters &amp; fisheries discovery.
+            </span>
+          </div>
         </div>
-      </div>
 
-      {/* Lite Free Forever Reassurance */}
-      <div className="lite-free-reassurance-banner" style={{ margin: '8px 0 20px' }}>
-        <div className="lite-free-reassurance-icon">
-          <ShieldCheck size={20} />
-        </div>
-        <div className="lite-free-reassurance-content">
-          <strong>Keepnet Lite is 100% Free Forever</strong>
-          <span>
-            You will never be charged to log catches, record fishing sessions, or track personal bests. Premium is strictly an optional add-on for live community waters &amp; fisheries discovery.
-          </span>
-        </div>
-      </div>
-
+      </>}
       {/* Plans Comparison Grid */}
       <div className="plans-grid">
         {/* Plan 1: Lite (Free Forever) */}
-        <div className={`card plan-card ${!isPremiumActive ? 'current-plan' : ''}`}>
+        {!isPremiumActive && <div className="card plan-card current-plan">
           <div className="plan-header">
             <div>
               <div className="eyebrow" style={{ color: 'var(--text-secondary)' }}>Personal Catch Journal</div>
@@ -250,13 +253,9 @@ export const SubscriptionPage = () => {
           </p>
 
           <div className="plan-status-row">
-            {!isPremiumActive ? (
-              <span className="plan-active-chip">
-                <Check size={13} /> Active Plan (Free Forever)
-              </span>
-            ) : (
-              <span className="muted" style={{ fontSize: 12 }}>Always Free Default Tier</span>
-            )}
+            <span className="plan-active-chip">
+              <Check size={13} /> Active Plan (Free Forever)
+            </span>
           </div>
 
           <ul className="plan-features-list">
@@ -269,8 +268,7 @@ export const SubscriptionPage = () => {
             <li><Check size={15} color="var(--accent-green)" /> <span>Standard photo storage</span></li>
             <li className="muted"><EyeOff size={15} /> <span>Discover Map & Fisheries: Preview mode</span></li>
           </ul>
-        </div>
-
+        </div>}
         {/* Plan 2: Premium Subscription */}
         <div className={`card plan-card featured ${isPremiumActive ? 'current-plan' : ''}`}>
           <div className="featured-ribbon">
@@ -282,7 +280,7 @@ export const SubscriptionPage = () => {
               <div className="eyebrow" style={{ color: 'var(--copper, #C9772B)' }}>Bankside Intelligence & Discover</div>
               <h3 className="serif plan-title">Keepnet Premium</h3>
             </div>
-            <div className="plan-price">
+            {!isPremiumActive && <div className="plan-price">
               {billingCycle === 'annual' ? (
                 <>
                   <span className="serif" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-green)' }}>£10.49</span>
@@ -295,11 +293,11 @@ export const SubscriptionPage = () => {
                   <span className="muted" style={{ fontSize: 12 }}> / month</span>
                 </>
               )}
-            </div>
+            </div>}
           </div>
 
           <p className="muted" style={{ fontSize: 13, margin: '8px 0 16px' }}>
-            Full live Discover map, 60+ UK fisheries, solunar feeding windows, and tactical intel.
+            {isPremiumActive ? 'Your membership includes these features.' : 'Full live Discover map, 60+ UK fisheries, solunar feeding windows, and tactical intel.'}
           </p>
 
           <div className="plan-status-row">

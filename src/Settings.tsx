@@ -9,11 +9,12 @@ import { useStore, actions } from './store';
 import { useAuth, authActions, isUserAdmin } from './auth';
 import { useTheme, themeActions } from './theme';
 import { fetchUserCloudData, flushPendingQueue } from './cloud';
+import { usePremiumMembership } from './membership';
 
 export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   const nav = useNavigate();
-  const { unitSystem = 'imperial', subscriptionTier, appliedCoupon, subscriptionExpiresAt } = useStore();
-  const isPremiumActive = actions.isPremium() || subscriptionTier === 'premium';
+  const { unitSystem = 'imperial', appliedCoupon, subscriptionExpiresAt } = useStore();
+  const isPremiumActive = usePremiumMembership();
   const { user, storageMode } = useAuth();
   const theme = useTheme();
   const isAdmin = isUserAdmin(user);
@@ -200,7 +201,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
             <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               {isPremiumActive ? (
                 subscriptionExpiresAt ? (
-                  <>1-Month Free Trial active until <strong>{new Date(subscriptionExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</strong>.</>
+                  <>{appliedCoupon ? 'Trial active until' : 'Membership active until'} <strong>{new Date(subscriptionExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</strong>.</>
                 ) : (
                   'Bankside Intelligence & Specimen Suite enabled.'
                 )

@@ -8,13 +8,14 @@ import { UK_FISHERIES, calculateDistanceMiles, type Fishery } from './fisheries'
 import { createMap, type MapEngine, type MapMarker } from './map';
 import { getDevicePosition } from './weather';
 import { useTheme } from './theme';
-import { useStore, actions, type Venue } from './store';
+import { actions, type Venue } from './store';
+import { usePremiumMembership } from './membership';
 import { useAuth } from './auth';
 import { fetchUserCloudData } from './cloud';
 
 export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void }) => {
   const nav = useNavigate();
-  const store = useStore();
+  const isPremiumActive = usePremiumMembership();
   const { user } = useAuth();
 
   useEffect(() => {
@@ -174,7 +175,6 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
 
   const countries = ['All', 'England', 'Wales', 'Scotland', 'Northern Ireland'];
 
-  const isPremiumActive = actions.isPremium() || store.subscriptionTier === 'premium';
 
   // If user is on Lite tier (not Premium / Trial), show static benefits preview per monetisation plan
   if (!isPremiumActive) {
