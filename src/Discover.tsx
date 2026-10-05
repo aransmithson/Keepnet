@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Fish, LocateFixed, Globe, ChevronRight, CloudSun, Calendar, User, X,
-  Search, MapPin, Compass, Heart, Lock, Crown, Gift, Sparkles, Zap, EyeOff
+  Search, MapPin, Compass, Heart, Lock, Crown, Gift, Sparkles, Zap, EyeOff, ShieldCheck
 } from 'lucide-react';
 import { useStore, actions, fmtWeight, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
 import { getDevicePosition } from './weather';
@@ -220,15 +220,26 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   if (!isPremiumActive) {
     return (
       <div className="content">
+        {/* Lite Free Forever Reassurance Banner */}
+        <div className="lite-free-reassurance-banner">
+          <div className="lite-free-reassurance-icon">
+            <ShieldCheck size={20} />
+          </div>
+          <div className="lite-free-reassurance-content">
+            <strong>Keepnet Lite is 100% Free Forever</strong>
+            <span>Your personal catch diary, offline logging, PB tracking, species, weights, and photos are always free. You will never be asked to pay to log catches.</span>
+          </div>
+        </div>
+
         {/* Header */}
         <div className="row-between" style={{ alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
           <div>
             <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--copper, #C9772B)', marginBottom: 2 }}>
-              <Crown size={14} /> Keepnet Premium Feature
+              <Crown size={14} /> Optional Community Add-On
             </div>
-            <h1 className="page-title" style={{ margin: '0 0 4px' }}>Discover Waters & Catches</h1>
+            <h1 className="page-title" style={{ margin: '0 0 4px' }}>Community Waters & Catches</h1>
             <p className="page-subtitle" style={{ margin: 0 }}>
-              Live interactive map, community catches feed, and 60+ UK fisheries directory.
+              Live interactive waters map, shared catches feed, and 60+ UK fisheries directory.
             </p>
           </div>
         </div>
@@ -239,10 +250,10 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             <Sparkles size={14} /> Specimen Suite
           </div>
           <h2 className="serif" style={{ fontSize: 24, margin: '8px 0 6px' }}>
-            Unlock Live Waters & Angler Catch Reports
+            Explore Live Community Waters & Rigs
           </h2>
-          <p className="muted" style={{ fontSize: 13, maxWidth: 520, margin: '0 auto 16px', lineHeight: 1.5 }}>
-            See where specimen fish are biting across the UK, inspect baits & rigs from fellow anglers, search 60+ commercial fisheries with GPS directions, and unlock solunar feeding forecasts.
+          <p className="muted" style={{ fontSize: 13, maxWidth: 540, margin: '0 auto 16px', lineHeight: 1.5 }}>
+            While your personal diary is 100% free forever, Premium connects you with the wider UK community — showing where fish are biting, what baits are producing, and GPS routes to 60+ verified fisheries.
           </p>
 
           <div className="discover-benefits-grid">
@@ -298,7 +309,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             </Link>
           </div>
           <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-            Zero credit card required for 1-month trial · Cancel anytime · Your personal diary is always free
+            Keepnet Lite remains free forever · No credit card required · Never pay to log your catches
           </div>
         </div>
 

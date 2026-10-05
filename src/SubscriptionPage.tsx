@@ -217,13 +217,26 @@ export const SubscriptionPage = () => {
         </div>
       </div>
 
+      {/* Lite Free Forever Reassurance */}
+      <div className="lite-free-reassurance-banner" style={{ margin: '8px 0 20px' }}>
+        <div className="lite-free-reassurance-icon">
+          <ShieldCheck size={20} />
+        </div>
+        <div className="lite-free-reassurance-content">
+          <strong>Keepnet Lite is 100% Free Forever</strong>
+          <span>
+            You will never be charged to log catches, record fishing sessions, or track personal bests. Premium is strictly an optional add-on for live community waters &amp; fisheries discovery.
+          </span>
+        </div>
+      </div>
+
       {/* Plans Comparison Grid */}
       <div className="plans-grid">
         {/* Plan 1: Lite (Free Forever) */}
         <div className={`card plan-card ${!isPremiumActive ? 'current-plan' : ''}`}>
           <div className="plan-header">
             <div>
-              <div className="eyebrow" style={{ color: 'var(--text-secondary)' }}>Personal Journal</div>
+              <div className="eyebrow" style={{ color: 'var(--text-secondary)' }}>Personal Catch Journal</div>
               <h3 className="serif plan-title">Keepnet Lite</h3>
             </div>
             <div className="plan-price">
@@ -233,16 +246,16 @@ export const SubscriptionPage = () => {
           </div>
 
           <p className="muted" style={{ fontSize: 13, margin: '8px 0 16px' }}>
-            Essential bankside logging and dependable personal catch journal.
+            Essential bankside logging and dependable personal catch journal — guaranteed 100% free forever.
           </p>
 
           <div className="plan-status-row">
             {!isPremiumActive ? (
               <span className="plan-active-chip">
-                <Check size={13} /> Active Plan
+                <Check size={13} /> Active Plan (Free Forever)
               </span>
             ) : (
-              <span className="muted" style={{ fontSize: 12 }}>Free Default Tier</span>
+              <span className="muted" style={{ fontSize: 12 }}>Always Free Default Tier</span>
             )}
           </div>
 

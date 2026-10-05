@@ -2535,7 +2535,6 @@ const Shell = () => {
   };
 
   const [installPrompt, setInstallPrompt] = useState<any>(globalInstallPrompt);
-  const [dismissedInstall, setDismissedInstall] = useState(false);
 
   useEffect(() => {
     const handler = () => setInstallPrompt(globalInstallPrompt);
@@ -2577,6 +2576,19 @@ const Shell = () => {
       <header className="top-bar">
         <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={44} /></Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {installPrompt && !isStandalone && (
+            <button
+              type="button"
+              className="header-install-btn"
+              id="header-install-btn"
+              onClick={handleInstallApp}
+              title="Install Keepnet App for offline bankside use"
+              aria-label="Install App"
+            >
+              <Download size={13} />
+              <span>Install App</span>
+            </button>
+          )}
           <Link to="/settings" className="icon-btn" id="header-settings-btn" aria-label="Settings" title="Settings & Preferences">
             <SettingsIcon size={19} />
           </Link>
@@ -2585,24 +2597,6 @@ const Shell = () => {
           </Link>
         </div>
       </header>
-      {installPrompt && !dismissedInstall && !isStandalone && (
-        <div className="install-banner">
-          <div className="install-banner-content">
-            <div className="install-banner-text">
-              <strong>Install Keepnet App</strong>
-              <span>Fast offline bankside logging</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <button className="btn-primary" style={{ padding: '6px 12px', fontSize: 12, height: 32 }} onClick={handleInstallApp}>
-                <Download size={13} /> Install
-              </button>
-              <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => setDismissedInstall(true)} aria-label="Dismiss banner">
-                <X size={15} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {store.storageError && (
         <div className="install-banner" style={{ background: 'rgba(239, 68, 68, 0.12)', borderBottomColor: 'rgba(239, 68, 68, 0.3)' }}>
           <div className="install-banner-content">

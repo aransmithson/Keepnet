@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Search, MapPin, Navigation as NavIcon,
-  LocateFixed, Fish, Plus, X, Globe, Sparkles, Crown, Gift, ChevronRight, EyeOff, Compass
+  LocateFixed, Fish, Plus, X, Globe, Sparkles, Crown, Gift, ChevronRight, EyeOff, Compass, ShieldCheck
 } from 'lucide-react';
 import { UK_FISHERIES, calculateDistanceMiles, type Fishery } from './fisheries';
 import { createMap, type MapEngine, type MapMarker } from './map';
@@ -167,6 +167,17 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
     const previewVenues = UK_FISHERIES.slice(0, 3);
     return (
       <div className="content fisheries-page">
+        {/* Lite Free Forever Reassurance Banner */}
+        <div className="lite-free-reassurance-banner">
+          <div className="lite-free-reassurance-icon">
+            <ShieldCheck size={20} />
+          </div>
+          <div className="lite-free-reassurance-content">
+            <strong>Keepnet Lite is 100% Free Forever</strong>
+            <span>Personal fishing sessions, custom swims, catches, weights, and offline mode will always remain completely free.</span>
+          </div>
+        </div>
+
         {/* Top Header */}
         <div className="page-header" style={{ marginBottom: 14 }}>
           <button
@@ -180,7 +191,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
           </button>
           <div style={{ flex: 1 }}>
             <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--copper, #C9772B)' }}>
-              <Crown size={13} /> Keepnet Premium Directory
+              <Crown size={13} /> Optional Community Directory
             </div>
             <h1 className="serif page-title" style={{ margin: 0, fontSize: 22 }}>
               UK Fisheries & Venues
@@ -194,10 +205,10 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
             <Sparkles size={14} /> Specimen Suite
           </div>
           <h2 className="serif" style={{ fontSize: 24, margin: '8px 0 6px' }}>
-            Unlock 60+ Verified UK Fisheries
+            60+ Verified UK Fisheries & Venues
           </h2>
-          <p className="muted" style={{ fontSize: 13, maxWidth: 520, margin: '0 auto 16px', lineHeight: 1.5 }}>
-            Access day-ticket waters, specimen carp syndicates, and pleasure fisheries across England, Wales, Scotland and Northern Ireland with instant GPS distance sorting and turn-by-turn directions.
+          <p className="muted" style={{ fontSize: 13, maxWidth: 540, margin: '0 auto 16px', lineHeight: 1.5 }}>
+            While your personal fishing journal is always 100% free with Keepnet Lite, Premium adds live GPS distance sorting, Google Maps turn-by-turn directions, and day-ticket intel for 60+ UK commercial waters.
           </p>
 
           <div className="discover-benefits-grid">
@@ -253,7 +264,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
             </Link>
           </div>
           <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
-            Zero credit card required for 1-month trial · Cancel anytime · Your personal diary is always free
+            Keepnet Lite remains free forever · No credit card required · Never pay to log your catches
           </div>
         </div>
 
