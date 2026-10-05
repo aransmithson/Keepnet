@@ -23,6 +23,7 @@ import { useAuth, authActions, isUserAdmin } from './auth';
 import AdminPanel from './AdminPanel';
 import { evaluateAchievements, getEquippedAchievement } from './achievements';
 import { syncUserWithCloud, fetchUserCloudData, useCloudSyncStatus, flushPendingQueue, fetchPublicSharedData } from './cloud';
+import CatchComments from './CatchComments';
 
 // Global PWA installation event capture
 let globalInstallPrompt: any = null;
@@ -2189,6 +2190,9 @@ const CatchDetail = () => {
 
       {/* Compact weather summary with collapsible breakdown */}
       {s?.weather && <WeatherSummary weather={s.weather} />}
+
+      {/* Angler Tactical Discussion & Comments (Exclusive to Premium members to post) */}
+      <CatchComments catchId={c.id} isSharedCatch={!!c.isShared} catchSpecies={c.species} />
 
       {/* Action buttons: Edit & Delete for owner, Explore for others */}
       {isOwner ? (

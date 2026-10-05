@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Fish, LocateFixed, Globe, ChevronRight, CloudSun, Calendar, User, X,
-  Search, MapPin, Compass, Heart, Lock, Crown, Gift, Sparkles, Zap, EyeOff, ShieldCheck
+  Search, MapPin, Compass, Heart, Lock, Crown, Gift, Sparkles, Zap, EyeOff, ShieldCheck, MessageSquare
 } from 'lucide-react';
 import { useStore, actions, fmtWeight, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
 import { getDevicePosition } from './weather';
@@ -711,10 +711,16 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
                         <span><strong>{likesCount}</strong> {likesCount === 1 ? 'Like' : 'Likes'}</span>
                       </button>
 
-                      <Link to={`/catches/${c.id}`} className="btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 12, textDecoration: 'none', gap: 4 }}>
-                        <span>Catch Report</span>
-                        <ChevronRight size={14} />
-                      </Link>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Link to={`/catches/${c.id}`} className="btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 12, textDecoration: 'none', gap: 4 }} title="View tactical discussion">
+                          <MessageSquare size={13} color="var(--copper)" />
+                          <span>Discuss</span>
+                        </Link>
+                        <Link to={`/catches/${c.id}`} className="btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 12, textDecoration: 'none', gap: 4 }}>
+                          <span>Report</span>
+                          <ChevronRight size={14} />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );

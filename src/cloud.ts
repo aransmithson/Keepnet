@@ -378,3 +378,77 @@ export async function fetchCatchLikes(): Promise<Record<string, number>> {
   }
   return {};
 }
+
+export interface CatchComment {
+  id: string;
+  catch_id: string;
+  user_id: string;
+  user_name: string;
+  is_premium: number;
+  comment: string;
+  created_at: string;
+}
+
+/** Fetch comments for a specific catch report from Cloudflare D1. */
+export async function fetchCatchComments(catchId: string): Promise<CatchComment[]> {
+  try {
+    const res = await fetch(`/api/comments?catchId=${encodeURIComponent(catchId)}`);
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data.comments) ? data.comments : [];
+    }
+  } catch (err) {
+    console.warn('[Keepnet Cloud] Failed to fetch catch comments', err);
+  }
+  return [];
+}
+
+/** Post a new comment on a catch report (Requires Keepnet Premium). */
+export async function postCatchComment(
+  catchId: string,
+  comment: string
+): Promise<{ success: boolean; comment?: CatchComment; error?: string }> {
+  try {
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ catchId, comment }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return { success: true, comment: data.comment };
+    }
+    return { success: false, error: data.error || `Failed to post comment (${res.status})` };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error posting comment' };
+  }
+}
+
+/** Delete a comment (Author or platform admin). */
+export async function deleteCatchComment(commentId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/comments?id=${encodeURIComponent(commentId)}`, {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[Keepnet Cloud] Failed to delete comment', err);
+    return false;
+  }
+}
+
+/** Fetch comment counts across all shared catches. */
+export async function fetchCatchCommentCounts(): Promise<Record<string, number>> {
+  try {
+    const res = await fetch('/api/comments');
+    if (res.ok) {
+      const data = await res.json();
+      return data.commentCounts || {};
+    }
+  } catch (err) {
+    console.warn('[Keepnet Cloud] Failed to fetch comment counts', err);
+  }
+  return {};
+}
+
