@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Cloud, HardDrive, Lock, RefreshCw, KeyRound, LogOut,
   Mail, Scale, Sun, Moon, Download, Smartphone, Check, ShieldCheck,
-  Trash2, AlertTriangle, User
+  Trash2, AlertTriangle, User, Crown, ChevronRight
 } from 'lucide-react';
 import { useStore, actions } from './store';
 import { useAuth, authActions, isUserAdmin } from './auth';
@@ -12,7 +12,8 @@ import { fetchUserCloudData, flushPendingQueue } from './cloud';
 
 export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   const nav = useNavigate();
-  const { unitSystem = 'imperial' } = useStore();
+  const { unitSystem = 'imperial', appliedCoupon, subscriptionExpiresAt } = useStore();
+  const isPremiumActive = actions.isPremium();
   const { user, storageMode } = useAuth();
   const theme = useTheme();
   const isAdmin = isUserAdmin(user);
@@ -180,6 +181,47 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
               </button>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Membership & Subscription Tier Card */}
+      <div className="card subscription-settings-card">
+        <div className="row-between" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--copper, #C9772B)', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+              <Crown size={14} /> Keepnet Membership
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span>{isPremiumActive ? 'Keepnet Premium' : 'Keepnet Lite'}</span>
+              <span className={`tag status-pill ${isPremiumActive ? 'shared' : 'private'}`}>
+                {isPremiumActive ? (appliedCoupon ? `Trial (${appliedCoupon})` : 'Active Subscriber') : 'Free Tier'}
+              </span>
+            </div>
+            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+              {isPremiumActive ? (
+                subscriptionExpiresAt ? (
+                  <>1-Month Free Trial active until <strong>{new Date(subscriptionExpiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</strong>.</>
+                ) : (
+                  'Bankside Intelligence & Specimen Suite enabled.'
+                )
+              ) : (
+                'Free journal, UK fisheries directory, Discover map, and catch report likes.'
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <Link
+            to="/subscription"
+            id="settings-to-subscription-btn"
+            className="btn-primary"
+            style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 44 }}
+          >
+            <Crown size={16} />
+            <span>{isPremiumActive ? 'Manage Subscription Plan' : 'Upgrade to Premium · Redeem 1-Month Free Trial'}</span>
+            <ChevronRight size={16} />
+          </Link>
         </div>
       </div>
 

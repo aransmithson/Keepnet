@@ -2924,4 +2924,282 @@ a.catch-item:hover { background: var(--bg-color); }
   border-radius: 8px;
 }
 
+/* ==========================================================================
+   Subscription Page & Coupon System
+   ========================================================================== */
+
+.subscription-page {
+  padding-bottom: 90px;
+}
+
+/* Active Trial Banner Card */
+.active-trial-card {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(201, 119, 43, 0.1));
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.trial-badge-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.trial-status-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Coupon Card & Form */
+.coupon-card {
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px dashed var(--border-color);
+  background: var(--card-bg);
+}
+
+.coupon-icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(201, 119, 43, 0.15);
+  color: var(--copper, #C9772B);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.coupon-quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.coupon-quick-chip:hover {
+  background: rgba(201, 119, 43, 0.15);
+  border-color: var(--copper, #C9772B);
+  color: var(--copper, #C9772B);
+}
+
+.coupon-form-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.coupon-input {
+  flex: 1;
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.coupon-input:focus {
+  border-color: var(--accent-green);
+}
+
+.coupon-feedback-banner {
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.coupon-feedback-banner.success {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10b981;
+}
+
+.coupon-feedback-banner.error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+/* Billing Cycle Toggle */
+.billing-cycle-switch-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.billing-cycle-toggle {
+  display: inline-flex;
+  background: var(--surface-sunken);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  gap: 4px;
+}
+
+.billing-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.billing-btn.active {
+  background: var(--card-bg);
+  color: var(--text-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.best-value-pill {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  font-weight: 700;
+}
+
+/* Plans Grid */
+.plans-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.plan-card {
+  position: relative;
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.plan-card.featured {
+  border-color: rgba(201, 119, 43, 0.5);
+  box-shadow: 0 4px 20px rgba(201, 119, 43, 0.1);
+}
+
+.plan-card.current-plan {
+  border-color: var(--accent-green);
+}
+
+.featured-ribbon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: linear-gradient(135deg, #c9772b, #b45309);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.plan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.plan-title {
+  margin: 2px 0 0;
+  font-size: 22px;
+}
+
+.plan-status-row {
+  margin-bottom: 16px;
+}
+
+.plan-active-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(1, 71, 49, 0.12);
+  color: var(--accent-green);
+  border: 1px solid rgba(1, 71, 49, 0.3);
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plan-active-chip.premium {
+  background: rgba(201, 119, 43, 0.15);
+  color: var(--copper, #C9772B);
+  border-color: rgba(201, 119, 43, 0.4);
+}
+
+.plan-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.plan-features-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.plan-features-list li svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+
 

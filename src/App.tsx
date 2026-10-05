@@ -4,13 +4,14 @@ import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, HardDrive, KeyRound, Mail, Pencil, Search, ShieldCheck,
-  Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart
+  Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
 import Logo from './Logo';
 import Settings from './Settings';
 import AchievementsPage from './AchievementsPage';
+import SubscriptionPage from './SubscriptionPage';
 import {
   VENUES, actions, useStore, fmtWeight, fmtDay, fmtTime, totalOz, resizeImage,
   metricToImperial, imperialToMetric, type Venue, type Session, type Catch, type UnitSystem
@@ -2242,6 +2243,15 @@ const Profile = () => {
       {/* App & Account Navigation Links */}
       <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <Link
+          to="/subscription"
+          id="profile-to-subscription-btn"
+          className="btn-secondary"
+          style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 46, borderColor: 'rgba(201, 119, 43, 0.45)', color: 'var(--copper, #C9772B)' }}
+        >
+          <Crown size={16} /> Keepnet Membership & 1-Month Free Trial
+        </Link>
+
+        <Link
           to="/settings"
           id="profile-to-settings-btn"
           className="btn-secondary"
@@ -2295,6 +2305,7 @@ const Shell = () => {
       '/profile': 'Angler Profile · Keepnet',
       '/settings': 'Settings & Preferences · Keepnet',
       '/achievements': 'Angler Achievements & Badges · Keepnet',
+      '/subscription': 'Keepnet Membership & Plans · Keepnet',
       '/admin': 'Keepnet Admin Console',
     };
     if (mapTitle[location.pathname]) {
@@ -2444,6 +2455,7 @@ const Shell = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings onOpenAuth={() => setAuthOpen(true)} />} />
           <Route path="/achievements" element={<AchievementsPage />} />
+          <Route path="/subscription" element={<SubscriptionPage />} />
           <Route path="/admin" element={<AdminPanel onClose={() => nav('/profile')} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

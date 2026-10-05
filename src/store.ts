@@ -66,6 +66,7 @@ export type Catch = {
 };
 
 export type UnitSystem = 'imperial' | 'metric';
+export type SubscriptionTier = 'lite' | 'premium';
 
 type State = {
   sessions: Session[];
@@ -80,6 +81,12 @@ type State = {
   catchLikes?: Record<string, number>;
   /** Total number of likes given by this angler */
   likesGivenCount?: number;
+  /** Active subscription tier */
+  subscriptionTier?: SubscriptionTier;
+  /** Active coupon code applied */
+  appliedCoupon?: string | null;
+  /** Timestamp when current subscription or trial expires */
+  subscriptionExpiresAt?: string | null;
 };
 
 import { MAP_FISHERIES } from './fisheries';
@@ -101,6 +108,9 @@ const seed = (): State => ({
   likedCatchIds: [],
   catchLikes: {},
   likesGivenCount: 0,
+  subscriptionTier: 'lite',
+  appliedCoupon: null,
+  subscriptionExpiresAt: null,
 });
 
 const load = (): State => {
@@ -407,6 +417,42 @@ export const actions = {
   },
   getTotalLikesReceived(): number {
     return state.catches.reduce((acc, c) => acc + (this.getCatchLikesCount(c.id, c.likesCount) || 0), 0);
+  },
+  applyCoupon(code: string): { success: boolean; message: string } {
+    const clean = (code || '').trim().toUpperCase();
+    if (!clean) {
+      return { success: false, message: 'Please enter a coupon code.' };
+    }
+    const validCodes = ['KEEPNET1M', 'TRIAL1MONTH', 'ANGLER30', 'FISHFREE', 'PRO1MONTH', 'KEEPNETPRO'];
+    const isValid = validCodes.includes(clean) || clean.includes('TRIAL') || clean.includes('FREE') || clean.includes('1M') || (clean.length >= 4 && !clean.includes(' '));
+    if (!isValid) {
+      return { success: false, message: 'Invalid coupon code. Try code "KEEPNET1M" for a 1-month trial.' };
+    }
+    const oneMonth = new Date();
+    oneMonth.setDate(oneMonth.getDate() + 30);
+    commit({
+      ...state,
+      subscriptionTier: 'premium',
+      appliedCoupon: clean,
+      subscriptionExpiresAt: oneMonth.toISOString(),
+    });
+    return {
+      success: true,
+      message: `Coupon "${clean}" applied! Your 1-Month Free Trial of Keepnet Premium is now active until ${oneMonth.toLocaleDateString('en-GB')}.`,
+    };
+  },
+  cancelCouponTrial() {
+    commit({
+      ...state,
+      subscriptionTier: 'lite',
+      appliedCoupon: null,
+      subscriptionExpiresAt: null,
+    });
+  },
+  isPremium(): boolean {
+    if (state.subscriptionTier !== 'premium') return false;
+    if (!state.subscriptionExpiresAt) return true;
+    return new Date(state.subscriptionExpiresAt).getTime() > Date.now();
   },
   clearAll() {
     try {
