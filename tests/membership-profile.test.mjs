@@ -46,7 +46,7 @@ try {
   const { default: App } = await server.ssrLoadModule('/src/App.tsx');
   const routes = [
     ['/', 'Every cast, every catch, every story.'],
-    ['/sessions', 'Journal'],
+    ['/sessions', 'Fishing Sessions'],
     ['/sessions?tab=catches', 'Pike'],
     ['/sessions/review-session', 'Review Water'],
     ['/catches/review-catch', 'Catch Details'],
@@ -78,7 +78,7 @@ try {
     }
     console.log(`PASS ${route}`);
   }
-  const css = ['src/index.css', 'src/AchievementsPage.css', 'src/DesignSystem.css'].map(p=>readFileSync(p, 'utf8')).join('\n');
+  const css = ['src/index.css', 'src/AchievementsPage.css', 'src/DesignSystem.css', 'src/SessionsPage.css'].map(p=>readFileSync(p, 'utf8')).join('\n');
   const definitions = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(m=>m[1]));
   for (const [, token] of css.matchAll(/var\((--[\w-]+)/g)) {
     if (token === '--badge-pointer') continue; // Set per selected row in JSX.
@@ -134,7 +134,49 @@ try {
     assert.ok(!profile.includes('href="/catches/unweighed"'));
     console.log(`PASS ${label}: membership prompts and personal bests`);
   }
+  const journal = JSON.parse(reviewStorage.get('keepnet:v2:live'));
+  const original = journal.sessions[0];
+  actions.replaceWithRemoteData([
+    { ...original, id: 'older-session', venueName: 'Older Water', startedAt: '2026-09-30T10:00:00Z' },
+    { ...original, id: 'no-gps', venueName: 'No GPS Water', startedAt: '2026-10-02T10:00:00Z', lat: 0, lon: 0 },
+    { ...original, id: 'confidential', venueName: 'Secret Water', startedAt: '2026-10-03T10:00:00Z', isShared: true, isConfidential: true },
+    original,
+    { ...original, id: 'latest-session', venueName: 'Latest Water', startedAt: '2026-10-05T10:00:00Z', photo: '/images/hero-river.jpg', isShared: true },
+  ], journal.catches);
+  const recentSessions = renderRoute('/sessions');
+  assert.equal((recentSessions.match(/class="session-journal-card"/g) || []).length, 4);
+  assert.ok(recentSessions.indexOf('Latest Water') < recentSessions.indexOf('Review Water'));
+  assert.ok(!recentSessions.includes('Older Water'));
+  assert.ok(recentSessions.includes('View all'));
+  assert.ok(recentSessions.includes('Start a new session'));
+  assert.ok(recentSessions.includes('Not logged'));
+  const secretCard = recentSessions.match(/<article[^>]*id="session-confidential"[\s\S]*?<\/article>/)?.[0];
+  assert.ok(secretCard?.includes('Private'));
+  assert.ok(!secretCard?.includes('Shared'));
+  const allSessions = renderRoute('/sessions?view=all');
+  assert.equal((allSessions.match(/class="session-journal-card"/g) || []).length, 5);
+  assert.ok(allSessions.includes('Older Water'));
+  const calendar = renderRoute('/sessions?tab=calendar&month=2026-10&date=2026-10-04');
+  assert.ok(calendar.includes('October 2026'));
+  assert.equal((calendar.match(/class="session-journal-card"/g) || []).length, 1);
+  assert.ok(calendar.includes('Review Water'));
+  const earlierMonth = renderRoute('/sessions?tab=calendar&month=2026-09');
+  assert.equal((earlierMonth.match(/class="session-journal-card"/g) || []).length, 1);
+  assert.ok(earlierMonth.includes('Older Water'));
+  const emptyDay = renderRoute('/sessions?tab=calendar&month=2026-10&date=2026-10-01');
+  assert.ok(emptyDay.includes('No sessions in this view'));
+  const map = renderRoute('/sessions?tab=map');
+  assert.ok(map.includes('session-journal-map'));
+  assert.equal((map.match(/class="session-journal-card"/g) || []).length, 4);
+  assert.ok(!map.includes('No GPS Water'));
+  const filteredCatches = renderRoute('/sessions?tab=catches&session=latest-session');
+  assert.ok(filteredCatches.includes('No catches recorded'));
+  assert.ok(!filteredCatches.includes('catch-item'));
+  console.log('PASS sessions: recent/all, date filters, map locations, privacy and catch history');
+
   actions.clearAll(); // Clears the isolated in-memory fixture only.
+  assert.ok(renderRoute('/sessions').includes('No sessions yet'));
+  assert.ok(renderRoute('/sessions?tab=map').includes('No locations recorded yet'));
   const emptyProfile = renderRoute('/profile');
   assert.ok(emptyProfile.includes('Your records start here'));
   assert.ok(!emptyProfile.includes('class="personal-best-feature'));

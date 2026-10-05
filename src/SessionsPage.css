@@ -1,0 +1,85 @@
+.content.sessions-page { padding-top: 0; padding-left: 20px; padding-right: 20px; }
+.sessions-hero { margin: 0 -20px; padding: 32px 20px 26px; min-height: 130px; color: #f2f7f3; background: linear-gradient(90deg, #04180fdf 3%, #04180f33 85%), linear-gradient(0deg, #04180f, #04180f00 65%), url('/images/hero-river.jpg') center 46% / cover; }
+.sessions-hero h1 { font-size: clamp(29px, 7.6vw, 37px); line-height: 1.15; letter-spacing: -.8px; margin-bottom: 6px; }
+.sessions-hero p { font-size: 14px; line-height: 1.5; color: #e0e9e4; }
+.sessions-view-tabs { display: grid; grid-template-columns: 1.15fr 1fr .9fr; border: 1px solid var(--border-color); border-radius: 25px; margin: 0 0 20px; background: transparent; }
+.sessions-view-tabs button { display: flex; justify-content: center; align-items: center; gap: 7px; border: 1px solid transparent; border-radius: 24px; min-height: 42px; padding: 9px 8px; background: transparent; color: var(--text-primary); font: inherit; font-size: 12px; cursor: pointer; }
+.sessions-view-tabs button.active { color: var(--accent-green); background: var(--accent-soft); border-color: var(--accent-green); box-shadow: inset 0 0 18px #19d99112; }
+.session-start-card { display: flex; align-items: center; gap: 12px; padding: 16px 14px; width: 100%; min-height: 78px; margin-bottom: 20px; text-align: left; background: var(--panel-gradient); border: 1px dashed var(--border-color); border-radius: 15px; color: var(--text-primary); cursor: pointer; }
+.session-start-card:hover { border-color: var(--accent-green); }
+.session-start-icon { display: grid; place-items: center; width: 43px; height: 43px; flex-shrink: 0; background: var(--accent-gradient); color: var(--accent-contrast); border-radius: 50%; }
+.session-start-card > span:nth-child(2) { flex: 1; min-width: 0; }
+.session-start-card strong { display: block; font-family: 'Playfair Display', serif; font-size: 18px; line-height: 1.3; }
+.session-start-card small { display: block; font-family: 'Inter', sans-serif; font-size: 12px; line-height: 1.5; margin-top: 4px; color: var(--text-secondary); }
+.sessions-section-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+.sessions-section-heading h2 { font-size: 19px; font-weight: 600; }
+.session-text-button { border: 0; padding: 4px 0; background: none; color: var(--accent-green); font: inherit; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.session-journal-list { display: grid; gap: 12px; }
+.session-journal-card { position: relative; border: 1px solid var(--border-color); border-radius: 14px; background: var(--panel-gradient); }
+.session-journal-card:hover { border-color: var(--accent-green); }
+.session-journal-link { display: flex; position: relative; min-height: 122px; color: var(--text-primary); text-decoration: none; border-radius: inherit; }
+.session-journal-photo { width: 25%; flex-shrink: 0; position: relative; overflow: hidden; border-radius: 13px 9px 9px 13px; background: var(--surface-sunken); }
+.session-journal-photo img { position: absolute; width: 100%; height: 100%; object-fit: cover; }
+.session-journal-photo.without-photo { display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 9px; padding: 8px; color: var(--text-secondary); background: radial-gradient(ellipse at 50% 15%, var(--accent-soft), var(--surface-sunken)); }
+.session-journal-photo span { font-size: 10px; text-align: center; line-height: 1.4; }
+.session-journal-body { padding: 10px 12px; flex: 1; min-width: 0; }
+.session-journal-heading { display: flex; align-items: center; gap: 7px; padding-right: 30px; margin-bottom: 5px; }
+.session-journal-heading h3 { flex: 1; min-width: 0; font-size: 16px; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-visibility { display: inline-flex; align-items: center; gap: 4px; font-size: 8px; text-transform: uppercase; font-weight: 600; padding: 5px 8px; border-radius: 16px; flex-shrink: 0; line-height: 1; }
+.session-visibility.shared { color: var(--accent-green); background: var(--accent-soft); }
+.session-visibility.private { color: var(--text-secondary); background: var(--surface-sunken); }
+.session-journal-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 10px; color: var(--text-secondary); padding-right: 8px; }
+.session-journal-meta > span { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; }
+.session-journal-meta svg { flex-shrink: 0; }
+.session-journal-count { display: flex; align-items: center; gap: 5px; margin-top: 5px; padding-right: 18px; color: var(--text-secondary); font-size: 10px; flex-wrap: wrap; }
+.session-live { font-size: 9px; display: inline-flex; align-items: center; gap: 4px; color: var(--accent-green); margin-left: auto; }
+.session-live .live-dot { width: 5px; height: 5px; margin: 0; }
+.session-journal-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 7px; margin-top: 12px; }
+.session-journal-metrics > div { min-width: 0; display: flex; align-items: center; gap: 6px; }
+.session-journal-metrics svg { flex-shrink: 0; stroke-width: 1.5; }
+.session-journal-metrics .sunny { color: var(--copper); }
+.session-journal-metrics span { min-width: 0; }
+.session-journal-metrics strong { display: block; font-size: 9px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.session-journal-metrics small { display: block; font-size: 9px; margin-top: 3px; color: var(--text-secondary); }
+.session-journal-chevron { position: absolute; right: 10px; top: 51px; }
+.session-journal-menu { position: absolute; top: 7px; right: 7px; }
+.session-journal-menu[open] { z-index: 5; }
+.session-journal-menu summary { display: grid; place-items: center; width: 28px; height: 28px; color: var(--text-primary); cursor: pointer; list-style: none; border-radius: 50%; }
+.session-journal-menu summary::-webkit-details-marker { display: none; }
+.session-journal-menu-items { position: absolute; right: 0; top: 30px; width: 158px; padding: 4px; border-radius: 11px; background: var(--card-bg); border: 1px solid var(--border-color); box-shadow: 0 8px 25px #0004; }
+.session-journal-menu-items a { display: flex; justify-content: space-between; align-items: center; padding: 10px 9px; font-size: 11px; text-decoration: none; color: var(--text-primary); border-radius: 7px; }
+.session-journal-menu-items a:hover { background: var(--accent-soft); }
+.session-catch-history { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding: 14px 0; border-top: 1px solid var(--border-color); color: var(--text-secondary); text-decoration: none; font-size: 12px; }
+.session-catch-history > svg:last-child { margin-left: auto; color: var(--accent-green); }
+.session-view-message { padding: 28px 18px; text-align: center; background: var(--panel-gradient); border: 1px solid var(--border-color); border-radius: 14px; }
+.session-view-message > svg { color: var(--accent-green); margin-bottom: 10px; }
+.session-view-message h2, .session-view-message h3 { font-size: 19px; margin-bottom: 7px; }
+.session-view-message p { color: var(--text-secondary); font-size: 13px; line-height: 1.6; }
+.session-calendar { background: var(--panel-gradient); border: 1px solid var(--border-color); padding: 12px; border-radius: 14px; margin-bottom: 20px; }
+.session-calendar-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.session-calendar-heading h2 { font-size: 18px; }
+.session-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; text-align: center; }
+.session-calendar-weekday { font-size: 10px; color: var(--text-secondary); padding: 6px 0; }
+.session-calendar-grid button { font: inherit; font-size: 12px; border: 1px solid transparent; background: transparent; color: var(--text-secondary); border-radius: 9px; min-height: 38px; cursor: pointer; position: relative; padding-bottom: 5px; }
+.session-calendar-grid button.has-sessions { color: var(--text-primary); background: var(--accent-soft); }
+.session-calendar-grid button.selected { border-color: var(--accent-green); color: var(--accent-green); }
+.session-calendar-grid button > span { position: absolute; bottom: 4px; left: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: var(--accent-green); }
+.session-calendar > .session-text-button { margin-top: 10px; }
+.session-map-section { margin-bottom: 20px; }
+.session-journal-map { height: 270px; isolation: isolate; border: 1px solid var(--border-color); border-radius: 14px; overflow: hidden; background: var(--surface-sunken); }
+.session-view-hint { display: flex; align-items: center; gap: 5px; font-size: 11px; line-height: 1.5; color: var(--text-secondary); margin: 10px 0; }
+.session-map-error { font-size: 12px; color: var(--text-secondary); line-height: 1.5; padding: 10px 0; }
+.session-map-error button { background: none; color: var(--accent-green); border: 0; cursor: pointer; font: inherit; display: block; margin-top: 5px; }
+@media (max-width: 380px) {
+  .content.sessions-page { padding-left: 14px; padding-right: 14px; }
+  .sessions-hero { margin-left: -14px; margin-right: -14px; padding-left: 14px; padding-right: 14px; }
+  .session-journal-body { padding: 10px 8px; }
+  .session-journal-heading { flex-wrap: wrap; row-gap: 5px; }
+  .session-journal-heading h3 { flex-basis: 100%; font-size: 15px; }
+  .session-journal-metrics { gap: 4px; }
+  .session-journal-metrics > div { gap: 4px; }
+  .session-journal-metrics svg { width: 18px; }
+  .session-start-card { padding: 14px 10px; gap: 10px; }
+  .session-start-card strong { font-size: 17px; }
+  .session-start-card small { font-size: 11px; }
+}

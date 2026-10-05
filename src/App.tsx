@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate } from 'react-router-dom';
 import {
   Fish, User, MapPin, Calendar, ChevronRight, ChevronLeft, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
@@ -25,6 +25,7 @@ import { evaluateAchievements, getEquippedAchievement } from './achievements';
 import { syncUserWithCloud, fetchUserCloudData, useCloudSyncStatus, flushPendingQueue, fetchPublicSharedData } from './cloud';
 import CatchComments from './CatchComments';
 import PersonalBests from './PersonalBests';
+import SessionsPage from './SessionsPage';
 import { usePremiumMembership } from './membership';
 
 // Global PWA installation event capture
@@ -1323,109 +1324,9 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
   );
 };
 
-const Sessions = ({ onStart }: { onStart: () => void }) => {
-  const { sessions, catches } = useStore();
-  const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'catches' ? 'catches' : 'sessions';
-
-  return (
-    <div className="content">
-      <div className="row-between" style={{ marginBottom: 12 }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Journal</h1>
-        <button
-          className="new-session-cta"
-          id="new-session-btn"
-          onClick={onStart}
-          aria-label="New session"
-        >
-          <Plus size={18} />
-          <span>New Session</span>
-        </button>
-      </div>
-
-      {/* View switch: Sessions vs Catches */}
-      <div className="auth-tab-bar" style={{ marginBottom: 16 }}>
-        <button
-          className={`auth-tab ${tab === 'sessions' ? 'active' : ''}`}
-          onClick={() => setParams({})}
-        >
-          Sessions ({sessions.length})
-        </button>
-        <button
-          className={`auth-tab ${tab === 'catches' ? 'active' : ''}`}
-          onClick={() => setParams({ tab: 'catches' })}
-        >
-          All Catches ({catches.length})
-        </button>
-      </div>
-
-      {tab === 'sessions' ? (
-        sessions.length === 0 ? (
-          <div className="card" style={{ padding: '36px 20px', textAlign: 'center' }}>
-            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--surface-sunken)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-              <Calendar size={26} color="var(--primary)" />
-            </div>
-            <h2 className="serif" style={{ fontSize: 20, marginBottom: 8 }}>No sessions yet</h2>
-            <p className="muted" style={{ fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
-              Start your first fishing session to log your swims, track weather automatically, and record your catches.
-            </p>
-            <button className="btn-primary" onClick={onStart} style={{ maxWidth: 220, margin: '0 auto' }}>
-              <Plus size={18} /> Start a session
-            </button>
-          </div>
-        ) : (
-          sessions.map((s) => {
-            const n = catches.filter((c) => c.sessionId === s.id).length;
-            return (
-              <Link key={s.id} to={`/sessions/${s.id}`} className="card card-link session-card" id={`session-${s.id}`}>
-                {s.photo && <img src={s.photo} alt={`${s.venueName} swim`} className="session-thumb" loading="lazy" />}
-                <div className="row-between">
-                  <div>
-                    <div className="eyebrow">
-                      {!s.endedAt && <span className="live-dot" />}
-                      {fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}
-                      {s.isShared ? (
-                        <span className="mini-badge shared" style={{ marginLeft: 6 }}><Globe size={10} /> Shared</span>
-                      ) : (
-                        <span className="mini-badge private" style={{ marginLeft: 6 }}><Lock size={10} /> Private</span>
-                      )}
-                    </div>
-                    <h2 className="serif" style={{ fontSize: 20 }}>{s.venueName}</h2>
-                  </div>
-                  <ChevronRight size={20} color="var(--text-secondary)" />
-                </div>
-                <div className="tag-row" style={{ marginTop: 10, marginBottom: 0 }}>
-                  <span className="tag"><Fish size={14} /> {n} {n === 1 ? 'catch' : 'catches'}</span>
-                  {s.weather && <span className="tag"><Thermometer size={14} /> {Math.round(s.weather.temperature)}° {s.weather.description}</span>}
-                  {s.weather && <span className="tag"><Wind size={14} /> {Math.round(s.weather.windSpeed)} mph</span>}
-                </div>
-              </Link>
-            );
-          })
-        )
-      ) : (
-        catches.length === 0 ? (
-          <div className="card" style={{ padding: '36px 20px', textAlign: 'center' }}>
-            <Fish size={32} color="var(--text-secondary)" style={{ opacity: 0.5, margin: '0 auto 12px' }} />
-            <h2 className="serif" style={{ fontSize: 20, marginBottom: 8 }}>No catches recorded</h2>
-            <p className="muted" style={{ fontSize: 14, maxWidth: 320, margin: '0 auto 20px' }}>
-              Catches logged during your fishing sessions will appear here in your full catch history.
-            </p>
-            <button className="btn-primary" onClick={onStart} style={{ maxWidth: 220, margin: '0 auto' }}>
-              <Plus size={18} /> Start a session
-            </button>
-          </div>
-        ) : (
-          <div className="card">
-            {catches.map((c) => (
-              <CatchRow key={c.id} c={c} />
-            ))}
-          </div>
-        )
-      )}
-    </div>
-  );
-};
+const Sessions = ({ onStart }: { onStart: () => void }) => (
+  <SessionsPage onStart={onStart} renderCatch={(c) => <CatchRow key={c.id} c={c} />} />
+);
 
 /* ---------- Species Tag Picker with Custom Entry ---------- */
 
@@ -2889,7 +2790,7 @@ const Shell = () => {
     window.scrollTo(0, 0);
     const mapTitle: Record<string, string> = {
       '/': 'Keepnet — Time by the Water',
-      '/sessions': 'Journal & Sessions · Keepnet',
+      '/sessions': 'Fishing Sessions · Keepnet',
       '/discover': 'Community Catches · Keepnet',
       '/fisheries': 'UK Fisheries & Venues · Keepnet',
       '/profile': 'Angler Profile · Keepnet',
