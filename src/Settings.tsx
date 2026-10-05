@@ -205,7 +205,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
                   'Bankside Intelligence & Specimen Suite enabled.'
                 )
               ) : (
-                'Free journal, UK fisheries directory, Discover map, and catch report likes.'
+                'Free personal catch journal, offline logging, PB tracking, and basic stats.'
               )}
             </p>
           </div>
@@ -219,7 +219,7 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
             style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, textDecoration: 'none', height: 44 }}
           >
             <Crown size={16} />
-            <span>{isPremiumActive ? 'Manage Subscription Plan' : 'Upgrade to Premium · Redeem 1-Month Free Trial'}</span>
+            <span>{isPremiumActive ? 'Manage Subscription Plan' : 'Upgrade to Premium (£1.49/mo) · 1-Month Free Trial'}</span>
             <ChevronRight size={16} />
           </Link>
         </div>

@@ -204,7 +204,7 @@ export const SubscriptionPage = () => {
             className={`billing-btn ${billingCycle === 'annual' ? 'active' : ''}`}
             onClick={() => setBillingCycle('annual')}
           >
-            <span>Annual (Save 37%)</span>
+            <span>Annual (Save 41%)</span>
             <span className="best-value-pill">Best Value</span>
           </button>
           <button
@@ -223,7 +223,7 @@ export const SubscriptionPage = () => {
         <div className={`card plan-card ${!isPremiumActive ? 'current-plan' : ''}`}>
           <div className="plan-header">
             <div>
-              <div className="eyebrow" style={{ color: 'var(--text-secondary)' }}>Community Journal</div>
+              <div className="eyebrow" style={{ color: 'var(--text-secondary)' }}>Personal Journal</div>
               <h3 className="serif plan-title">Keepnet Lite</h3>
             </div>
             <div className="plan-price">
@@ -233,7 +233,7 @@ export const SubscriptionPage = () => {
           </div>
 
           <p className="muted" style={{ fontSize: 13, margin: '8px 0 16px' }}>
-            Essential bankside logging and open UK angling community.
+            Essential bankside logging and dependable personal catch journal.
           </p>
 
           <div className="plan-status-row">
@@ -248,12 +248,13 @@ export const SubscriptionPage = () => {
 
           <ul className="plan-features-list">
             <li><Check size={15} color="var(--accent-green)" /> <span>Unlimited catches & fishing sessions</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Full UK Fisheries Directory (60+ venues)</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Full Discover map & directions</span></li>
-            <li><Check size={15} color="var(--accent-green)" /> <span>Community catch reports feed & likes</span></li>
+            <li><Check size={15} color="var(--accent-green)" /> <span>Personal diary, species & weight logging</span></li>
+            <li><Check size={15} color="var(--accent-green)" /> <span>Manual venue & swim naming (retained forever)</span></li>
+            <li><Check size={15} color="var(--accent-green)" /> <span>Personal bests & bankside hours tracking</span></li>
             <li><Check size={15} color="var(--accent-green)" /> <span>Core achievements & avatar flair</span></li>
             <li><Check size={15} color="var(--accent-green)" /> <span>100% offline bankside PWA support</span></li>
             <li><Check size={15} color="var(--accent-green)" /> <span>Standard photo storage</span></li>
+            <li className="muted"><EyeOff size={15} /> <span>Discover Map & Fisheries: Preview mode</span></li>
           </ul>
         </div>
 
@@ -265,19 +266,19 @@ export const SubscriptionPage = () => {
 
           <div className="plan-header">
             <div>
-              <div className="eyebrow" style={{ color: 'var(--copper, #C9772B)' }}>Bankside Intelligence</div>
+              <div className="eyebrow" style={{ color: 'var(--copper, #C9772B)' }}>Bankside Intelligence & Discover</div>
               <h3 className="serif plan-title">Keepnet Premium</h3>
             </div>
             <div className="plan-price">
               {billingCycle === 'annual' ? (
                 <>
-                  <span className="serif" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-green)' }}>£14.99</span>
+                  <span className="serif" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-green)' }}>£10.49</span>
                   <span className="muted" style={{ fontSize: 12 }}> / year</span>
-                  <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 2 }}>Just ~£1.25 / month</div>
+                  <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginTop: 2 }}>Just ~87p / month · Save 41%</div>
                 </>
               ) : (
                 <>
-                  <span className="serif" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-green)' }}>£1.99</span>
+                  <span className="serif" style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-green)' }}>£1.49</span>
                   <span className="muted" style={{ fontSize: 12 }}> / month</span>
                 </>
               )}
@@ -285,7 +286,7 @@ export const SubscriptionPage = () => {
           </div>
 
           <p className="muted" style={{ fontSize: 13, margin: '8px 0 16px' }}>
-            Tactical advantages, solunar bite forecasts, and syndicate privacy.
+            Full live Discover map, 60+ UK fisheries, solunar feeding windows, and tactical intel.
           </p>
 
           <div className="plan-status-row">
@@ -313,6 +314,20 @@ export const SubscriptionPage = () => {
 
           <ul className="plan-features-list">
             <li>
+              <Crown size={15} color="var(--copper, #C9772B)" />
+              <div>
+                <strong>Live Discover Map & Community Waters</strong>
+                <div className="muted" style={{ fontSize: 11 }}>Explore public waters, shared sessions & community catches</div>
+              </div>
+            </li>
+            <li>
+              <Crown size={15} color="var(--copper, #C9772B)" />
+              <div>
+                <strong>Full UK Fisheries Directory (60+ Venues)</strong>
+                <div className="muted" style={{ fontSize: 11 }}>GPS distance sorting, ticket info, rules & directions</div>
+              </div>
+            </li>
+            <li>
               <Zap size={15} color="var(--copper, #C9772B)" />
               <div>
                 <strong>Atmospheric & Barometric Predictor</strong>
@@ -324,13 +339,6 @@ export const SubscriptionPage = () => {
               <div>
                 <strong>Solunar Major & Minor Bite Windows</strong>
                 <div className="muted" style={{ fontSize: 11 }}>Moon phase & localized solar bite peaks</div>
-              </div>
-            </li>
-            <li>
-              <Sparkles size={15} color="var(--copper, #C9772B)" />
-              <div>
-                <strong>Bait, Rig & Swim Efficiency Matrix</strong>
-                <div className="muted" style={{ fontSize: 11 }}>Statistical breakdown by bait, depth & rig</div>
               </div>
             </li>
             <li>
@@ -355,7 +363,7 @@ export const SubscriptionPage = () => {
               </div>
             </li>
             <li>
-              <Crown size={15} color="var(--copper, #C9772B)" />
+              <Sparkles size={15} color="var(--copper, #C9772B)" />
               <div>
                 <strong>Golden Pro Avatar Ring & Prestige</strong>
                 <div className="muted" style={{ fontSize: 11 }}>Distinctive badge styling across community feeds</div>

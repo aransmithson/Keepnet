@@ -407,7 +407,7 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
                 <div style={{ padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 10 }}>
                   <div className="eyebrow" style={{ color: '#10b981' }}>Pricing Structure</div>
                   <div style={{ fontSize: 13, marginTop: 4 }}>
-                    <strong>Lite:</strong> £0 Free Forever · <strong>Premium:</strong> £1.99/mo or £14.99/yr
+                    <strong>Lite:</strong> £0 Free Forever · <strong>Premium:</strong> £1.49/mo or £10.49/yr
                   </div>
                 </div>
               </div>

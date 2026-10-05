@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
+import FisheriesDirectory from './FisheriesDirectory';
 import Logo from './Logo';
 import Settings from './Settings';
 import AchievementsPage from './AchievementsPage';
@@ -825,6 +826,7 @@ const StartSessionSheet = ({
   onClose: () => void;
   onStart: (v: Venue | 'current' | { id: string; name: string; type: string; lat: number; lon: number; targets: string[]; description: string }, photo?: string, isShared?: boolean) => void;
 }) => {
+  const nav = useNavigate();
   const [choice, setChoice] = useState<string>(initial?.id ?? 'current');
   const [customName, setCustomName] = useState<string>('');
   const [search, setSearch] = useState<string>('');
@@ -988,6 +990,37 @@ const StartSessionSheet = ({
             e.target.value = '';
           }}
         />
+      </div>
+
+      {/* Quick Find Fisheries Near Me shortcut */}
+      <div style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          id="start-session-find-fisheries-btn"
+          className="btn-secondary"
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            height: 42,
+            borderColor: 'var(--accent-green)',
+            color: 'var(--accent-green)',
+            background: 'var(--accent-light)',
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+          onClick={() => {
+            onClose();
+            nav('/fisheries');
+          }}
+        >
+          <Compass size={16} />
+          <span>Find Fisheries Near Me (60+ UK Venues)</span>
+          <ChevronRight size={14} />
+        </button>
       </div>
 
       {/* Venue choice list */}
@@ -2466,7 +2499,8 @@ const Shell = () => {
     const mapTitle: Record<string, string> = {
       '/': 'Keepnet — Time by the Water',
       '/sessions': 'Journal & Sessions · Keepnet',
-      '/discover': 'Discover Venues · Keepnet',
+      '/discover': 'Community Catches · Keepnet',
+      '/fisheries': 'UK Fisheries & Venues · Keepnet',
       '/profile': 'Angler Profile · Keepnet',
       '/settings': 'Settings & Preferences · Keepnet',
       '/achievements': 'Angler Achievements & Badges · Keepnet',
@@ -2617,6 +2651,7 @@ const Shell = () => {
           <Route path="/sessions/:id" element={<SessionDetail />} />
           <Route path="/catches/:id" element={<CatchDetail />} />
           <Route path="/discover" element={<Discover onStart={(venue) => setSheet({ venue })} />} />
+          <Route path="/fisheries" element={<FisheriesDirectory onStart={(venue) => setSheet({ venue })} />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings onOpenAuth={() => setAuthOpen(true)} />} />
           <Route path="/achievements" element={<AchievementsPage />} />

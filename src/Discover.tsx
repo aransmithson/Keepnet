@@ -2,17 +2,54 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Fish, LocateFixed, Globe, ChevronRight, CloudSun, Calendar, User, X,
-  Search, MapPin, ExternalLink, Info, Compass, Heart, Lock
+  Search, MapPin, Compass, Heart, Lock, Crown, Gift, Sparkles, Zap, EyeOff
 } from 'lucide-react';
 import { useStore, actions, fmtWeight, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
 import { getDevicePosition } from './weather';
 import { createMap, type MapEngine, type MapMarker } from './map';
 import { useTheme } from './theme';
 import { fetchPublicSharedData, fetchCatchLikes } from './cloud';
-import { UK_FISHERIES, MAP_FISHERIES, type Fishery } from './fisheries';
 
-type FilterType = 'all' | 'fisheries' | 'sessions';
-type DirectoryTab = 'fisheries' | 'sessions' | 'catches';
+type DirectoryTab = 'catches' | 'sessions';
+
+const STATIC_SAMPLE_CATCHES = [
+  {
+    id: 'sample-1',
+    species: 'Mirror Carp',
+    weightLb: 28,
+    weightOz: 4,
+    bait: '15mm Mainline Cell boilies over hemp',
+    venueName: 'Linear Fisheries · St Johns Lake',
+    userName: 'Dave K.',
+    caughtAt: '2026-10-02T06:45:00Z',
+    likesCount: 14,
+    notes: 'Classic early morning dawn run on the margins. Autumn specimen campaign off to a flyer!',
+  },
+  {
+    id: 'sample-2',
+    species: 'Perch',
+    weightLb: 3,
+    weightOz: 12,
+    bait: '3" drop-shot minnow (Firetiger pattern)',
+    venueName: 'River Thames · Sonning Lock',
+    userName: 'Mark T.',
+    caughtAt: '2026-10-03T16:15:00Z',
+    likesCount: 9,
+    notes: 'Hit the lure hard right under the lock weir sill as light was fading. Huge striped predator.',
+  },
+  {
+    id: 'sample-3',
+    species: 'Chub',
+    weightLb: 6,
+    weightOz: 2,
+    bait: 'Free-lined luncheon meat & bread flake',
+    venueName: 'River Severn · Bridgnorth',
+    userName: 'Gaz W.',
+    caughtAt: '2026-10-04T11:20:00Z',
+    likesCount: 11,
+    notes: 'Trotted along the willow overhang. Solid battle on 6lb mainline.',
+  },
+];
 
 export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   const { sessions: localSessions, catches: localCatches } = useStore();
@@ -25,15 +62,12 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
   const [remoteSessions, setRemoteSessions] = useState<Session[]>([]);
   const [remoteCatches, setRemoteCatches] = useState<Catch[]>([]);
 
-  // Selection states
-  const [selectedFishery, setSelectedFishery] = useState<Fishery | null>(null);
+  // Selection state
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
 
-  // Search & Filter state
+  // Search & Tab state
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
-  const [directoryTab, setDirectoryTab] = useState<DirectoryTab>('fisheries');
-  const [countryFilter, setCountryFilter] = useState<string>('All');
+  const [directoryTab, setDirectoryTab] = useState<DirectoryTab>('catches');
 
   // Fetch shared sessions, catches, and likes from Cloudflare D1 on mount
   useEffect(() => {
@@ -86,38 +120,6 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
     return counts;
   }, [allSharedCatches]);
 
-  // Filtered UK fisheries based on search and country filter
-  const filteredFisheries = useMemo(() => {
-    let list = UK_FISHERIES;
-    if (countryFilter !== 'All') {
-      list = list.filter((f) => f.country === countryFilter);
-    }
-    const q = searchQuery.trim().toLowerCase();
-    if (q) {
-      list = list.filter((f) =>
-        f.name.toLowerCase().includes(q) ||
-        (f.region && f.region.toLowerCase().includes(q)) ||
-        (f.nearestTown && f.nearestTown.toLowerCase().includes(q)) ||
-        (f.postcode && f.postcode.toLowerCase().includes(q)) ||
-        f.targets.some((sp) => sp.toLowerCase().includes(q))
-      );
-    }
-    return list;
-  }, [searchQuery, countryFilter]);
-
-  // Filtered map fisheries based on search
-  const filteredMapFisheries = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return MAP_FISHERIES;
-    return MAP_FISHERIES.filter((f) =>
-      f.name.toLowerCase().includes(q) ||
-      (f.region && f.region.toLowerCase().includes(q)) ||
-      (f.nearestTown && f.nearestTown.toLowerCase().includes(q)) ||
-      (f.postcode && f.postcode.toLowerCase().includes(q)) ||
-      f.targets.some((sp) => sp.toLowerCase().includes(q))
-    );
-  }, [searchQuery]);
-
   // Filtered shared sessions based on search
   const filteredSessions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -168,70 +170,35 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
     return () => { cancelled = true; engine?.destroy(); map.current = null; };
   }, [theme, fallback]);
 
-  // Keep markers in sync with fisheries and shared sessions
+  // Keep markers in sync with shared sessions
   useEffect(() => {
     if (!map.current) return;
 
     const markers: MapMarker[] = [];
 
-    // 1. UK Fisheries markers (Green)
-    if (filterType === 'all' || filterType === 'fisheries') {
-      filteredMapFisheries.forEach((f) => {
-        markers.push({
-          id: f.id,
-          lat: f.lat,
-          lon: f.lon,
-          title: `${f.name} · ${f.nearestTown || f.region}`,
-          kind: 'venue',
-        });
+    // Shared sessions markers (Copper / Amber)
+    filteredSessions.forEach((s) => {
+      markers.push({
+        id: s.id,
+        lat: s.lat,
+        lon: s.lon,
+        title: `${s.venueName} · ${s.userName || 'Angler'}`,
+        label: catchCountBySession[s.id] ? String(catchCountBySession[s.id]) : undefined,
+        kind: 'custom',
       });
-    }
-
-    // 2. Shared sessions markers (Copper / Amber)
-    if (filterType === 'all' || filterType === 'sessions') {
-      filteredSessions.forEach((s) => {
-        markers.push({
-          id: s.id,
-          lat: s.lat,
-          lon: s.lon,
-          title: `${s.venueName} · ${s.userName || 'Angler'}`,
-          label: catchCountBySession[s.id] ? String(catchCountBySession[s.id]) : undefined,
-          kind: 'custom',
-        });
-      });
-    }
+    });
 
     map.current.setMarkers(markers, (id) => {
-      // Check if it's a fishery
-      const fishery = MAP_FISHERIES.find((f) => f.id === id);
-      if (fishery) {
-        setSelectedFishery(fishery);
-        setSelectedSession(null);
-        map.current?.flyTo(fishery.lat, fishery.lon, 12);
-        return;
-      }
-      // Check if it's a shared session
       const session = allSharedSessions.find((s) => s.id === id);
       if (session) {
         setSelectedSession(session);
-        setSelectedFishery(null);
         map.current?.flyTo(session.lat, session.lon, 13);
       }
     });
-  }, [ready, filterType, filteredMapFisheries, filteredSessions, allSharedSessions, catchCountBySession]);
-
-  const focusFishery = (f: Fishery) => {
-    setSelectedFishery(f);
-    setSelectedSession(null);
-    if (f.hasCoordinates) {
-      map.current?.flyTo(f.lat, f.lon, 12);
-      window.scrollTo({ top: 120, behavior: 'smooth' });
-    }
-  };
+  }, [ready, filteredSessions, allSharedSessions, catchCountBySession]);
 
   const focusSession = (s: Session) => {
     setSelectedSession(s);
-    setSelectedFishery(null);
     map.current?.flyTo(s.lat, s.lon, 13);
     window.scrollTo({ top: 120, behavior: 'smooth' });
   };
@@ -247,21 +214,209 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
     return allSharedCatches.filter((c) => c.sessionId === selectedSession.id);
   }, [allSharedCatches, selectedSession]);
 
-  const countries = ['All', 'England', 'Scotland', 'Wales', 'Northern Ireland'];
+  const isPremiumActive = actions.isPremium();
+
+  // If user is on Lite tier (not Premium / Trial), show static benefits preview per monetisation plan
+  if (!isPremiumActive) {
+    return (
+      <div className="content">
+        {/* Header */}
+        <div className="row-between" style={{ alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          <div>
+            <div className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--copper, #C9772B)', marginBottom: 2 }}>
+              <Crown size={14} /> Keepnet Premium Feature
+            </div>
+            <h1 className="page-title" style={{ margin: '0 0 4px' }}>Discover Waters & Catches</h1>
+            <p className="page-subtitle" style={{ margin: 0 }}>
+              Live interactive map, community catches feed, and 60+ UK fisheries directory.
+            </p>
+          </div>
+        </div>
+
+        {/* Hero Benefits Card */}
+        <div className="card discover-preview-hero">
+          <div className="discover-preview-badge">
+            <Sparkles size={14} /> Specimen Suite
+          </div>
+          <h2 className="serif" style={{ fontSize: 24, margin: '8px 0 6px' }}>
+            Unlock Live Waters & Angler Catch Reports
+          </h2>
+          <p className="muted" style={{ fontSize: 13, maxWidth: 520, margin: '0 auto 16px', lineHeight: 1.5 }}>
+            See where specimen fish are biting across the UK, inspect baits & rigs from fellow anglers, search 60+ commercial fisheries with GPS directions, and unlock solunar feeding forecasts.
+          </p>
+
+          <div className="discover-benefits-grid">
+            <div className="discover-benefit-item">
+              <MapPin size={18} color="var(--accent-green)" />
+              <div>
+                <strong>Live Waters Map</strong>
+                <span>Interactive GPS pins for public waters, swims & catches</span>
+              </div>
+            </div>
+            <div className="discover-benefit-item">
+              <Fish size={18} color="var(--accent-green)" />
+              <div>
+                <strong>Community Catch Reports</strong>
+                <span>Bait, rig, weight & tactic feeds from fellow anglers</span>
+              </div>
+            </div>
+            <div className="discover-benefit-item">
+              <Compass size={18} color="var(--copper, #C9772B)" />
+              <div>
+                <strong>60+ UK Fisheries Directory</strong>
+                <span>GPS distance sorting, day-ticket info & rules</span>
+              </div>
+            </div>
+            <div className="discover-benefit-item">
+              <Zap size={18} color="var(--copper, #C9772B)" />
+              <div>
+                <strong>Solunar Feeding Peaks</strong>
+                <span>Atmospheric pressure correlations & bite peak times</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="discover-preview-actions">
+            <button
+              type="button"
+              id="discover-start-trial-btn"
+              className="btn-primary"
+              style={{ height: 46, padding: '0 20px', fontSize: 14, gap: 8 }}
+              onClick={() => actions.applyCoupon('KEEPNET1M')}
+            >
+              <Gift size={16} /> Start 1-Month Free Trial
+            </button>
+
+            <Link
+              to="/subscription"
+              id="discover-view-plans-btn"
+              className="btn-secondary"
+              style={{ height: 46, padding: '0 18px', fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <span>Unlock Premium (£1.49/mo or £10.49/yr)</span>
+              <ChevronRight size={15} />
+            </Link>
+          </div>
+          <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>
+            Zero credit card required for 1-month trial · Cancel anytime · Your personal diary is always free
+          </div>
+        </div>
+
+        {/* Static Sample Catch Reports Feed Showcase */}
+        <div style={{ marginTop: 24 }}>
+          <div className="static-preview-header">
+            <div>
+              <h2 className="serif" style={{ fontSize: 18, margin: 0 }}>Sample Community Catches</h2>
+              <span className="muted" style={{ fontSize: 12 }}>Preview of catches shared by UK anglers</span>
+            </div>
+            <span className="static-preview-pill">
+              <EyeOff size={12} /> Static Preview
+            </span>
+          </div>
+
+          <div className="catch-cards-grid">
+            {STATIC_SAMPLE_CATCHES.map((c) => (
+              <div key={c.id} className="card catch-report-card" style={{ opacity: 0.95 }}>
+                <div className="row-between" style={{ marginBottom: 10, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="avatar-placeholder" style={{ width: 32, height: 32, minWidth: 32, borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-green)' }}>
+                      <User size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>
+                        {c.userName}
+                      </div>
+                      <div className="muted" style={{ fontSize: 11 }}>
+                        {fmtDay(c.caughtAt)} · {fmtTime(c.caughtAt)}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="count-pill" style={{ fontSize: 11, background: 'var(--surface-sunken)', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {c.venueName}
+                  </span>
+                </div>
+
+                <div className="catch-report-photo-placeholder" style={{ height: 160 }}>
+                  <Fish size={44} strokeWidth={1.5} />
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <div className="row-between" style={{ alignItems: 'baseline' }}>
+                    <h3 className="serif" style={{ margin: 0, fontSize: 20 }}>{c.species}</h3>
+                    <span className="catch-weight-badge serif">{c.weightLb}lb {c.weightOz}oz</span>
+                  </div>
+
+                  <div className="tag-row" style={{ marginTop: 8 }}>
+                    <span className="tag" style={{ fontSize: 11 }}>Bait: {c.bait}</span>
+                  </div>
+
+                  <p className="muted" style={{ margin: '8px 0 0', fontSize: 12, lineHeight: 1.4, fontStyle: 'italic' }}>
+                    "{c.notes}"
+                  </p>
+                </div>
+
+                <div className="catch-report-footer" style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="catch-feed-like-btn large"
+                    onClick={() => actions.applyCoupon('KEEPNET1M')}
+                    title="Unlock with Premium"
+                  >
+                    <Heart size={16} color="#ef4444" fill="#ef4444" />
+                    <span><strong>{c.likesCount}</strong> Likes</span>
+                  </button>
+
+                  <Link to="/subscription" className="btn-secondary" style={{ height: 32, padding: '0 10px', fontSize: 12, textDecoration: 'none', gap: 4 }}>
+                    <Crown size={12} color="var(--copper, #C9772B)" />
+                    <span>Unlock Live Feed</span>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="content">
-      <h1 className="page-title">Discover Waters & Catches</h1>
-      <p className="page-subtitle">Interactive map of UK pleasure fisheries and community angler catches.</p>
+      {/* Page Title & Intro */}
+      <div className="row-between" style={{ alignItems: 'baseline', flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h1 className="page-title" style={{ margin: '0 0 4px' }}>Community Catches</h1>
+          <p className="page-subtitle" style={{ margin: 0 }}>
+            Live catch reports and waters shared by Keepnet anglers across the UK.
+          </p>
+        </div>
+      </div>
 
-      {/* Discover Controls: Search & Layer Filters */}
+      {/* Prominent "Find Fisheries Near Me" Callout */}
+      <div className="find-fisheries-banner">
+        <div className="find-fisheries-banner-content">
+          <div className="find-fisheries-banner-icon">
+            <Compass size={22} />
+          </div>
+          <div className="find-fisheries-banner-text">
+            <strong>Looking for somewhere to fish?</strong>
+            <span>Explore 60+ verified UK pleasure fisheries, specimen carp waters & commercial day-ticket lakes</span>
+          </div>
+        </div>
+        <Link to="/fisheries" className="find-fisheries-banner-btn" id="discover-find-fisheries-btn">
+          <MapPin size={15} />
+          <span>Find Fisheries Near Me</span>
+          <ChevronRight size={14} />
+        </Link>
+      </div>
+
+      {/* Discover Controls: Search */}
       <div className="discover-controls">
         <div className="discover-search-wrap">
           <Search size={16} className="discover-search-icon" />
           <input
             type="text"
             id="discover-search-input"
-            placeholder="Search fisheries, towns, regions or fish species..."
+            placeholder="Search catches by species, bait, angler, or venue..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -275,32 +430,9 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
             </button>
           )}
         </div>
-
-        <div className="filter-pills-row" role="group" aria-label="Map filters">
-          <button
-            type="button"
-            className={`filter-pill ${filterType === 'all' ? 'active' : ''}`}
-            onClick={() => setFilterType('all')}
-          >
-            <Compass size={14} /> All Waters ({filteredMapFisheries.length + filteredSessions.length})
-          </button>
-          <button
-            type="button"
-            className={`filter-pill ${filterType === 'fisheries' ? 'active' : ''}`}
-            onClick={() => setFilterType('fisheries')}
-          >
-            <Fish size={14} /> UK Fisheries ({filteredMapFisheries.length})
-          </button>
-          <button
-            type="button"
-            className={`filter-pill ${filterType === 'sessions' ? 'active-copper' : ''}`}
-            onClick={() => setFilterType('sessions')}
-          >
-            <Globe size={14} /> Shared Sessions ({filteredSessions.length})
-          </button>
-        </div>
       </div>
 
+      {/* Map View */}
       <div className="map-wrap">
         <div ref={el} className="map" id="discover-map" />
         <button className="map-locate" id="map-locate-btn" onClick={locate} aria-label="Locate me">
@@ -311,115 +443,14 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
       {/* Map Legend */}
       <div className="map-legend">
         <div className="map-legend-item">
-          <span className="legend-dot" style={{ background: 'var(--accent-green)' }} />
-          <span>UK Pleasure Fishery (Day Ticket / Water)</span>
-        </div>
-        <div className="map-legend-item">
           <span className="legend-dot custom" />
-          <span>Shared Angler Session</span>
+          <span>Shared Community Session</span>
         </div>
         <div className="map-legend-item">
           <span className="legend-dot me" />
           <span>Your Location</span>
         </div>
       </div>
-
-      {/* Selected Fishery Detail Card */}
-      {selectedFishery && (
-        <div className="card venue-card fade-in" key={selectedFishery.id} style={{ borderColor: 'var(--accent-green)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <div className="eyebrow" style={{ color: 'var(--accent-green)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <MapPin size={13} /> {selectedFishery.country} · {selectedFishery.accessType}
-            </div>
-            <button
-              onClick={() => setSelectedFishery(null)}
-              className="tag"
-              style={{ cursor: 'pointer', background: 'var(--card-bg)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              <X size={12} /> Close
-            </button>
-          </div>
-
-          <h2 className="serif" style={{ fontSize: 23, marginBottom: 4 }}>{selectedFishery.name}</h2>
-          
-          <div className="muted" style={{ fontSize: 13, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span>{selectedFishery.nearestTown ? `${selectedFishery.nearestTown}, ` : ''}{selectedFishery.region}</span>
-            {selectedFishery.postcode && (
-              <>
-                <span>·</span>
-                <span style={{ fontWeight: 600 }}>{selectedFishery.postcode}</span>
-              </>
-            )}
-            <span>·</span>
-            <span style={{ color: 'var(--accent-green)', fontWeight: 600 }}>{selectedFishery.fisheryType}</span>
-          </div>
-
-          {selectedFishery.address && (
-            <p className="muted" style={{ fontSize: 13, marginBottom: 8 }}>
-              {selectedFishery.address}
-            </p>
-          )}
-
-          {/* Target Species Pills */}
-          {selectedFishery.targets.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', marginBottom: 4 }}>
-                Target Fish Species
-              </div>
-              <div className="fishery-species-tags">
-                {selectedFishery.targets.map((sp) => (
-                  <span key={sp} className="fishery-species-tag">{sp}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Access & Angling Information */}
-          {selectedFishery.accessNotes && (
-            <div className="fishery-notes-box">
-              <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 4, color: 'var(--accent-green)' }}>
-                Access & Angling Information
-              </div>
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
-                {selectedFishery.accessNotes}
-              </p>
-            </div>
-          )}
-
-          {/* Accuracy & Safety Notice */}
-          <div className="accuracy-notice">
-            <Info size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>
-              {selectedFishery.coordinatePrecision === 'postcode_centroid'
-                ? 'Location pin is based on the venue postcode centroid. Please confirm the official public entrance before travel.'
-                : 'Researched public day-ticket / pleasure venue. Check local rules and current day-ticket availability before fishing.'}
-            </span>
-          </div>
-
-          {/* Actions: Start Session + Website Link */}
-          <div className="field-row" style={{ marginTop: 12 }}>
-            <button
-              className="btn-primary"
-              style={{ flex: 1.4 }}
-              onClick={() => onStart(selectedFishery)}
-            >
-              <Plus size={18} /> Start Session Here
-            </button>
-            {selectedFishery.website && (selectedFishery.website.startsWith('http://') || selectedFishery.website.startsWith('https://')) && (
-              <a
-                href={selectedFishery.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-secondary"
-                style={{ flex: 1, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              >
-                <span>Website</span>
-                <ExternalLink size={14} />
-              </a>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Selected Shared Session Detail Card */}
       {selectedSession && (
@@ -533,16 +564,8 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
         </div>
       )}
 
-      {/* Directory Section Tabs */}
+      {/* Feed Tabs: Catch Reports vs Community Sessions */}
       <div className="directory-tabs">
-        <button
-          type="button"
-          id="tab-fisheries"
-          className={`dir-tab-btn ${directoryTab === 'fisheries' ? 'active' : ''}`}
-          onClick={() => setDirectoryTab('fisheries')}
-        >
-          <Fish size={16} /> UK Fisheries ({filteredFisheries.length})
-        </button>
         <button
           type="button"
           id="tab-catches"
@@ -557,130 +580,11 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
           className={`dir-tab-btn ${directoryTab === 'sessions' ? 'active' : ''}`}
           onClick={() => setDirectoryTab('sessions')}
         >
-          <Globe size={16} /> Community Sessions ({filteredSessions.length})
+          <Globe size={16} /> Community Waters ({filteredSessions.length})
         </button>
       </div>
 
-      {/* 1. UK Fisheries Directory View */}
-      {directoryTab === 'fisheries' && (
-        <div>
-          {/* Country filter pills */}
-          <div className="filter-pills-row" style={{ marginBottom: 12 }}>
-            {countries.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`filter-pill ${countryFilter === c ? 'active' : ''}`}
-                onClick={() => setCountryFilter(c)}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-
-          <div className="card list-card">
-            {filteredFisheries.length > 0 ? (
-              filteredFisheries.map((f) => {
-                const isSelected = selectedFishery?.id === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    id={`fishery-row-${f.id}`}
-                    className={`list-row ${isSelected ? 'selected' : ''}`}
-                    onClick={() => focusFishery(f)}
-                    style={{ textAlign: 'left' }}
-                  >
-                    <div
-                      className="list-icon"
-                      style={{
-                        background: f.hasCoordinates ? 'rgba(1, 71, 49, 0.12)' : 'rgba(0, 0, 0, 0.05)',
-                        color: f.hasCoordinates ? 'var(--accent-green)' : 'var(--text-secondary)',
-                      }}
-                    >
-                      <MapPin size={18} />
-                    </div>
-                    <div className="catch-info" style={{ flex: 1 }}>
-                      <div className="catch-species" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span>{f.name}</span>
-                        <span style={{ fontSize: 10, padding: '2px 6px', background: 'var(--accent-light)', color: 'var(--accent-green)', borderRadius: 4, fontWeight: 600 }}>
-                          {f.accessType}
-                        </span>
-                      </div>
-                      <div className="catch-meta">
-                        {f.nearestTown ? `${f.nearestTown}, ` : ''}{f.region} · {f.country}
-                        {f.targets.length > 0 ? ` · ${f.targets.slice(0, 3).join(', ')}${f.targets.length > 3 ? '...' : ''}` : ''}
-                      </div>
-                    </div>
-                    {f.hasCoordinates ? (
-                      <span className="count-pill" style={{ background: 'var(--accent-light)', color: 'var(--accent-green)', fontSize: 11, fontWeight: 600 }}>
-                        On Map
-                      </span>
-                    ) : (
-                      <span className="count-pill" style={{ fontSize: 11 }}>
-                        Directory
-                      </span>
-                    )}
-                  </button>
-                );
-              })
-            ) : (
-              <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                <p style={{ fontWeight: 600, marginBottom: 4 }}>No fisheries match your search</p>
-                <p className="muted" style={{ fontSize: 13 }}>
-                  Try searching for another town, region, or species name.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* 2. Community Sessions View */}
-      {directoryTab === 'sessions' && (
-        <div className="card list-card">
-          {filteredSessions.length > 0 ? (
-            filteredSessions.map((s) => {
-              const count = catchCountBySession[s.id] ?? 0;
-              const isSelected = selectedSession?.id === s.id;
-              return (
-                <button
-                  key={s.id}
-                  id={`session-row-${s.id}`}
-                  className={`list-row ${isSelected ? 'selected' : ''}`}
-                  onClick={() => focusSession(s)}
-                  style={{ textAlign: 'left' }}
-                >
-                  <div className="list-icon" style={{ background: 'rgba(201, 119, 43, 0.12)', color: '#C9772B' }}>
-                    <Globe size={18} />
-                  </div>
-                  <div className="catch-info">
-                    <div className="catch-species">{s.venueName}</div>
-                    <div className="catch-meta">
-                      {s.userName || 'Angler'} · {fmtDay(s.startedAt)}
-                      {s.weather ? ` · ${Math.round(s.weather.temperature)}°C` : ''}
-                    </div>
-                  </div>
-                  <span className="count-pill" title="Catches in this session" style={{ background: count > 0 ? 'var(--accent-light)' : undefined }}>
-                    {count} {count === 1 ? 'catch' : 'catches'}
-                  </span>
-                </button>
-              );
-            })
-          ) : (
-            <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-              <div style={{ color: 'var(--text-secondary)', marginBottom: 8 }}>
-                <Globe size={28} style={{ opacity: 0.5 }} />
-              </div>
-              <p style={{ fontWeight: 600, marginBottom: 4 }}>No public sessions found</p>
-              <p className="muted" style={{ fontSize: 13 }}>
-                When logging or viewing any session in your journal, toggle "Share to Discover map" to showcase your waters and catches to fellow anglers here.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 3. Community Catch Reports View */}
+      {/* 1. Community Catch Reports View (Default) */}
       {directoryTab === 'catches' && (
         <div className="catch-reports-feed">
           {filteredCatches.length > 0 ? (
@@ -796,9 +700,54 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
               <div style={{ color: 'var(--text-secondary)', marginBottom: 10 }}>
                 <Heart size={32} style={{ opacity: 0.4 }} />
               </div>
-              <p style={{ fontWeight: 600, marginBottom: 4 }}>No catch reports found</p>
+              <p style={{ fontWeight: 600, marginBottom: 4 }}>No catch reports match your search</p>
               <p className="muted" style={{ fontSize: 13, maxWidth: 380, margin: '0 auto' }}>
                 When logging or viewing catches in your journal, toggle "Shared" to showcase your prize fish to fellow anglers and earn Community trophies!
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2. Community Waters / Sessions View */}
+      {directoryTab === 'sessions' && (
+        <div className="card list-card">
+          {filteredSessions.length > 0 ? (
+            filteredSessions.map((s) => {
+              const count = catchCountBySession[s.id] ?? 0;
+              const isSelected = selectedSession?.id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  id={`session-row-${s.id}`}
+                  className={`list-row ${isSelected ? 'selected' : ''}`}
+                  onClick={() => focusSession(s)}
+                  style={{ textAlign: 'left' }}
+                >
+                  <div className="list-icon" style={{ background: 'rgba(201, 119, 43, 0.12)', color: '#C9772B' }}>
+                    <Globe size={18} />
+                  </div>
+                  <div className="catch-info">
+                    <div className="catch-species">{s.venueName}</div>
+                    <div className="catch-meta">
+                      {s.userName || 'Angler'} · {fmtDay(s.startedAt)}
+                      {s.weather ? ` · ${Math.round(s.weather.temperature)}°C` : ''}
+                    </div>
+                  </div>
+                  <span className="count-pill" title="Catches in this session" style={{ background: count > 0 ? 'var(--accent-light)' : undefined }}>
+                    {count} {count === 1 ? 'catch' : 'catches'}
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <div style={{ padding: '24px 16px', textAlign: 'center' }}>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: 8 }}>
+                <Globe size={28} style={{ opacity: 0.5 }} />
+              </div>
+              <p style={{ fontWeight: 600, marginBottom: 4 }}>No public sessions found</p>
+              <p className="muted" style={{ fontSize: 13 }}>
+                When logging or viewing any session in your journal, toggle "Share to Discover map" to showcase your waters and catches to fellow anglers here.
               </p>
             </div>
           )}
