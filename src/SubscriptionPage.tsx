@@ -8,9 +8,9 @@ import { useStore, actions } from './store';
 
 export const SubscriptionPage = () => {
   const nav = useNavigate();
-  const { appliedCoupon, subscriptionExpiresAt } = useStore();
+  const { subscriptionTier, appliedCoupon, subscriptionExpiresAt } = useStore();
 
-  const isPremiumActive = actions.isPremium();
+  const isPremiumActive = actions.isPremium() || subscriptionTier === 'premium';
   const [couponInput, setCouponInput] = useState('');
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');

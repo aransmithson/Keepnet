@@ -12,8 +12,8 @@ import { fetchUserCloudData, flushPendingQueue } from './cloud';
 
 export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   const nav = useNavigate();
-  const { unitSystem = 'imperial', appliedCoupon, subscriptionExpiresAt } = useStore();
-  const isPremiumActive = actions.isPremium();
+  const { unitSystem = 'imperial', subscriptionTier, appliedCoupon, subscriptionExpiresAt } = useStore();
+  const isPremiumActive = actions.isPremium() || subscriptionTier === 'premium';
   const { user, storageMode } = useAuth();
   const theme = useTheme();
   const isAdmin = isUserAdmin(user);

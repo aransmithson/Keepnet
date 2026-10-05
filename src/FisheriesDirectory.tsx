@@ -8,10 +8,24 @@ import { UK_FISHERIES, calculateDistanceMiles, type Fishery } from './fisheries'
 import { createMap, type MapEngine, type MapMarker } from './map';
 import { getDevicePosition } from './weather';
 import { useTheme } from './theme';
-import { actions, type Venue } from './store';
+import { useStore, actions, type Venue } from './store';
+import { useAuth } from './auth';
+import { fetchUserCloudData } from './cloud';
 
 export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void }) => {
   const nav = useNavigate();
+  const store = useStore();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user && user.storageMode === 'cloud') {
+      fetchUserCloudData(user).then((data) => {
+        if (data?.subscription) {
+          actions.setSubscription(data.subscription.tier, data.subscription.appliedCoupon, data.subscription.expiresAt);
+        }
+      });
+    }
+  }, [user]);
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MapEngine | null>(null);
   const [, setReady] = useState(0);
@@ -160,7 +174,7 @@ export const FisheriesDirectory = ({ onStart }: { onStart: (v: Venue) => void })
 
   const countries = ['All', 'England', 'Wales', 'Scotland', 'Northern Ireland'];
 
-  const isPremiumActive = actions.isPremium();
+  const isPremiumActive = actions.isPremium() || store.subscriptionTier === 'premium';
 
   // If user is on Lite tier (not Premium / Trial), show static benefits preview per monetisation plan
   if (!isPremiumActive) {

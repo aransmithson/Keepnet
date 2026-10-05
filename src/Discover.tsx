@@ -8,7 +8,8 @@ import { useStore, actions, fmtWeight, fmtDay, fmtTime, type Venue, type Session
 import { getDevicePosition } from './weather';
 import { createMap, type MapEngine, type MapMarker } from './map';
 import { useTheme } from './theme';
-import { fetchPublicSharedData, fetchCatchLikes } from './cloud';
+import { fetchPublicSharedData, fetchCatchLikes, fetchUserCloudData } from './cloud';
+import { useAuth } from './auth';
 
 type DirectoryTab = 'catches' | 'sessions';
 
@@ -52,7 +53,20 @@ const STATIC_SAMPLE_CATCHES = [
 ];
 
 export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
-  const { sessions: localSessions, catches: localCatches } = useStore();
+  const store = useStore();
+  const { sessions: localSessions, catches: localCatches } = store;
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user && user.storageMode === 'cloud') {
+      fetchUserCloudData(user).then((data) => {
+        if (data?.subscription) {
+          actions.setSubscription(data.subscription.tier, data.subscription.appliedCoupon, data.subscription.expiresAt);
+        }
+      });
+    }
+  }, [user]);
+
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<MapEngine | null>(null);
   const [ready, setReady] = useState(0);
@@ -214,7 +228,7 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
     return allSharedCatches.filter((c) => c.sessionId === selectedSession.id);
   }, [allSharedCatches, selectedSession]);
 
-  const isPremiumActive = actions.isPremium();
+  const isPremiumActive = actions.isPremium() || store.subscriptionTier === 'premium';
 
   // If user is on Lite tier (not Premium / Trial), show static benefits preview per monetisation plan
   if (!isPremiumActive) {

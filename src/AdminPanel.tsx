@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useAuth, isUserAdmin } from './auth';
 import { UK_FISHERIES, type Fishery } from './fisheries';
+import { actions } from './store';
 
 type AdminTab = 'dashboard' | 'fisheries' | 'species' | 'users' | 'backup';
 
@@ -165,6 +166,16 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
       if (res.ok && data.success) {
         setActionFeedback({ userId, message: data.message, type: 'success' });
         setManagingSubUserId(null);
+
+        // Immediately update client store if this is the currently authenticated user
+        if (user && (user.id === userId || user.email === usersList.find((u) => u.id === userId)?.email)) {
+          actions.setSubscription(
+            tier,
+            data.appliedCoupon || coupon || null,
+            data.expiresAt !== undefined ? data.expiresAt : expiresAt
+          );
+        }
+
         await fetchUsers();
         await fetchDashboardStats();
       } else {

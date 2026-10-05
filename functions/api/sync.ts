@@ -194,6 +194,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       .bind(userId)
       .first() as any;
 
+    const isOwner = currentUser.email === 'aransmithson@gmail.com' || currentUser.email === 'aransmithson@googlemail.com' || currentUser.is_admin === 1;
+
     return jsonResponse({
       success: true,
       remoteSessions,
@@ -202,7 +204,11 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         tier: userSub.tier || 'lite',
         appliedCoupon: userSub.applied_coupon || null,
         expiresAt: userSub.expires_at || null,
-      } : null,
+      } : (isOwner ? {
+        tier: 'premium',
+        appliedCoupon: 'OWNER_VIP',
+        expiresAt: null,
+      } : null),
     });
   } catch (err: any) {
     return errorResponse(err.message || 'Sync failed', 500);

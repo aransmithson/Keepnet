@@ -343,8 +343,8 @@ export const actions = {
     const nextSub = remoteSubscription && remoteSubscription.tier
       ? {
           subscriptionTier: remoteSubscription.tier,
-          appliedCoupon: remoteSubscription.appliedCoupon ?? state.appliedCoupon,
-          subscriptionExpiresAt: remoteSubscription.expiresAt ?? state.subscriptionExpiresAt,
+          appliedCoupon: remoteSubscription.appliedCoupon !== undefined ? remoteSubscription.appliedCoupon : state.appliedCoupon,
+          subscriptionExpiresAt: remoteSubscription.expiresAt !== undefined ? remoteSubscription.expiresAt : null,
         }
       : {};
 
@@ -487,9 +487,22 @@ export const actions = {
       cancelSubscriptionOnCloud().catch(() => {});
     }
   },
+  setSubscription(tier: SubscriptionTier, appliedCoupon: string | null = null, expiresAt: string | null = null) {
+    commit({
+      ...state,
+      subscriptionTier: tier,
+      appliedCoupon,
+      subscriptionExpiresAt: expiresAt,
+    });
+  },
   isPremium(): boolean {
+    const user = authActions.getCurrentUser();
+    // Platform owner / administrator always has full specimen suite access unlocked
+    if (user && (user.email === 'aransmithson@gmail.com' || user.email === 'aransmithson@googlemail.com' || !!user.isAdmin)) {
+      return true;
+    }
     if (state.subscriptionTier !== 'premium') return false;
-    if (!state.subscriptionExpiresAt) return true;
+    if (!state.subscriptionExpiresAt) return true; // VIP / Lifetime has no expiry
     return new Date(state.subscriptionExpiresAt).getTime() > Date.now();
   },
   clearAll() {
