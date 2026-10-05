@@ -10,6 +10,11 @@
   --border-color: #DCD8C5;
   --danger: #D9534F;
   --copper: #C9772B;
+  /* Light mode backdrop behind the site */
+  --bg-backdrop: #EBE7DC;
+  --bg-backdrop-gradient: radial-gradient(circle at 50% 15%, rgba(255, 255, 255, 0.72) 0%, rgba(235, 231, 220, 0.6) 55%, rgba(216, 210, 195, 0.88) 100%);
+  --bg-pattern: url('/images/bg-pattern-light.svg');
+  --app-shadow: 0 10px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 [data-theme="dark"] {
@@ -22,6 +27,11 @@
   --border-color: #22372A;
   --danger: #E06C75;
   --copper: #E08A3C;
+  /* Dark mode backdrop behind the site */
+  --bg-backdrop: #040906;
+  --bg-backdrop-gradient: radial-gradient(ellipse at 50% 20%, rgba(14, 30, 22, 0.9) 0%, rgba(8, 17, 13, 0.96) 60%, rgba(3, 7, 5, 0.98) 100%);
+  --bg-pattern: url('/images/bg-pattern-dark.svg');
+  --app-shadow: 0 14px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(46, 184, 114, 0.18);
 }
 
 * {
@@ -32,9 +42,15 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: var(--bg-color);
+  background-color: var(--bg-backdrop);
+  background-image: var(--bg-backdrop-gradient), var(--bg-pattern);
+  background-repeat: no-repeat, repeat;
+  background-size: cover, 540px 540px;
+  background-attachment: fixed, fixed;
+  background-position: center top, center top;
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
 h1, h2, h3, h4, .serif {
@@ -48,22 +64,20 @@ h1, h2, h3, h4, .serif {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  box-shadow: 0 0 24px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--app-shadow);
+  transition: box-shadow 0.25s ease, background-color 0.25s ease;
 }
 
 @media (min-width: 600px) {
   body {
-    background: radial-gradient(circle at 50% 20%, #0d1a14 0%, #060e0a 100%);
-    min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: flex-start;
   }
   .app-container {
     width: 100%;
-    border-left: 1px solid rgba(255, 255, 255, 0.08);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.55);
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
   }
 }
 
