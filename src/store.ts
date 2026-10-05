@@ -443,8 +443,13 @@ export const actions = {
     if (!clean) {
       return { success: false, message: 'Please enter a coupon code.' };
     }
-    const validCodes = ['KEEPNET1M', 'TRIAL1MONTH', 'ANGLER30', 'FISHFREE', 'PRO1MONTH', 'KEEPNETPRO'];
-    const isValid = validCodes.includes(clean) || clean.includes('TRIAL') || clean.includes('FREE') || clean.includes('1M') || (clean.length >= 4 && !clean.includes(' '));
+    const validCodes = ['KEEPNET1M', 'TRIAL1MONTH', 'ANGLER30', 'FISHFREE', 'PRO1MONTH', 'KEEPNETPRO', 'CARP1MONTH', 'FREETRIAL30', 'SPECIMEN30'];
+    const isValid = validCodes.includes(clean)
+      || clean.includes('TRIAL')
+      || clean.includes('FREE')
+      || clean.includes('1M')
+      || clean.includes('30')
+      || clean.includes('MONTH');
     if (!isValid) {
       return { success: false, message: 'Invalid coupon code. Try code "KEEPNET1M" for a 1-month trial.' };
     }

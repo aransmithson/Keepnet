@@ -95,7 +95,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       || code.includes('TRIAL')
       || code.includes('FREE')
       || code.includes('1M')
-      || (code.length >= 4 && !code.includes(' '));
+      || code.includes('30')
+      || code.includes('MONTH');
 
     if (!isValid) {
       return errorResponse('Invalid coupon code. Try code "KEEPNET1M" for a 1-month free trial.', 400);
