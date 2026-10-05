@@ -58,6 +58,8 @@ export type Catch = {
   bait: string;
   caughtAt: string;
   image?: string;
+  images?: string[];
+  method?: string;
   notes?: string;
   /** Whether this catch is shared to the public Discover map. */
   isShared?: boolean;

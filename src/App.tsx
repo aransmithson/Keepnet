@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom';
 import {
-  Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
+  Fish, User, MapPin, Calendar, ChevronRight, ChevronLeft, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, HardDrive, KeyRound, Mail, Pencil, Search, ShieldCheck,
   Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown,
-  EyeOff, Zap, Gift
+  EyeOff, Zap, Gift, Bookmark, MessageSquare, MoreHorizontal, CheckCircle2
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -2045,8 +2045,166 @@ const CatchDetail = () => {
     }
   }, [id, catches]);
 
-  const c = catches.find((x) => x.id === id) || remoteCatches.find((x) => x.id === id);
+  // Sample data fallback for featured community catches
+  const sampleMap: Record<string, Catch> = {
+    'sample-pike-1': {
+      id: 'sample-pike-1',
+      sessionId: 'sample-sess-wyreside',
+      species: 'Pike',
+      weightLb: 11,
+      weightOz: 7,
+      caughtAt: '2026-10-04T16:51:00Z',
+      bait: 'Salmo slider lure',
+      method: 'Lure fishing',
+      notes: 'Cracking pike from this afternoon on the slider. Slow day until this one smashed it on the drop near the reeds. Unreal fight! 🎣',
+      image: '/images/catch-pike-1.jpg',
+      images: [
+        '/images/catch-pike-1.jpg',
+        '/images/catch-sophie-pike.jpg',
+        '/images/catch-carp-linear.jpg',
+        '/images/challenge-pike.jpg',
+      ],
+      isShared: true,
+      userName: 'Aran',
+      likesCount: 42,
+    },
+    'sample-pike-2': {
+      id: 'sample-pike-2',
+      sessionId: 'sample-sess-ribble',
+      species: 'Pike',
+      weightLb: 4,
+      weightOz: 0,
+      caughtAt: '2026-10-03T14:30:00Z',
+      bait: 'Smelt',
+      method: 'Deadbaiting',
+      notes: 'First decent pike on the new setup! 🙌 Such a beautiful fish, released safely.',
+      image: '/images/catch-sophie-pike.jpg',
+      images: [
+        '/images/catch-sophie-pike.jpg',
+        '/images/catch-pike-1.jpg',
+        '/images/challenge-pike.jpg',
+      ],
+      isShared: true,
+      userName: 'SophieT',
+      likesCount: 68,
+    },
+    'sample-carp-1': {
+      id: 'sample-carp-1',
+      sessionId: 'sample-sess-linear',
+      species: 'Common Carp',
+      weightLb: 28,
+      weightOz: 6,
+      caughtAt: '2026-10-02T07:15:00Z',
+      bait: '15mm Mainline Cell',
+      method: 'Boilie on Ronnie Rig',
+      notes: 'Autumn campaign off to a flyer! 28lb 6oz on the margins just as the mist cleared.',
+      image: '/images/catch-carp-linear.jpg',
+      images: [
+        '/images/catch-carp-linear.jpg',
+        '/images/chub.jpg',
+        '/images/perch.jpg',
+      ],
+      isShared: true,
+      userName: 'CarpDan',
+      likesCount: 98,
+    },
+  };
+
+  const sampleSessionMap: Record<string, Session> = {
+    'sample-sess-wyreside': {
+      id: 'sample-sess-wyreside',
+      venueId: 'wyreside-lakes',
+      venueName: 'Wyreside, Lancashire',
+      lat: 53.97,
+      lon: -2.78,
+      startedAt: '2026-10-04T10:02:00Z',
+      photo: '/images/community-hero.jpg',
+      isShared: true,
+      userName: 'Aran',
+      weather: {
+        temperature: 11,
+        feelsLike: 10,
+        description: 'Overcast & calm',
+        windSpeed: 6,
+        windDirection: 180,
+        humidity: 82,
+        precipitation: 0,
+        pressure: 1018,
+        cloudCover: 75,
+        code: 3,
+        source: 'open-meteo',
+        fetchedAt: '2026-10-04T10:02:00Z',
+      },
+    },
+    'sample-sess-ribble': {
+      id: 'sample-sess-ribble',
+      venueId: 'river-ribble',
+      venueName: 'River Ribble, Lancashire',
+      lat: 53.8,
+      lon: -2.7,
+      startedAt: '2026-10-03T11:00:00Z',
+      photo: '/images/hero-river.jpg',
+      isShared: true,
+      userName: 'SophieT',
+      weather: {
+        temperature: 9,
+        feelsLike: 8,
+        description: 'Slight drizzle',
+        windSpeed: 8,
+        windDirection: 210,
+        humidity: 88,
+        precipitation: 0.2,
+        pressure: 1012,
+        cloudCover: 90,
+        code: 51,
+        source: 'open-meteo',
+        fetchedAt: '2026-10-03T11:00:00Z',
+      },
+    },
+    'sample-sess-linear': {
+      id: 'sample-sess-linear',
+      venueId: 'linear-fisheries',
+      venueName: 'Linear Fisheries · St Johns',
+      lat: 51.76,
+      lon: -1.41,
+      startedAt: '2026-10-02T06:00:00Z',
+      photo: '/images/welcome-hero.jpg',
+      isShared: true,
+      userName: 'CarpDan',
+      weather: {
+        temperature: 12,
+        feelsLike: 11,
+        description: 'Misty dawn',
+        windSpeed: 4,
+        windDirection: 140,
+        humidity: 92,
+        precipitation: 0,
+        pressure: 1021,
+        cloudCover: 40,
+        code: 45,
+        source: 'open-meteo',
+        fetchedAt: '2026-10-02T06:00:00Z',
+      },
+    },
+  };
+
+  const c = catches.find((x) => x.id === id) || remoteCatches.find((x) => x.id === id) || (id ? sampleMap[id] : undefined);
   const isOwner = catches.some((x) => x.id === id);
+
+  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+
+  const displayImages = useMemo(() => {
+    if (!c) return ['/images/catch-pike-1.jpg'];
+    const list: string[] = [];
+    if (c.image) list.push(c.image);
+    if (c.images && c.images.length > 0) {
+      c.images.forEach((img: string) => {
+        if (!list.includes(img)) list.push(img);
+      });
+    }
+    if (list.length === 0) list.push('/images/catch-pike-1.jpg');
+    return list;
+  }, [c]);
 
   if (!c) {
     if (loadingRemote) {
@@ -2065,161 +2223,350 @@ const CatchDetail = () => {
     return <Navigate to="/" replace />;
   }
 
-  const s = sessions.find((x) => x.id === c.sessionId) || remoteSessions.find((x) => x.id === c.sessionId);
+  const s = sessions.find((x) => x.id === c.sessionId) || remoteSessions.find((x) => x.id === c.sessionId) || (c.sessionId ? sampleSessionMap[c.sessionId] : undefined);
   const isLiked = actions.isCatchLiked(c.id);
   const likesCount = actions.getCatchLikesCount(c.id, c.likesCount);
 
   return (
-    <div className="content">
-      <div className="row-between">
-        <button className="back-link" onClick={() => nav(-1)}><ArrowLeft size={18} /> Back</button>
-        <div style={{ display: 'flex', gap: 8 }}>
+    <div className="content" style={{ paddingBottom: 110 }}>
+      {/* Header bar (Mobile Screen 2) */}
+      <div className="row-between" style={{ marginBottom: 12, alignItems: 'center' }}>
+        <button className="back-link" onClick={() => nav(-1)} style={{ fontSize: 15, fontWeight: 600 }}>
+          <ArrowLeft size={18} /> Catch Details
+        </button>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           {isOwner && (
             <button className="icon-btn" id="edit-catch-icon-btn" onClick={() => setEditing(true)} aria-label="Edit catch" title="Edit catch">
-              <Pencil size={18} />
+              <Pencil size={17} />
             </button>
           )}
           <button className="icon-btn" id="share-catch-btn" onClick={() => setSharing(true)} aria-label="Share catch" title="Share catch">
-            <Share2 size={18} />
+            <Share2 size={17} />
+          </button>
+          <button className="icon-btn" aria-label="More options" title="Options">
+            <MoreHorizontal size={17} />
           </button>
         </div>
       </div>
 
-      {c.image && <div className="hero-image-container"><img src={c.image} alt={c.species} className="hero-image tall" /></div>}
-
-      <div className="row-between" style={{ alignItems: 'flex-start' }}>
-        <div>
-          <div className="eyebrow">{fmtDay(c.caughtAt)} · {fmtTime(c.caughtAt)}</div>
-          <h1 className="page-title">{c.species}</h1>
+      {/* Main Catch Photo & Carousel (Mobile Screen 2) */}
+      <div className="social-card-media-wrap" style={{ borderRadius: 14 }}>
+        <img
+          src={displayImages[activePhotoIdx] || displayImages[0]}
+          alt={c.species}
+          className="social-card-img"
+          style={{ height: 260 }}
+        />
+        <div className="carousel-counter-badge">
+          {activePhotoIdx + 1}/{displayImages.length}
         </div>
-        <div style={{ marginTop: 8 }}>
-          {isOwner ? (
-            c.isShared ? (
-              <button className="tag status-pill shared" onClick={() => setSharing(true)}>
-                <Globe size={12} /> Shared
-              </button>
-            ) : (
-              <button className="tag status-pill private" onClick={() => setSharing(true)}>
-                <Lock size={12} /> Private
-              </button>
-            )
+        {displayImages.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="carousel-nav-btn prev"
+              onClick={() => setActivePhotoIdx((prev) => (prev === 0 ? displayImages.length - 1 : prev - 1))}
+              aria-label="Previous photo"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              className="carousel-nav-btn next"
+              onClick={() => setActivePhotoIdx((prev) => (prev + 1) % displayImages.length)}
+              aria-label="Next photo"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* 4 Thumbnails Row (Mobile Screen 2) */}
+      {displayImages.length > 1 && (
+        <div className="detail-thumbs-row">
+          {displayImages.map((img, idx) => (
+            <button
+              key={idx}
+              type="button"
+              className={`detail-thumb-btn ${activePhotoIdx === idx ? 'active' : ''}`}
+              onClick={() => setActivePhotoIdx(idx)}
+              aria-label={`Select photo ${idx + 1}`}
+            >
+              <img src={img} alt="" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Title, Green Weight & Shared Badge (Mobile Screen 2) */}
+      <div className="row-between" style={{ alignItems: 'flex-start', marginTop: 6 }}>
+        <div>
+          <h1 className="page-title" style={{ margin: '0 0 2px', fontSize: 24 }}>{c.species}</h1>
+          <div className="catch-weight-green">
+            {fmtWeight(c)}
+          </div>
+        </div>
+        <div style={{ marginTop: 2 }}>
+          {c.isShared ? (
+            <span
+              className="mini-badge"
+              style={{
+                background: 'rgba(46, 184, 114, 0.15)',
+                color: '#2EB872',
+                borderColor: 'rgba(46, 184, 114, 0.35)',
+                padding: '4px 10px',
+                fontSize: 11,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <Globe size={11} /> Shared
+            </span>
           ) : (
-            <span className="tag status-pill shared">
-              <Globe size={12} /> Community Catch
+            <span className="mini-badge private" style={{ padding: '4px 10px', fontSize: 11 }}>
+              <Lock size={11} /> Private
             </span>
           )}
         </div>
       </div>
 
-      <p className="catch-big-weight serif">{fmtWeight(c)}</p>
-
-      {/* Social Reactions & Community Likes Bar */}
-      <div className="card catch-social-bar">
-        <div className="row-between" style={{ alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              id={`like-btn-${c.id}`}
-              className={`catch-detail-like-btn ${isLiked ? 'liked' : ''} ${likeBounce ? 'heart-bounce' : ''}`}
-              onClick={() => {
-                actions.toggleCatchLike(c.id);
-                setLikeBounce(true);
-                setTimeout(() => setLikeBounce(false), 500);
-              }}
-              title={isLiked ? 'Unlike catch' : 'Like this catch'}
-            >
-              <Heart size={20} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
-              <span>{isLiked ? 'Liked' : 'Like'}</span>
-            </button>
-            <span className="catch-like-counter">
-              <strong>{likesCount}</strong> {likesCount === 1 ? 'Angler reaction' : 'Angler reactions'}
-            </span>
+      {/* Angler Attribution Row (Mobile Screen 2) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '8px 0 12px' }}>
+        <img
+          src={c.id === 'sample-pike-2' ? '/images/catch-sophie-pike.jpg' : c.id === 'sample-carp-1' ? '/images/avatar-tom.jpg' : '/images/avatar-aran.jpg'}
+          alt={c.userName || 'Angler'}
+          style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }}
+        />
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span>{c.userName || s?.userName || 'Keepnet Angler'}</span>
+            <CheckCircle2 size={13} fill="#2EB872" color="#fff" />
           </div>
+          <div className="muted" style={{ fontSize: 11 }}>
+            {fmtDay(c.caughtAt)} {c.caughtAt ? `· ${fmtTime(c.caughtAt)}` : ''} · 📍 {s?.venueName || 'UK Waters'}
+          </div>
+        </div>
+      </div>
+
+      {/* Narrative Caption */}
+      {c.notes && (
+        <p style={{ fontSize: 13.5, lineHeight: 1.5, color: 'var(--text-primary)', margin: '8px 0 14px' }}>
+          {c.notes}
+        </p>
+      )}
+
+      {/* Tactical Attribute Tiles Grid (Mobile Screen 2) */}
+      <div className="tactical-grid-2x2">
+        <div className="tactical-cell">
+          <div className="tactical-cell-icon">🎣</div>
+          <div className="tactical-cell-info">
+            <span className="tactical-cell-val">{c.bait || 'Natural bait'}</span>
+            <span className="tactical-cell-lbl">Bait</span>
+          </div>
+        </div>
+
+        <div className="tactical-cell">
+          <div className="tactical-cell-icon">〰️</div>
+          <div className="tactical-cell-info">
+            <span className="tactical-cell-val">{s?.venueName || 'Wyreside'}</span>
+            <span className="tactical-cell-lbl">Water</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="tactical-grid-3x1">
+        <div className="tactical-cell">
+          <div className="tactical-cell-icon">🌡️</div>
+          <div className="tactical-cell-info">
+            <span className="tactical-cell-val">{s?.weather ? `${Math.round(s.weather.temperature)}°C` : '11°C'}</span>
+            <span className="tactical-cell-lbl">Conditions</span>
+          </div>
+        </div>
+
+        <div className="tactical-cell">
+          <div className="tactical-cell-icon">〰️</div>
+          <div className="tactical-cell-info">
+            <span className="tactical-cell-val">Clear water</span>
+            <span className="tactical-cell-lbl">Water clarity</span>
+          </div>
+        </div>
+
+        <div className="tactical-cell">
+          <div className="tactical-cell-icon">🎯</div>
+          <div className="tactical-cell-info">
+            <span className="tactical-cell-val">{c.method || 'Lure fishing'}</span>
+            <span className="tactical-cell-lbl">Method</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Social Actions Bar (Mobile Screen 2) */}
+      <div className="social-actions-bar" style={{ margin: '14px 0 6px' }}>
+        <div className="social-action-btn-group">
+          <button
+            type="button"
+            className={`social-action-btn ${isLiked ? 'liked' : ''} ${likeBounce ? 'heart-bounce' : ''}`}
+            onClick={() => {
+              actions.toggleCatchLike(c.id);
+              setLikeBounce(true);
+              setTimeout(() => setLikeBounce(false), 500);
+            }}
+          >
+            <Heart size={18} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
+            <span>{likesCount}</span>
+          </button>
 
           <button
-            className="btn-secondary"
-            style={{ height: 38, padding: '0 12px', fontSize: 13, gap: 5 }}
+            type="button"
+            className="social-action-btn"
+            onClick={() => {
+              const el = document.getElementById('comments-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            <MessageSquare size={17} />
+            <span>8</span>
+          </button>
+
+          <button
+            type="button"
+            className="social-action-btn"
             onClick={() => setSharing(true)}
           >
-            <Share2 size={15} /> Share
+            <Share2 size={16} />
+            <span>Share</span>
+          </button>
+
+          <button
+            type="button"
+            className="social-action-btn"
+            onClick={() => alert('Catch saved to your journal!')}
+          >
+            <Bookmark size={16} />
+            <span>Save</span>
           </button>
         </div>
       </div>
 
-      {/* Angler Attribution for Community Shared Catches */}
-      {!isOwner && (c.userName || s?.userName) && (
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px' }}>
-          <div className="avatar-placeholder" style={{ width: 38, height: 38, minWidth: 38, borderRadius: '50%', background: 'var(--accent-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-green)' }}>
-            <User size={20} />
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>
-              {c.userName || s?.userName}
-            </div>
-            <div className="muted" style={{ fontSize: 12 }}>
-              Verified Angler Catch Report
-            </div>
-          </div>
+      {/* Liked by Avatar Stack (Mobile Screen 2) */}
+      <div className="liked-by-stack">
+        <div className="liked-by-avatars">
+          <img src="/images/avatar-tom.jpg" alt="" className="liked-by-avatar-img" />
+          <img src="/images/catch-sophie-pike.jpg" alt="" className="liked-by-avatar-img" />
+          <img src="/images/avatar-ellie.jpg" alt="" className="liked-by-avatar-img" />
+          <img src="/images/avatar-aran.jpg" alt="" className="liked-by-avatar-img" />
         </div>
-      )}
+        <span>Liked by <strong>TomL</strong>, <strong>SophieT</strong> and {likesCount > 2 ? likesCount - 2 : 40} others</span>
+      </div>
 
-      {/* Direct link back to session */}
+      {/* Associated Session Card (Mobile Screen 2) */}
       {s && (
-        <Link to={`/sessions/${s.id}`} className="card card-link session-link-card">
-          <div className="row-between">
-            <div>
-              <div className="eyebrow" style={{ marginBottom: 2 }}><Calendar size={13} /> Session</div>
-              <div className="serif" style={{ fontSize: 18, color: 'var(--accent-green)' }}>{s.venueName}</div>
-              <div className="muted" style={{ fontSize: 12 }}>{fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}</div>
-            </div>
-            <ChevronRight size={18} color="var(--text-secondary)" />
+        <Link to={`/sessions/${s.id}`} className="detail-session-card">
+          <img
+            src={s.photo || '/images/community-hero.jpg'}
+            alt={s.venueName}
+            className="detail-session-thumb"
+            loading="lazy"
+          />
+          <div className="detail-session-info">
+            <span className="detail-session-label"><Calendar size={12} /> Session</span>
+            <div className="detail-session-venue">{s.venueName}</div>
+            <div className="detail-session-date">{fmtDay(s.startedAt)} · {fmtTime(s.startedAt)}</div>
           </div>
+          <ChevronRight size={18} color="var(--text-secondary)" />
         </Link>
       )}
 
-      <div className="tag-row">
-        <span className="tag">Bait: {c.bait}</span>
-        {s && <span className="tag"><MapPin size={13} /> {s.venueName}</span>}
-      </div>
-
-      {c.notes && (
-        <div className="card">
-          <div className="eyebrow">Angler notes</div>
-          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>{c.notes}</p>
-        </div>
-      )}
-
-      {/* Compact weather summary with collapsible breakdown */}
+      {/* Weather Summary (if logged) */}
       {s?.weather && <WeatherSummary weather={s.weather} />}
 
-      {/* Angler Tactical Discussion & Comments (Exclusive to Premium members to post) */}
-      <CatchComments catchId={c.id} isSharedCatch={!!c.isShared} catchSpecies={c.species} />
+      {/* Interactive Comments & Discussions Section (Mobile Screen 3) */}
+      <div id="comments-section" style={{ marginTop: 14 }}>
+        <CatchComments catchId={c.id} isSharedCatch={!!c.isShared} catchSpecies={c.species} />
+      </div>
 
-      {/* Action buttons: Edit & Delete for owner, Explore for others */}
-      {isOwner ? (
-        <div className="field-row" style={{ marginTop: 14 }}>
-          <button className="btn-primary" id="edit-catch-btn" style={{ flex: 1, height: 48 }} onClick={() => setEditing(true)}>
-            <Pencil size={17} /> Edit catch
-          </button>
-          <button
-            className="btn-secondary danger"
-            id="delete-catch-btn"
-            style={{ flex: 1, height: 48, marginTop: 0 }}
-            onClick={() => confirm('Delete this catch from your journal?') && (actions.deleteCatch(c.id), nav(-1))}
-          >
-            <Trash2 size={16} /> Delete catch
-          </button>
+      {/* Similar Catches Carousel (Mobile Screen 3) */}
+      <div style={{ marginTop: 22 }}>
+        <div className="row-between" style={{ alignItems: 'baseline', marginBottom: 10 }}>
+          <h3 className="serif" style={{ margin: 0, fontSize: 16 }}>Similar Catches</h3>
+          <Link to="/discover" className="sidebar-widget-link">View all →</Link>
         </div>
-      ) : (
-        <div style={{ marginTop: 14 }}>
-          <button className="btn-primary" style={{ width: '100%', height: 48 }} onClick={() => nav('/discover')}>
-            <Compass size={17} /> Browse More Community Catches
-          </button>
-        </div>
-      )}
+        <div className="similar-catches-grid">
+          <Link to="/catches/sample-pike-1" className="similar-catch-card">
+            <img src="/images/catch-pike-1.jpg" alt="Pike" loading="lazy" />
+            <div className="similar-catch-card-body">
+              <div className="similar-catch-card-title">
+                <span>Pike · 2 lb 8 oz</span>
+                <span style={{ color: '#ef4444', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Heart size={10} fill="#ef4444" /> 124
+                </span>
+              </div>
+              <div className="similar-catch-card-meta">TomL · River Ribble</div>
+            </div>
+          </Link>
 
-      {editing && isOwner && (
-        <EditCatchSheet c={c} onClose={() => setEditing(false)} />
-      )}
+          <Link to="/catches/sample-pike-2" className="similar-catch-card">
+            <img src="/images/challenge-pike.jpg" alt="Pike" loading="lazy" />
+            <div className="similar-catch-card-body">
+              <div className="similar-catch-card-title">
+                <span>Pike · 3 lb 4 oz</span>
+                <span style={{ color: '#ef4444', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                  <Heart size={10} fill="#ef4444" /> 88
+                </span>
+              </div>
+              <div className="similar-catch-card-meta">Dan.Carp · Linear Fisheries</div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Community Challenge Banner (Mobile Screen 3) */}
+      <div className="card" style={{ marginTop: 20, padding: 16, background: 'var(--surface-sunken)', border: '1px solid rgba(46, 184, 114, 0.3)' }}>
+        <div className="row-between" style={{ alignItems: 'center', marginBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--copper)' }}>
+            <Trophy size={16} />
+            <strong style={{ fontSize: 13 }}>Pike Season Challenge</strong>
+          </div>
+          <span className="count-pill" style={{ fontSize: 10 }}>Ends in 12 days</span>
+        </div>
+        <p className="muted" style={{ fontSize: 12, margin: '0 0 12px', lineHeight: 1.45 }}>
+          Log your best pike this month for a chance to win Keepnet gear and be featured!
+        </p>
+        <button
+          type="button"
+          className="btn-primary"
+          style={{ width: '100%', height: 38, fontSize: 13 }}
+          onClick={() => nav('/sessions')}
+        >
+          Join Challenge →
+        </button>
+      </div>
+
+      {/* Sticky Bottom Action Bar (Mobile Screen 2) */}
+      <div className="sticky-catch-footer">
+        <button
+          type="button"
+          className={`btn-sticky-action like-btn ${isLiked ? 'liked' : ''}`}
+          onClick={() => actions.toggleCatchLike(c.id)}
+        >
+          <Heart size={16} fill={isLiked ? '#ef4444' : 'none'} color={isLiked ? '#ef4444' : 'currentColor'} />
+          <span>{isLiked ? 'Liked' : 'Like'}</span>
+        </button>
+
+        <button
+          type="button"
+          className="btn-sticky-action comment-btn"
+          onClick={() => {
+            const el = document.getElementById('comments-section');
+            el?.scrollIntoView({ behavior: 'smooth' });
+          }}
+        >
+          <MessageSquare size={16} />
+          <span>Comment</span>
+        </button>
+      </div>
 
       {sharing && (
         <ShareModal
@@ -2230,6 +2577,10 @@ const CatchDetail = () => {
           shareText={`🎣 Check out this ${fmtWeight(c)} ${c.species} on Keepnet!`}
           onClose={() => setSharing(false)}
         />
+      )}
+
+      {editing && isOwner && (
+        <EditCatchSheet c={c} onClose={() => setEditing(false)} />
       )}
     </div>
   );
@@ -2578,8 +2929,10 @@ const Shell = () => {
   return (
     <div className="app-container">
       <header className="top-bar">
-        <Link to="/" className="logo-header" aria-label="Keepnet home"><Logo height={44} /></Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Link to="/" className="logo-header" aria-label="Keepnet home">
+          <Logo height={38} />
+        </Link>
+        <div className="mobile-header-actions">
           {installPrompt && !isStandalone && (
             <button
               type="button"
@@ -2590,14 +2943,40 @@ const Shell = () => {
               aria-label="Install App"
             >
               <Download size={13} />
-              <span>Install App</span>
+              <span>Install</span>
             </button>
           )}
-          <Link to="/settings" className="icon-btn" id="header-settings-btn" aria-label="Settings" title="Settings & Preferences">
-            <SettingsIcon size={19} />
-          </Link>
-          <Link to="/profile" className="profile-btn" id="header-profile-btn" aria-label="Profile">
-            <User size={20} />
+
+          <button
+            type="button"
+            className="icon-btn"
+            id="mobile-search-btn"
+            onClick={() => nav('/discover')}
+            aria-label="Search community catches"
+            title="Search Catches"
+          >
+            <Search size={18} />
+          </button>
+
+          <button
+            type="button"
+            className="mobile-header-plus-btn"
+            id="mobile-post-catch-btn"
+            onClick={() => setSheet({})}
+            aria-label="Post catch or start session"
+            title="Post Catch"
+          >
+            <Plus size={20} strokeWidth={2.5} />
+          </button>
+
+          <Link
+            to="/profile"
+            className="mobile-header-avatar"
+            id="header-profile-btn"
+            aria-label="Profile"
+            title="Profile"
+          >
+            <img src="/images/avatar-aran.jpg" alt="Profile" />
           </Link>
         </div>
       </header>
