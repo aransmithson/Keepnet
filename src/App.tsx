@@ -26,6 +26,7 @@ import { syncUserWithCloud, fetchUserCloudData, useCloudSyncStatus, flushPending
 import CatchComments from './CatchComments';
 import PersonalBests from './PersonalBests';
 import SessionsPage from './SessionsPage';
+import HomeDashboard from './HomeDashboard';
 import { usePremiumMembership } from './membership';
 
 // Global PWA installation event capture
@@ -1084,39 +1085,11 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
   const { user } = useAuth();
   const [loggingForSession, setLoggingForSession] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
-  const active = sessions.find((s) => !s.endedAt);
 
-  // Unlogged-in or new users get the dedicated welcome landing page
-  if (!user) {
+  // First-time guests get the welcome page; returning anglers see their journal.
+  if (!user && sessions.length === 0 && catches.length === 0) {
     return (
       <div className="content">
-        {/* Active Session Priority Card (if guest started one) */}
-        {active && (
-          <div className="card live-card" id="active-session-card" style={{ marginBottom: 20 }}>
-            <div className="row-between" style={{ marginBottom: 4 }}>
-              <div className="eyebrow" style={{ marginBottom: 0 }}>
-                <span className="live-dot" /> Session in progress
-              </div>
-              <Link to={`/sessions/${active.id}`} className="view-all" style={{ fontSize: 13 }}>
-                View session <ChevronRight size={14} />
-              </Link>
-            </div>
-            <h2 className="serif" style={{ fontSize: 24, margin: '4px 0' }}>{active.venueName}</h2>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-              Started {fmtTime(active.startedAt)}
-              {active.weather ? ` · ${Math.round(active.weather.temperature)}° ${active.weather.description}` : ''}
-            </div>
-            <button
-              className="btn-primary"
-              id="home-log-catch-btn"
-              style={{ width: '100%', height: 48 }}
-              onClick={() => setLoggingForSession(active.id)}
-            >
-              <Fish size={18} /> Log a catch now
-            </button>
-          </div>
-        )}
-
         {/* Welcome Hero with evocative imagery */}
         <div className="welcome-hero">
           <img src="/images/welcome-hero.jpg" alt="Tranquil misty lake at sunrise with carp rods and keepnet" />
@@ -1240,90 +1213,16 @@ const Home = ({ onStart }: { onStart: (v?: Venue) => void }) => {
     );
   }
 
-  // Logged-in Angler Dashboard
+  // Personal journal dashboard.
   return (
-    <div className="content">
-      {/* Active Session Priority Card */}
-      {active && (
-        <div className="card live-card" id="active-session-card" style={{ marginBottom: 16 }}>
-          <div className="row-between" style={{ marginBottom: 4 }}>
-            <div className="eyebrow" style={{ marginBottom: 0 }}>
-              <span className="live-dot" /> Session in progress
-            </div>
-            <Link to={`/sessions/${active.id}`} className="view-all" style={{ fontSize: 13 }}>
-              View session <ChevronRight size={14} />
-            </Link>
-          </div>
-          <h2 className="serif" style={{ fontSize: 24, margin: '4px 0' }}>{active.venueName}</h2>
-          <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>
-            Started {fmtTime(active.startedAt)}
-            {active.weather ? ` · ${Math.round(active.weather.temperature)}° ${active.weather.description}` : ''}
-          </div>
-          <button
-            className="btn-primary"
-            id="home-log-catch-btn"
-            style={{ width: '100%', height: 48 }}
-            onClick={() => setLoggingForSession(active.id)}
-          >
-            <Fish size={18} /> Log a catch now
-          </button>
-        </div>
-      )}
-
-      {/* Compact Editorial Hero */}
-      <div className="hero-compact">
-        <img src="/images/welcome-hero.jpg" alt="Misty river at dawn" />
-        <div className="hero-compact-overlay" />
-        <div className="hero-compact-content">
-          <h1 className="hero-title-compact serif">Time by the water.</h1>
-          <p className="hero-subtitle-compact">Your personal fishing journal</p>
-        </div>
-      </div>
-
-      <div className="desktop-grid-2">
-        {/* Next / Quick Session Card */}
-        {!active && (
-          <div className="card">
-            <div className="eyebrow">Start Fishing</div>
-            <h2 className="serif" style={{ fontSize: 24, margin: '4px 0 8px' }}>Ready for your next session?</h2>
-            <p className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-              Log your swim, capture live weather conditions via GPS, and record every catch.
-            </p>
-            <button className="btn-primary" id="start-session-btn" onClick={() => onStart()}>
-              <Plus size={20} /> New Fishing Session
-            </button>
-          </div>
-        )}
-
-        {/* Recent Catches Card */}
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="section-header" style={{ marginBottom: 8 }}>
-            <h2 className="serif section-title" style={{ margin: 0 }}>Recent catches</h2>
-            {catches.length > 0 && (
-              <Link to="/sessions?tab=catches" className="view-all">
-                View all catches <ChevronRight size={16} />
-              </Link>
-            )}
-          </div>
-          {catches.length ? (
-            catches.slice(0, 3).map((c) => <CatchRow key={c.id} c={c} />)
-          ) : (
-            <div style={{ textAlign: 'center', padding: '24px 12px' }}>
-              <Fish size={28} color="var(--text-secondary)" style={{ opacity: 0.5, marginBottom: 8 }} />
-              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4 }}>No catches logged yet</div>
-              <p className="muted" style={{ fontSize: 13, margin: 0 }}>Start a session to log your first catch by the water.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
+    <>
+      <HomeDashboard onStart={() => onStart()} onLogCatch={setLoggingForSession} />
       {loggingForSession && (
         <AddCatchSheet sessionId={loggingForSession} onClose={() => setLoggingForSession(null)} />
       )}
-    </div>
+    </>
   );
 };
-
 const Sessions = ({ onStart }: { onStart: () => void }) => (
   <SessionsPage onStart={onStart} renderCatch={(c) => <CatchRow key={c.id} c={c} />} />
 );
@@ -2809,6 +2708,12 @@ const Shell = () => {
       document.title = 'Keepnet — Fishing Journal & Angler Map';
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (location.hash !== '#comments-section') return;
+    const frame = requestAnimationFrame(() => document.getElementById('comments-section')?.scrollIntoView({ block: 'start' }));
+    return () => cancelAnimationFrame(frame);
+  }, [location.pathname, location.hash]);
 
   const begin = async (v: Venue | 'current' | { id: string; name: string; type: string; lat: number; lon: number; targets: string[]; description: string }, photo?: string, isShared?: boolean) => {
     setSheet(null);

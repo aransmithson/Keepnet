@@ -45,7 +45,7 @@ const server = await createServer({
 try {
   const { default: App } = await server.ssrLoadModule('/src/App.tsx');
   const routes = [
-    ['/', 'Every cast, every catch, every story.'],
+    ['/', 'Time by the water.'],
     ['/sessions', 'Fishing Sessions'],
     ['/sessions?tab=catches', 'Pike'],
     ['/sessions/review-session', 'Review Water'],
@@ -78,7 +78,7 @@ try {
     }
     console.log(`PASS ${route}`);
   }
-  const css = ['src/index.css', 'src/AchievementsPage.css', 'src/DesignSystem.css', 'src/SessionsPage.css'].map(p=>readFileSync(p, 'utf8')).join('\n');
+  const css = ['src/index.css', 'src/AchievementsPage.css', 'src/DesignSystem.css', 'src/SessionsPage.css', 'src/HomeDashboard.css'].map(p=>readFileSync(p, 'utf8')).join('\n');
   const definitions = new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(m=>m[1]));
   for (const [, token] of css.matchAll(/var\((--[\w-]+)/g)) {
     if (token === '--badge-pointer') continue; // Set per selected row in JSX.
@@ -136,6 +136,33 @@ try {
   }
   const journal = JSON.parse(reviewStorage.get('keepnet:v2:live'));
   const original = journal.sessions[0];
+  actions.replaceWithRemoteData(journal.sessions, journal.catches.map(catchItem => ({
+    ...catchItem,
+    ...(catchItem.id === 'unweighed' ? { isShared: true, likesCount: 12, image: '/images/perch.jpg', images: ['/images/perch.jpg', '/images/chub.jpg'] } : {}),
+    ...(catchItem.id === 'carp-best' ? { isShared: true, isConfidential: true } : {}),
+  })));
+  const home = renderRoute('/');
+  assert.equal((home.match(/class="home-catch-card"/g) || []).length, 3);
+  assert.ok(home.indexOf('home-catch-unweighed') < home.indexOf('home-catch-carp-best'));
+  assert.ok(!home.includes('id="home-catch-review-catch"'));
+  assert.ok(home.includes('class="home-catch-photo-count"'));
+  assert.ok(home.includes('Like Perch catch, 12 likes'));
+  assert.ok(home.includes('/catches/unweighed#comments-section'));
+  assert.ok(home.includes('View all catches'));
+  const privateHomeCard = home.match(/<article[^>]*id="home-catch-carp-best"[\s\S]*?<\/article>/)?.[0];
+  assert.ok(privateHomeCard?.includes('Private'));
+  assert.ok(!privateHomeCard?.includes('home-catch-reactions'));
+  assert.ok(home.includes('New Fishing Session'));
+  assert.ok(!home.includes('id="home-log-catch-btn"'));
+  actions.updateSession(original.id, { endedAt: undefined });
+  const activeHome = renderRoute('/');
+  assert.ok(activeHome.includes('id="active-session-card"'));
+  assert.ok(activeHome.includes('id="home-log-catch-btn"'));
+  assert.ok(!activeHome.includes('id="start-session-btn"'));
+  assert.ok(activeHome.indexOf('Time by the water.') < activeHome.indexOf('id="active-session-card"'));
+  actions.replaceWithRemoteData(journal.sessions, journal.catches);
+  console.log('PASS home: recent catches, photo counts, privacy, social links and active session');
+
   actions.replaceWithRemoteData([
     { ...original, id: 'older-session', venueName: 'Older Water', startedAt: '2026-09-30T10:00:00Z' },
     { ...original, id: 'no-gps', venueName: 'No GPS Water', startedAt: '2026-10-02T10:00:00Z', lat: 0, lon: 0 },
@@ -175,6 +202,12 @@ try {
   console.log('PASS sessions: recent/all, date filters, map locations, privacy and catch history');
 
   actions.clearAll(); // Clears the isolated in-memory fixture only.
+  const emptyHome = renderRoute('/');
+  assert.ok(emptyHome.includes('No catches logged yet'));
+  assert.ok(emptyHome.includes('New Fishing Session'));
+  assert.ok(!emptyHome.includes('class="home-catch-card"'));
+  globalThis.keepnetReviewAuth = { storageMode: 'local', user: null };
+  assert.ok(renderRoute('/').includes('Every cast, every catch, every story.'));
   assert.ok(renderRoute('/sessions').includes('No sessions yet'));
   assert.ok(renderRoute('/sessions?tab=map').includes('No locations recorded yet'));
   const emptyProfile = renderRoute('/profile');
