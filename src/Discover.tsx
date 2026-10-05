@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus, Fish, LocateFixed, Globe, ChevronRight, CloudSun, Calendar, User, X,
-  Search, MapPin, ExternalLink, Info, Compass, Heart
+  Search, MapPin, ExternalLink, Info, Compass, Heart, Lock
 } from 'lucide-react';
 import { useStore, actions, fmtWeight, fmtDay, fmtTime, type Venue, type Session, type Catch } from './store';
 import { getDevicePosition } from './weather';
@@ -707,9 +707,27 @@ export default function Discover({ onStart }: { onStart: (v: Venue) => void }) {
                         </div>
                       </div>
                       {s && (
-                        <span className="count-pill" style={{ fontSize: 11, background: 'var(--surface-sunken)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.venueName}>
-                          {s.venueName}
-                        </span>
+                        (c.isConfidential || s.isConfidential) ? (
+                          <span
+                            className="count-pill"
+                            style={{
+                              fontSize: 11,
+                              background: 'rgba(201, 119, 43, 0.15)',
+                              color: 'var(--copper, #C9772B)',
+                              border: '1px solid rgba(201, 119, 43, 0.3)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                            title="Confidential Syndicate Water"
+                          >
+                            <Lock size={10} /> Syndicate Water
+                          </span>
+                        ) : (
+                          <span className="count-pill" style={{ fontSize: 11, background: 'var(--surface-sunken)', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.venueName}>
+                            {s.venueName}
+                          </span>
+                        )
                       )}
                     </div>
 

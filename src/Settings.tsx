@@ -54,8 +54,8 @@ export const Settings = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
     try {
       await flushPendingQueue();
       const data = await fetchUserCloudData(user);
-      if (data && data.sessions.length > 0) {
-        actions.replaceWithRemoteData(data.sessions, data.catches);
+      if (data) {
+        actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription);
       }
       setSyncSuccess(true);
       setTimeout(() => setSyncSuccess(false), 3000);

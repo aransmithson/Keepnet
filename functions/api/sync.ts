@@ -16,7 +16,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const db = context.env.DB;
     const body = await context.request.json() as any;
-    const { user, sessions = [], catches = [] } = body;
+    const { user, sessions = [], catches = [], subscription } = body;
+
+    // Ensure non-destructive user_subscriptions table exists
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_subscriptions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL UNIQUE,
+        tier TEXT NOT NULL DEFAULT 'lite',
+        applied_coupon TEXT,
+        expires_at TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run().catch(() => {});
 
     const requestedUserId = sanitizeInput(user?.id, 64);
     if (requestedUserId && !verifyOwnership(currentUser, requestedUserId)) {
@@ -123,6 +136,23 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       await db.batch(batch);
     }
 
+    // Upsert subscription metadata if provided
+    if (subscription && typeof subscription === 'object' && subscription.tier) {
+      const subTier = subscription.tier === 'premium' ? 'premium' : 'lite';
+      const appliedCoupon = sanitizeInput(subscription.appliedCoupon, 40) || null;
+      const expiresAt = sanitizeInput(subscription.expiresAt, 40) || null;
+      const subId = Math.random().toString(36).slice(2, 10);
+      await db.prepare(`
+        INSERT INTO user_subscriptions (id, user_id, tier, applied_coupon, expires_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(user_id) DO UPDATE SET
+          tier = excluded.tier,
+          applied_coupon = excluded.applied_coupon,
+          expires_at = excluded.expires_at,
+          updated_at = CURRENT_TIMESTAMP
+      `).bind(subId, userId, subTier, appliedCoupon, expiresAt).run().catch(() => {});
+    }
+
     // Fetch all cloud sessions and catches strictly for the authenticated user
     const sRes = await db.prepare('SELECT * FROM sessions WHERE user_id = ? ORDER BY started_at DESC').bind(userId).all();
     const remoteSessions = (sRes.results || []).map((row: any) => ({
@@ -159,10 +189,20 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       isShared: row.is_shared === 1,
     }));
 
+    // Fetch subscription status for user
+    const userSub = await db.prepare('SELECT tier, applied_coupon, expires_at FROM user_subscriptions WHERE user_id = ?')
+      .bind(userId)
+      .first() as any;
+
     return jsonResponse({
       success: true,
       remoteSessions,
       remoteCatches,
+      remoteSubscription: userSub ? {
+        tier: userSub.tier || 'lite',
+        appliedCoupon: userSub.applied_coupon || null,
+        expiresAt: userSub.expires_at || null,
+      } : null,
     });
   } catch (err: any) {
     return errorResponse(err.message || 'Sync failed', 500);

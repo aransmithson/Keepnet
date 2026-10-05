@@ -43,6 +43,8 @@ export type Session = {
   photos?: string[];
   /** Whether this session is shared to the public Discover map. */
   isShared?: boolean;
+  /** Syndicate / secret water privacy mode (Keepnet Premium) */
+  isConfidential?: boolean;
   userId?: string;
   userName?: string;
 };
@@ -59,6 +61,8 @@ export type Catch = {
   notes?: string;
   /** Whether this catch is shared to the public Discover map. */
   isShared?: boolean;
+  /** Syndicate / secret water privacy mode (Keepnet Premium) */
+  isConfidential?: boolean;
   userId?: string;
   userName?: string;
   /** Number of likes/reactions received */
@@ -147,7 +151,10 @@ const commit = (next: State) => {
 export const useStore = () =>
   useSyncExternalStore((cb) => { listeners.add(cb); return () => listeners.delete(cb); }, () => state);
 
-import { pushSessionToCloud, pushCatchToCloud, syncCatchLikeToCloud } from './cloud';
+import {
+  pushSessionToCloud, pushCatchToCloud, syncCatchLikeToCloud,
+  redeemCouponOnCloud, cancelSubscriptionOnCloud
+} from './cloud';
 import { authActions } from './auth';
 
 export const actions = {
@@ -287,7 +294,11 @@ export const actions = {
    * Non-destructive smart merge of remote cloud records with local entries.
    * Ensures unsynced bankside catches and offline session photos are never overwritten.
    */
-  replaceWithRemoteData(remoteSessions: Session[], remoteCatches: Catch[]) {
+  replaceWithRemoteData(
+    remoteSessions: Session[],
+    remoteCatches: Catch[],
+    remoteSubscription?: { tier?: SubscriptionTier; appliedCoupon?: string | null; expiresAt?: string | null }
+  ) {
     // 1. Preserve local sessions that do not exist remotely yet
     const remoteSessionIds = new Set(remoteSessions.map((s) => s.id));
     const localOnlySessions = state.sessions.filter((s) => !remoteSessionIds.has(s.id));
@@ -329,10 +340,19 @@ export const actions = {
     const finalCatches = [...mergedRemoteCatches, ...localOnlyCatches]
       .sort((a, b) => new Date(b.caughtAt).getTime() - new Date(a.caughtAt).getTime());
 
+    const nextSub = remoteSubscription && remoteSubscription.tier
+      ? {
+          subscriptionTier: remoteSubscription.tier,
+          appliedCoupon: remoteSubscription.appliedCoupon ?? state.appliedCoupon,
+          subscriptionExpiresAt: remoteSubscription.expiresAt ?? state.subscriptionExpiresAt,
+        }
+      : {};
+
     commit({
       ...state,
       sessions: finalSessions,
       catches: finalCatches,
+      ...nextSub,
     });
 
     // Automatically push any unsynced local catches and sessions to D1
@@ -430,12 +450,21 @@ export const actions = {
     }
     const oneMonth = new Date();
     oneMonth.setDate(oneMonth.getDate() + 30);
+    const expiresAt = oneMonth.toISOString();
+
     commit({
       ...state,
       subscriptionTier: 'premium',
       appliedCoupon: clean,
-      subscriptionExpiresAt: oneMonth.toISOString(),
+      subscriptionExpiresAt: expiresAt,
     });
+
+    // Cloud persistence for authenticated users
+    const user = authActions.getCurrentUser();
+    if (user && user.storageMode === 'cloud') {
+      redeemCouponOnCloud(clean, user.id).catch(() => {});
+    }
+
     return {
       success: true,
       message: `Coupon "${clean}" applied! Your 1-Month Free Trial of Keepnet Premium is now active until ${oneMonth.toLocaleDateString('en-GB')}.`,
@@ -448,6 +477,10 @@ export const actions = {
       appliedCoupon: null,
       subscriptionExpiresAt: null,
     });
+    const user = authActions.getCurrentUser();
+    if (user && user.storageMode === 'cloud') {
+      cancelSubscriptionOnCloud().catch(() => {});
+    }
   },
   isPremium(): boolean {
     if (state.subscriptionTier !== 'premium') return false;

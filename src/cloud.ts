@@ -259,7 +259,11 @@ export async function syncUserWithCloud(
 /** Fetch user account sessions and catches directly from Cloudflare D1 without pushing local state. */
 export async function fetchUserCloudData(
   user: UserAccount
-): Promise<{ sessions: Session[]; catches: Catch[] } | null> {
+): Promise<{
+  sessions: Session[];
+  catches: Catch[];
+  subscription?: { tier: 'lite' | 'premium'; appliedCoupon?: string | null; expiresAt?: string | null };
+} | null> {
   if (user.storageMode === 'local') return null;
 
   setSyncStatus({ status: 'syncing', lastError: null });
@@ -286,11 +290,60 @@ export async function fetchUserCloudData(
     return {
       sessions: data.remoteSessions || [],
       catches: data.remoteCatches || [],
+      subscription: data.remoteSubscription || undefined,
     };
   } catch (err: any) {
     console.warn('[Keepnet Cloud] User cloud fetch error', err);
     setSyncStatus({ status: 'error', lastError: 'Network error fetching cloud records' });
     return null;
+  }
+}
+
+/** Redeem a 1-month free trial coupon with the backend API */
+export async function redeemCouponOnCloud(
+  code: string,
+  userId?: string
+): Promise<{ success: boolean; message: string; tier?: 'lite' | 'premium'; appliedCoupon?: string; expiresAt?: string }> {
+  try {
+    const res = await fetch('/api/subscription/coupon', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ code, userId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success) {
+      return {
+        success: true,
+        message: data.message || `Coupon "${code}" applied!`,
+        tier: data.tier,
+        appliedCoupon: data.appliedCoupon,
+        expiresAt: data.expiresAt,
+      };
+    }
+    return {
+      success: false,
+      message: data.error || 'Invalid or expired coupon code.',
+    };
+  } catch (err: any) {
+    console.warn('[Keepnet Cloud] Coupon redemption error', err);
+    return {
+      success: false,
+      message: 'Network offline. Local trial enabled.',
+    };
+  }
+}
+
+/** Cancel coupon trial or return to Lite on the backend */
+export async function cancelSubscriptionOnCloud(): Promise<boolean> {
+  try {
+    const res = await fetch('/api/subscription/coupon', {
+      method: 'DELETE',
+      headers: getHeaders(),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[Keepnet Cloud] Failed to cancel subscription on cloud', err);
+    return false;
   }
 }
 

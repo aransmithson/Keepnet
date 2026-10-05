@@ -4,7 +4,8 @@ import {
   Fish, User, MapPin, Calendar, ChevronRight, Plus, X, Thermometer, Wind, Droplets, Gauge,
   Cloud, RefreshCw, Camera, Trash2, ArrowLeft, Clock, Trophy, LocateFixed, Square, Images, Check,
   Share2, Globe, Lock, Copy, HardDrive, KeyRound, Mail, Pencil, Search, ShieldCheck,
-  Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown
+  Compass, Sparkles, Download, AlertCircle, Settings as SettingsIcon, Heart, Crown,
+  EyeOff, Zap, Gift
 } from 'lucide-react';
 import './index.css';
 import Discover from './Discover';
@@ -57,11 +58,18 @@ const CatchRow = ({ c }: { c: Catch }) => (
     <div className="catch-info">
       <div className="row-between" style={{ alignItems: 'baseline' }}>
         <div className="catch-species">{c.species}</div>
-        {c.isShared ? (
-          <span className="mini-badge shared" title="Shared on Discover map"><Globe size={11} /> Shared</span>
-        ) : (
-          <span className="mini-badge private" title="Private to your journal"><Lock size={11} /> Private</span>
-        )}
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {c.isConfidential && (
+            <span className="mini-badge private" style={{ borderColor: 'rgba(201, 119, 43, 0.4)', color: 'var(--copper, #C9772B)' }} title="Syndicate / Secret water privacy enabled">
+              <EyeOff size={10} /> Syndicate
+            </span>
+          )}
+          {c.isShared ? (
+            <span className="mini-badge shared" title="Shared on Discover map"><Globe size={11} /> Shared</span>
+          ) : (
+            <span className="mini-badge private" title="Private to your journal"><Lock size={11} /> Private</span>
+          )}
+        </div>
       </div>
       <div className="catch-weight">{fmtWeight(c)}</div>
       <div className="catch-meta">{c.bait} · {fmtDay(c.caughtAt)}</div>
@@ -70,9 +78,43 @@ const CatchRow = ({ c }: { c: Catch }) => (
   </Link>
 );
 
+function getSolunarPrediction(pressure?: number, fetchedAt?: string) {
+  if (!pressure) return null;
+  const p = Math.round(pressure);
+  const hour = fetchedAt ? new Date(fetchedAt).getHours() : new Date().getHours();
+  const isDawnOrDusk = (hour >= 5 && hour <= 9) || (hour >= 17 && hour <= 21);
+
+  let rating: string;
+  let score: number;
+  let advice: string;
+
+  if (p >= 1012 && p <= 1022 && isDawnOrDusk) {
+    rating = 'Prime Bite Window';
+    score = 94;
+    advice = 'Optimal barometric stability combined with dawn/dusk solunar feeding peak.';
+  } else if (p < 1010) {
+    rating = 'High Activity';
+    score = 86;
+    advice = 'Low pressure front active — stimulates carp, tench and pike aggressive bottom feeding.';
+  } else if (p > 1022) {
+    rating = 'Moderate Activity';
+    score = 72;
+    advice = 'High pressure ceiling — focus on zigs, floating baits, or deeper oxygenated margins.';
+  } else {
+    rating = 'Steady Feeding';
+    score = 78;
+    advice = 'Stable atmospheric conditions. Regular loose feeding should produce consistent bites.';
+  }
+
+  return { rating, score, advice, pressure: p };
+}
+
 const WeatherCard = ({ s }: { s: Session }) => {
   const w = s.weather;
   const live = !s.endedAt;
+  const isPremiumActive = actions.isPremium();
+  const solunar = getSolunarPrediction(w?.pressure, w?.fetchedAt);
+
   return (
     <div className="card weather-card">
       <div className="weather-head">
@@ -97,6 +139,35 @@ const WeatherCard = ({ s }: { s: Session }) => {
           <div><Droplets size={16} /><span>{w.humidity}% · {w.precipitation}mm</span></div>
           <div><Gauge size={16} /><span>{Math.round(w.pressure)} hPa</span></div>
           <div><Cloud size={16} /><span>{w.cloudCover}% cloud</span></div>
+        </div>
+      )}
+      {w && solunar && (
+        <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.18)' }}>
+          {isPremiumActive ? (
+            <div>
+              <div className="row-between" style={{ alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 12, color: '#fde047' }}>
+                  <Zap size={14} /> Solunar & Barometric Predictor
+                </div>
+                <span className="count-pill" style={{ fontSize: 11, background: 'rgba(253, 224, 71, 0.2)', color: '#fde047', fontWeight: 700 }}>
+                  {solunar.rating} ({solunar.score}%)
+                </span>
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: 12, opacity: 0.92, lineHeight: 1.4 }}>
+                {solunar.advice}
+              </p>
+            </div>
+          ) : (
+            <Link to="/subscription" style={{ textDecoration: 'none', color: 'inherit' }}>
+              <div className="row-between" style={{ alignItems: 'center', background: 'rgba(0,0,0,0.15)', padding: '6px 10px', borderRadius: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Crown size={14} style={{ color: '#fde047' }} />
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>Specimen Bite Window Predictor</span>
+                </div>
+                <span style={{ fontSize: 11, color: '#fde047', fontWeight: 700 }}>1-Month Free Trial →</span>
+              </div>
+            </Link>
+          )}
         </div>
       )}
     </div>
@@ -461,8 +532,8 @@ const AuthModal = ({ onClose }: { onClose: () => void }) => {
           actions.setName(user.nickname || user.name || user.email.split('@')[0]);
           if (user.storageMode !== 'local') {
             fetchUserCloudData(user).then((data) => {
-              if (data && data.sessions.length > 0) {
-                actions.replaceWithRemoteData(data.sessions, data.catches);
+              if (data) {
+                actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription);
               }
             });
           }
@@ -1571,12 +1642,14 @@ const WeightInput = ({
 
 const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () => void }) => {
   const { unitSystem = 'imperial' } = useStore();
+  const isPremiumActive = actions.isPremium();
   const [species, setSpecies] = useState(POPULAR_SPECIES[0]);
   const [weight, setWeight] = useState({ lb: 0, oz: 0 });
   const [bait, setBait] = useState('');
   const [notes, setNotes] = useState('');
   const [image, setImage] = useState<string>();
   const [isShared, setIsShared] = useState<boolean>(true);
+  const [isConfidential, setIsConfidential] = useState<boolean>(false);
 
   return (
     <Sheet
@@ -1597,6 +1670,7 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
               notes,
               image,
               isShared,
+              isConfidential,
               caughtAt: new Date().toISOString(),
             });
             onClose();
@@ -1629,6 +1703,44 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
           <span className="toggle-thumb" />
         </button>
       </div>
+
+      {/* Syndicate / Secret Water Privacy toggle (Keepnet Premium) */}
+      <div className="toggle-row" style={{ marginTop: 8, marginBottom: 8 }}>
+        <div className="toggle-label-wrap">
+          <div className="toggle-label-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <EyeOff size={16} color="var(--copper, #C9772B)" />
+            <span>Syndicate / Secret Swim Privacy</span>
+            {!isPremiumActive && (
+              <Link to="/subscription" style={{ textDecoration: 'none' }}>
+                <span className="count-pill" style={{ fontSize: 10, background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)' }}>
+                  Premium Trial
+                </span>
+              </Link>
+            )}
+          </div>
+          <div className="muted" style={{ fontSize: 11 }}>
+            {isPremiumActive
+              ? 'Protects secret waters: displays as "Confidential Syndicate Water" on public feeds.'
+              : 'Unlock confidential syndicate swim privacy on shared catches with Keepnet Premium.'}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={`toggle-switch ${isConfidential ? 'active' : ''}`}
+          onClick={() => {
+            if (isPremiumActive) {
+              setIsConfidential(!isConfidential);
+            } else {
+              window.location.hash = '#/subscription';
+            }
+          }}
+          role="switch"
+          aria-checked={isConfidential}
+          aria-label="Toggle syndicate privacy"
+        >
+          <span className="toggle-thumb" />
+        </button>
+      </div>
     </Sheet>
   );
 };
@@ -1637,12 +1749,14 @@ const AddCatchSheet = ({ sessionId, onClose }: { sessionId: string; onClose: () 
 
 const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
   const { unitSystem = 'imperial' } = useStore();
+  const isPremiumActive = actions.isPremium();
   const [species, setSpecies] = useState(c.species);
   const [weight, setWeight] = useState({ lb: c.weightLb, oz: c.weightOz });
   const [bait, setBait] = useState(c.bait);
   const [notes, setNotes] = useState(c.notes ?? '');
   const [image, setImage] = useState<string | undefined>(c.image);
   const [isShared, setIsShared] = useState<boolean>(!!c.isShared);
+  const [isConfidential, setIsConfidential] = useState<boolean>(!!c.isConfidential);
 
   const handleSave = () => {
     actions.updateCatch(c.id, {
@@ -1653,6 +1767,7 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
       notes,
       image,
       isShared,
+      isConfidential,
     });
     onClose();
   };
@@ -1695,6 +1810,44 @@ const EditCatchSheet = ({ c, onClose }: { c: Catch; onClose: () => void }) => {
           role="switch"
           aria-checked={isShared}
           aria-label="Share catch on map"
+        >
+          <span className="toggle-thumb" />
+        </button>
+      </div>
+
+      {/* Syndicate / Secret Water Privacy toggle (Keepnet Premium) */}
+      <div className="toggle-row" style={{ marginTop: 8, marginBottom: 8 }}>
+        <div className="toggle-label-wrap">
+          <div className="toggle-label-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <EyeOff size={16} color="var(--copper, #C9772B)" />
+            <span>Syndicate / Secret Swim Privacy</span>
+            {!isPremiumActive && (
+              <Link to="/subscription" style={{ textDecoration: 'none' }}>
+                <span className="count-pill" style={{ fontSize: 10, background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)' }}>
+                  Premium Trial
+                </span>
+              </Link>
+            )}
+          </div>
+          <div className="muted" style={{ fontSize: 11 }}>
+            {isPremiumActive
+              ? 'Protects secret waters: displays as "Confidential Syndicate Water" on public feeds.'
+              : 'Unlock confidential syndicate swim privacy on shared catches with Keepnet Premium.'}
+          </div>
+        </div>
+        <button
+          type="button"
+          className={`toggle-switch ${isConfidential ? 'active' : ''}`}
+          onClick={() => {
+            if (isPremiumActive) {
+              setIsConfidential(!isConfidential);
+            } else {
+              window.location.hash = '#/subscription';
+            }
+          }}
+          role="switch"
+          aria-checked={isConfidential}
+          aria-label="Toggle syndicate privacy"
         >
           <span className="toggle-thumb" />
         </button>
@@ -2046,7 +2199,7 @@ const CatchDetail = () => {
 };
 
 const Profile = () => {
-  const { catches, sessions, name, equippedAchievementId, likesGivenCount = 0 } = useStore();
+  const { catches, sessions, name, equippedAchievementId, likesGivenCount = 0, appliedCoupon } = useStore();
   const { user } = useAuth();
   const isAdmin = isUserAdmin(user);
   const [savingNickname, setSavingNickname] = useState(false);
@@ -2107,6 +2260,18 @@ const Profile = () => {
               <Link to="/achievements" className="flair-title-pill" style={{ background: 'var(--surface-sunken)', color: 'var(--text-secondary)', borderColor: 'var(--border-color)' }}>
                 <Trophy size={11} />
                 <span>Equip Achievement Flair</span>
+              </Link>
+            )}
+
+            {actions.isPremium() ? (
+              <Link to="/subscription" className="flair-title-pill" style={{ background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper, #C9772B)', borderColor: 'rgba(201, 119, 43, 0.4)' }} title="Manage Keepnet Premium">
+                <Crown size={11} />
+                <span>{appliedCoupon ? `Premium Trial (${appliedCoupon})` : 'Premium Angler'}</span>
+              </Link>
+            ) : (
+              <Link to="/subscription" className="flair-title-pill" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }} title="Claim 1-month free trial">
+                <Gift size={11} />
+                <span>1-Month Free Trial Available</span>
               </Link>
             )}
 
@@ -2356,8 +2521,8 @@ const Shell = () => {
   useEffect(() => {
     if (auth.user && auth.storageMode === 'cloud') {
       fetchUserCloudData(auth.user).then((data) => {
-        if (data && data.sessions.length > 0) {
-          actions.replaceWithRemoteData(data.sessions, data.catches);
+        if (data) {
+          actions.replaceWithRemoteData(data.sessions, data.catches, data.subscription);
         }
       });
     }

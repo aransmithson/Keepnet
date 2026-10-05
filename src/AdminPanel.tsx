@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Users, Fish, Calendar, TrendingUp, RefreshCw, Plus, Trash2,
-  ExternalLink, Search, Download, Check, X, Shield, MapPin, AlertCircle, ArrowLeft
+  ExternalLink, Search, Download, Check, X, Shield, MapPin, AlertCircle, ArrowLeft,
+  Crown, Gift, Tag
 } from 'lucide-react';
 import { useAuth, isUserAdmin } from './auth';
 import { UK_FISHERIES, type Fishery } from './fisheries';
@@ -357,6 +358,77 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
                   {stats?.totals?.activeLockouts ?? 0} locked accounts
                 </div>
               </div>
+
+              <div className="kpi-card">
+                <div className="kpi-icon-wrap" style={{ background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper)' }}>
+                  <Crown size={22} />
+                </div>
+                <div className="kpi-num serif">{stats?.subscriptions?.activeTrials ?? stats?.totals?.activeTrials ?? 0}</div>
+                <div className="kpi-label">Active Premium Trials</div>
+                <div className="kpi-sub">30-day passes active</div>
+              </div>
+
+              <div className="kpi-card">
+                <div className="kpi-icon-wrap" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                  <Gift size={22} />
+                </div>
+                <div className="kpi-num serif">{stats?.subscriptions?.totalCouponsRedeemed ?? stats?.totals?.totalCouponsRedeemed ?? 0}</div>
+                <div className="kpi-label">Coupons Redeemed</div>
+                <div className="kpi-sub">KEEPNET1M & promos</div>
+              </div>
+            </div>
+
+            {/* Membership & Coupon Campaigns Card */}
+            <div className="card">
+              <div className="row-between" style={{ alignItems: 'baseline', marginBottom: 12 }}>
+                <div>
+                  <h2 className="serif" style={{ fontSize: 17, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Crown size={18} color="var(--copper)" /> Membership & 1-Month Free Trial Coupons
+                  </h2>
+                  <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                    Free 1-month trial redemption stats and active promotional codes
+                  </p>
+                </div>
+                <span className="badge" style={{ fontSize: 12 }}>1-Month Free Trial</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+                <div style={{ padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 10 }}>
+                  <div className="eyebrow" style={{ color: 'var(--copper)' }}>Active Promo Codes</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                    {['KEEPNET1M', 'ANGLER30', 'CARP1MONTH', 'FREETRIAL30', 'SPECIMEN30'].map((code) => (
+                      <span key={code} className="count-pill" style={{ fontSize: 11, background: 'rgba(201, 119, 43, 0.15)', color: 'var(--copper)', fontWeight: 700 }}>
+                        <Tag size={10} style={{ marginRight: 3 }} />{code}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 10 }}>
+                  <div className="eyebrow" style={{ color: '#10b981' }}>Pricing Structure</div>
+                  <div style={{ fontSize: 13, marginTop: 4 }}>
+                    <strong>Lite:</strong> £0 Free Forever · <strong>Premium:</strong> £1.99/mo or £14.99/yr
+                  </div>
+                </div>
+              </div>
+
+              {stats?.subscriptions?.breakdown && stats.subscriptions.breakdown.length > 0 ? (
+                <div>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>Redemptions by Coupon Code</div>
+                  <div className="stack" style={{ gap: 6 }}>
+                    {stats.subscriptions.breakdown.map((b: any) => (
+                      <div key={b.code} className="row-between" style={{ padding: '8px 12px', background: 'var(--surface-sunken)', borderRadius: 8, fontSize: 13 }}>
+                        <span style={{ fontWeight: 600 }}>{b.code}</span>
+                        <span className="badge">{b.count} redeemed</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+                  No coupon redemptions recorded in the cloud database yet. Anglers redeeming on the subscription page will appear here.
+                </p>
+              )}
             </div>
 
             {/* Growth Over Time Card */}
@@ -719,10 +791,17 @@ export const AdminPanel = ({ onClose }: { onClose?: () => void }) => {
                   return (
                     <div key={u.id} className="row-between" style={{ padding: '12px 14px', background: 'var(--surface-sunken)', borderRadius: 10, fontSize: 13, alignItems: 'center' }}>
                       <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{u.nickname || u.name}</span>
                           {isOwnerAccount && <span className="admin-badge">Owner</span>}
                           {isLocked && <span className="mini-badge" style={{ background: 'var(--danger)', color: '#fff' }}>Locked</span>}
+                          {u.subscription_tier === 'premium' ? (
+                            <span className="mini-badge" style={{ borderColor: 'rgba(201, 119, 43, 0.4)', color: 'var(--copper)', display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                              <Crown size={10} /> Premium {u.applied_coupon ? `(${u.applied_coupon})` : 'Trial'}
+                            </span>
+                          ) : (
+                            <span className="mini-badge" style={{ opacity: 0.7 }}>Lite</span>
+                          )}
                         </div>
                         <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
                           {u.email} · Mode: {u.storage_mode || 'cloud'} · Joined {new Date(u.created_at).toLocaleDateString()}
